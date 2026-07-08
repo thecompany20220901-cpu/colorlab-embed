@@ -73,6 +73,15 @@ try {
   log("モーダル→12タイプ診断へ遷移した");
   await shot("03_colorlab_quiz.png");
 
+  // ── 3b. 診断1問目の SVG 比較イラスト（QuizIllust）が表示されていること ──
+  await page.waitForSelector("#colorlab-root svg", { timeout: 5000 });
+  const svgCount = await page.locator("#colorlab-root svg").count();
+  log("診断Q1のSVG比較イラスト数(A/B等): " + svgCount + " → " + (svgCount >= 2 ? "左右比較の図を確認" : "NG"));
+  // 質問見出し＋イラストを含む領域を狙って撮影（外部CDN画像に依存しないSVG描画の証跡）
+  const quizBox = page.locator("#colorlab-root h2").first();
+  await quizBox.scrollIntoViewIfNeeded().catch(() => {});
+  await shot("03b_colorlab_quiz_svg_illust.png");
+
   // ── 4. 診断を最後まで進める（A/先頭の選択肢を押し続ける） ──
   // 停止条件: localStorage に myType が保存されたら診断完了とみなす。
   for (let i = 0; i < 30; i++) {

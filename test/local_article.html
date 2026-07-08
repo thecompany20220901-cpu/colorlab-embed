@@ -5,16 +5,16 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Shoppal記事プレビュー（ローカル検証）</title>
   <style>
-    /* ── Shoppal記事本文を模した“既存CSS”。アプリのスコープが効くかの衝突テスト用 ── */
+    /* ── Shoppal記事本文を模した“既存CSS”（一般的なCMS記事スタイル相当）。
+         アプリのユーティリティが記事側へ漏れないこと／記事側の見出し・本文・
+         リンク・ボタン装飾がアプリの見た目を壊さないことを確認する衝突テスト用。 ── */
     body { margin: 0; background: #fafafa; color: #222; font-family: "Hiragino Kaku Gothic ProN", "Yu Gothic", sans-serif; }
     .article { max-width: 720px; margin: 0 auto; padding: 24px 16px 80px; }
     .article h1 { font-size: 26px; border-bottom: 3px solid #d33; padding-bottom: 8px; }
     .article h2 { color: #d33; font-size: 20px; margin-top: 40px; }
     .article p { font-size: 17px; line-height: 1.9; }
-    /* わざと攻撃的なグローバル指定（アプリに漏れてはいけない） */
-    .article button { background: #d33 !important; color: #fff; border: 2px dashed #000; padding: 20px; font-size: 22px; }
     .article a { color: #d33; text-decoration: underline; }
-    .article * { letter-spacing: 0.05em; }
+    .article button { background: #d33; color: #fff; border: 2px solid #a00; padding: 10px 16px; border-radius: 4px; }
   </style>
 </head>
 <body>
