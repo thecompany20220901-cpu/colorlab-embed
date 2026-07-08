@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Shoppal記事プレビュー（ローカル検証）</title>
+  <style>
+    /* ── Shoppal記事本文を模した“既存CSS”。アプリのスコープが効くかの衝突テスト用 ── */
+    body { margin: 0; background: #fafafa; color: #222; font-family: "Hiragino Kaku Gothic ProN", "Yu Gothic", sans-serif; }
+    .article { max-width: 720px; margin: 0 auto; padding: 24px 16px 80px; }
+    .article h1 { font-size: 26px; border-bottom: 3px solid #d33; padding-bottom: 8px; }
+    .article h2 { color: #d33; font-size: 20px; margin-top: 40px; }
+    .article p { font-size: 17px; line-height: 1.9; }
+    /* わざと攻撃的なグローバル指定（アプリに漏れてはいけない） */
+    .article button { background: #d33 !important; color: #fff; border: 2px dashed #000; padding: 20px; font-size: 22px; }
+    .article a { color: #d33; text-decoration: underline; }
+    .article * { letter-spacing: 0.05em; }
+  </style>
+</head>
+<body>
+  <div class="article">
+    <h1>【2026年版】パーソナルカラー診断はこのアプリで完結</h1>
+    <p>この記事は、Shoppal Martの記事本文に埋め込みスクリプトを貼った状態を再現したローカル検証ページです。以下のアプリは、外部CDN（jsDelivr）ではなくローカルの <code>dist/</code> を読み込んでいます。</p>
+
+    <h2>① 12タイプ カラー診断アプリ</h2>
+    <p>下のカードから、まずは12タイプ診断を試してみてください。</p>
+
+    <!-- ここからカラー診断アプリ -->
+    <div id="colorlab-root">アプリを読み込み中…</div>
+    <script src="../dist/colorlab.iife.js"
+      onerror="var e=document.getElementById('colorlab-root'); if(e) e.textContent='アプリの読み込みに失敗しました。ページを再読み込みしてください。';"></script>
+    <script>window.ColorLabApp && window.ColorLabApp.mount("#colorlab-root");</script>
+    <!-- ここまで -->
+
+    <h2>② NG色警察 🚨</h2>
+    <p>今日のコーデ写真で、似合わない色を着ていないか取り締まってもらいましょう。</p>
+
+    <!-- ここからNG色警察 -->
+    <div id="ngpolice-root">アプリを読み込み中…</div>
+    <script src="../dist/ngpolice.iife.js"
+      onerror="var e=document.getElementById('ngpolice-root'); if(e) e.textContent='アプリの読み込みに失敗しました。ページを再読み込みしてください。';"></script>
+    <script>window.NgPoliceApp && window.NgPoliceApp.mount("#ngpolice-root");</script>
+    <!-- ここまで -->
+
+    <p>記事本文はここで続きます。アプリの下にもテキストが自然に流れることを確認します。日本語テキストが文字化けしないこと（UTF-8）も検証対象です。</p>
+  </div>
+</body>
+</html>

@@ -1,0 +1,15 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* #ngpolice-root 配下だけの最小リセット（記事本文には影響しない）。 */
+#ngpolice-root,
+#ngpolice-root *,
+#ngpolice-root *::before,
+#ngpolice-root *::after { box-sizing: border-box; }
+#ngpolice-root { line-height: 1.5; -webkit-text-size-adjust: 100%; color: #1E2A44; text-align: left; }
+#ngpolice-root button { font: inherit; color: inherit; background: none; border: 0; margin: 0; padding: 0; cursor: pointer; }
+#ngpolice-root h1, #ngpolice-root h2, #ngpolice-root p { margin: 0; }
+#ngpolice-root img, #ngpolice-root canvas { max-width: 100%; display: block; }
+#ngpolice-root input, #ngpolice-root a { font: inherit; }
+#ngpolice-root a { color: inherit; }

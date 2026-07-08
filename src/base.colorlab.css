@@ -1,0 +1,16 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* preflight を無効化しているため、記事CSSと衝突しない最小リセットを
+   #colorlab-root 配下だけに適用する（外側の記事本文には一切影響しない）。 */
+#colorlab-root,
+#colorlab-root *,
+#colorlab-root *::before,
+#colorlab-root *::after { box-sizing: border-box; }
+#colorlab-root { line-height: 1.5; -webkit-text-size-adjust: 100%; color: #3a3340; text-align: left; }
+#colorlab-root button { font: inherit; color: inherit; background: none; border: 0; margin: 0; padding: 0; cursor: pointer; }
+#colorlab-root h1, #colorlab-root h2, #colorlab-root h3, #colorlab-root p { margin: 0; }
+#colorlab-root img, #colorlab-root canvas { max-width: 100%; display: block; }
+#colorlab-root input, #colorlab-root a { font: inherit; }
+#colorlab-root a { color: inherit; }
