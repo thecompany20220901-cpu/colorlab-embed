@@ -18,7 +18,7 @@ const AI_ENABLED = false;
 
 // 本家アプリ（v19）を設置した記事のURL。記事ID確定後に「ここだけ」差し替える。
 // ビルド時に差し替えたい場合は VITE_MAIN_APP_URL 環境変数でも上書き可能。
-const MAIN_APP_URL_OVERRIDE = (import.meta.env && import.meta.env.VITE_MAIN_APP_URL) || "";
+const MAIN_APP_URL_OVERRIDE = (import.meta.env && import.meta.env.VITE_MAIN_APP_URL) || "https://www.blubel.jp/pages/personalcolor";
 const MAIN_APP_URL = (site) => MAIN_APP_URL_OVERRIDE || `https://${site}.jp/app?${UTM}`; // 本家アプリ設置URL
 const LINE_URLS = { iebel: "https://lin.ee/weC3DMg", blubel: "https://lin.ee/TycoIx4" };
 
