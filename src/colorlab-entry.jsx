@@ -1,7 +1,7 @@
 import "./base.colorlab.css";
 import React from "react";
 import { createRoot } from "react-dom/client";
-import App from "./color_lab_stylist_v20.jsx";
+import App from "./color_lab_stylist_v21.jsx";
 
 // 記事に貼るだけで動く明示的マウント関数。
 // window.ColorLabApp.mount("#colorlab-root") で起動する。

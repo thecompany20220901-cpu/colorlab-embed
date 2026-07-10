@@ -1,7 +1,7 @@
 import "./base.ngpolice.css";
 import React from "react";
 import { createRoot } from "react-dom/client";
-import NgColorPolice from "./ng_color_police_v1.jsx";
+import NgColorPolice from "./ng_color_police_v2.jsx";
 
 // window.NgPoliceApp.mount("#ngpolice-root") で起動する。
 function mount(target) {
