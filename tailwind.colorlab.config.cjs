@@ -4,7 +4,7 @@
  *  リセット漏れを防ぐ。最小リセットは base.colorlab.css でルート配下のみに適用）。
  */
 module.exports = {
-  content: ["./src/color_lab_stylist_v21.jsx", "./src/colorlab-entry.jsx"],
+  content: ["./src/color_lab_stylist_v23.jsx", "./src/colorlab-entry.jsx"],
   important: "#colorlab-root",
   corePlugins: { preflight: false },
   theme: { extend: {} },

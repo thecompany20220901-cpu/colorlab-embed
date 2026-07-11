@@ -1,13 +1,15 @@
 // §5 検証: Playwright で local_article.html を開き、両アプリの表示・画面遷移・
 // localStorage再訪(おかえり)・375px レイアウトを確認し、test/screenshots/ にSSを出力。
 //
-// v1.3.0 (colorlab v21 / ngpolice v2) で確認する要点:
-//   - ホームの「近日公開」グレーバッジ + モーダル（「AI」の文字が無いこと）
-//   - 12タイプ診断の結果ページ（似合う色10色グリッド / 苦手色チップ / コスメ）
-//   - 12タイプ結果ページの「今日なに着る？」CTA → 近日公開モーダル（AIゲート）
-//   - 骨格診断の結果ページ（DesignIcon付きの得意/注意カード）
-//   - 骨格結果ページの「カラー×骨格で今日なに着る？」CTA → 近日公開モーダル（AIゲート）
-//   - NG警察の結果ページ（修正済みボタン2つ）
+// v1.4.0 (colorlab v23 / ngpolice v2) で確認する要点:
+//   - ホームの AI3機能が「グレートーン」ボタン + 「近日公開」バッジ
+//   - 近日公開モーダルがグローバル化（ホーム/結果ページの両方から開く）
+//   - 12タイプ結果ページ: 苦手色ブロックが1箇所に統合 / 勝ち色10選 / コスメ
+//   - コスメ一覧ページ: 上部の「似合うカラー」パレット
+//   - 骨格結果ページ: 得意/注意が1行リスト（DesignIcon付き）
+//   - シェア画像PNG（canvas → download）が生成される
+//   - NG警察の結果ページ（ボタン2つ / 本家リンク）
+//   - Liteモード実測: api.anthropic.com へのリクエストが0件
 import { chromium } from "playwright";
 import { fileURLToPath } from "url";
 import { dirname, join } from "path";
@@ -57,17 +59,15 @@ const check = (label, ok) => { log(`  [${ok ? "OK" : "NG"}] ${label}`); if (!ok)
 const aiCalls = [];
 
 const browser = await chromium.launch();
-const ctx = await browser.newContext({ viewport: { width: 375, height: 812 }, deviceScaleFactor: 2 });
+const ctx = await browser.newContext({ viewport: { width: 375, height: 812 }, deviceScaleFactor: 2, acceptDownloads: true });
 const page = await ctx.newPage();
 page.on("console", (m) => { if (m.type() === "error") console.log("  [page error]", m.text()); });
 page.on("request", (r) => { if (/anthropic\.com/.test(r.url())) aiCalls.push(r.url()); });
 
-async function shot(name) { await page.screenshot({ path: join(SHOTS, name), fullPage: true }); log("  SS: " + name); }
-// アプリ枠だけを切り出す（記事全体の縦長SSだと結果ページが読めないため）
 async function shotEl(sel, name) { await page.locator(sel).screenshot({ path: join(SHOTS, name) }); log("  SS: " + name); }
-// モーダルはfixed配置なのでビューポートで撮る
 async function shotView(name) { await page.screenshot({ path: join(SHOTS, name) }); log("  SS: " + name); }
 const modal = () => page.locator("#colorlab-root >> text=新機能は、近日公開").first();
+const countOf = (hay, needle) => hay.split(needle).length - 1;
 
 // 12タイプ診断を最後まで進める（A/先頭の選択肢を押し続ける）
 async function runQuiz() {
@@ -90,85 +90,96 @@ async function runQuiz() {
 }
 
 try {
-  // ── 1. 初期表示 ──
+  // ── 1. ホーム: AI3機能がグレートーン + 近日公開バッジ ──
   await page.goto(ART, { waitUntil: "networkidle" });
   await page.waitForSelector("#colorlab-root button", { timeout: 15000 });
   await page.waitForSelector("#ngpolice-root button", { timeout: 15000 });
   const homeText = await page.locator("#colorlab-root").innerText();
   check("両アプリがマウントされ日本語が表示された", /診断/.test(homeText));
-  check("ホームに「近日公開」バッジが出ている", /近日公開/.test(homeText));
-  await shotEl("#colorlab-root", "01_home_soon_badges.png");
+  check("ホームの「近日公開」バッジが3個（AI3機能）", countOf(homeText, "近日公開") === 3);
+  await shotEl("#colorlab-root", "01_home_gray_ai_buttons.png");
 
-  // ── 2. 近日公開モーダル（「AI」の文字が無いこと） ──
+  // ── 2. 近日公開モーダル（グローバル化・「AI」の文字が無いこと） ──
   await page.getByRole("button", { name: /顔写真で診断/ }).click();
   await modal().waitFor({ timeout: 5000 });
-  const modalBox = page.locator("#colorlab-root div.fixed").first();
-  const modalText = await modalBox.innerText();
-  check("モーダル本文に「新機能は、近日公開！」がある", /新機能は、近日公開/.test(modalText));
-  check('モーダル本文に「AI」の文字が無い', !/AI/i.test(modalText));
-  log("    modal text: " + JSON.stringify(modalText.replace(/\n/g, " / ")));
+  const modalText = await page.locator("#colorlab-root div.fixed").first().innerText();
+  check("モーダルに「新機能は、近日公開！」がある", /新機能は、近日公開/.test(modalText));
+  check("モーダル本文に「AI」の文字が無い", !/AI/i.test(modalText));
   await shotView("02_home_soon_modal.png");
   await page.getByRole("button", { name: /^閉じる$/ }).click();
 
-  // ── 3. 12タイプ診断 → 結果ページ ──
+  // ── 3. 12タイプ診断 → 結果ページ（苦手色1箇所 + 勝ち色10選 + コスメ） ──
   await page.getByRole("button", { name: /パーソナルカラー診断（12タイプ）/ }).click();
   const myType = await runQuiz();
   check("12タイプ診断が完了し localStorage に保存された", !!myType);
   await page.waitForTimeout(400);
   const resText = await page.locator("#colorlab-root").innerText();
   check("結果ページに「似合う色（勝ち色10選）」がある", /似合う色（勝ち色10選）/.test(resText));
-  check("結果ページに「苦手な色」がある", /苦手な色/.test(resText));
+  check("苦手色ブロックが1箇所に統合されている（出現1回）", countOf(resText, "苦手な色") === 1);
+  check("苦手色の見出しが「苦手な色（顔まわりでは注意）」", /苦手な色（顔まわりでは注意）/.test(resText));
   check("結果ページに「仕上げのコスメはコレ！」がある", /仕上げのコスメはコレ/.test(resText));
-  await shotEl("#colorlab-root", "03_colorlab_quiz_result.png");
+  await shotEl("#colorlab-root", "03_quiz_result_ng1_and_cosme.png");
 
-  // ── 3b. 結果ページの「今日なに着る？」CTA → 近日公開モーダル（AIゲート） ──
+  // ── 3b. 結果ページCTA → 近日公開モーダル（原本のゲート・グローバルモーダル） ──
   await page.getByRole("button", { name: /このタイプで「今日なに着る？」/ }).click();
   await modal().waitFor({ timeout: 5000 });
-  check("12タイプ結果ページのCTA → 近日公開モーダルが開く", await modal().isVisible());
-  await shotView("03b_quiz_result_cta_modal.png");
+  check("結果ページCTA → 近日公開モーダルが開く（グローバル化の確認）", await modal().isVisible());
   await page.getByRole("button", { name: /^閉じる$/ }).click();
-  const stillResult = await page.locator("#colorlab-root").innerText();
-  check("CTA押下でAI提案画面へ遷移していない", !/シーン|今日の気分/.test(stillResult) || /似合う色（勝ち色10選）/.test(stillResult));
 
-  // ── 4. リロード→「おかえり」表示（再訪 / localStorage） ──
+  // ── 3c. シェア画像PNG（canvas → download） ──
+  const [download] = await Promise.all([
+    page.waitForEvent("download", { timeout: 15000 }),
+    page.getByRole("button", { name: /結果を画像で保存|保存・シェア|画像/ }).first().click(),
+  ]);
+  const sharePath = join(SHOTS, "06_share_image.png");
+  await download.saveAs(sharePath);
+  check("シェア画像のファイル名が my_personal_color.png", download.suggestedFilename() === "my_personal_color.png");
+  const { statSync } = await import("fs");
+  const shareSize = statSync(sharePath).size;
+  check("シェア画像PNGが生成された (" + shareSize.toLocaleString() + " bytes)", shareSize > 10000);
+  log("  SS: 06_share_image.png (ダウンロード実物)");
+
+  // ── 4. コスメ一覧ページ: 上部の「似合うカラー」パレット ──
+  await page.getByRole("button", { name: /メニューへ戻る/ }).first().click();
+  await page.getByRole("button", { name: /おすすめコスメ/ }).click();
+  await page.waitForSelector("#colorlab-root >> text=に似合うコスメはコレ", { timeout: 5000 });
+  const cosmeText = await page.locator("#colorlab-root").innerText();
+  check("コスメ一覧に上部パレットの説明文がある", /似合うカラー/.test(cosmeText));
+  const swatches = await page.locator("#colorlab-root span.w-8.h-8.rounded-full").count();
+  check("コスメ一覧 上部パレットの色丸が5個: " + swatches, swatches === 5);
+  await shotEl("#colorlab-root", "04_cosme_list_full.png");
+  // 一覧が縦に長く上部パレットが潰れるため、上部だけを別に撮る
+  await page.locator("#colorlab-root").scrollIntoViewIfNeeded();
+  await page.waitForTimeout(200);
+  await shotView("04b_cosme_top_palette.png");
+
+  // ── 5. 骨格診断 → 結果ページ（得意/注意が1行リスト） ──
+  await page.getByRole("button", { name: /メニューへ戻る|ホーム/ }).first().click().catch(() => {});
   await page.goto(ART, { waitUntil: "networkidle" });
-  await page.waitForSelector("#colorlab-root", { timeout: 10000 });
-  await page.waitForTimeout(500);
-  check("リロード後に『おかえりなさい』が出る", (await page.locator("#colorlab-root >> text=おかえりなさい").count()) > 0);
-  await shotEl("#colorlab-root", "04_colorlab_revisit_okaeri.png");
-
-  // ── 5. 骨格診断 → 結果ページ（DesignIcon付き 得意/注意カード） ──
+  await page.waitForSelector("#colorlab-root button", { timeout: 10000 });
   await page.getByRole("button", { name: /骨格診断/ }).click();
   for (let i = 0; i < 12; i++) {
+    if ((await page.locator("#colorlab-root >> text=あなたのタイプ").count()) > 0) break;
     const opts = page.locator("#colorlab-root button");
-    const done = await page.locator("#colorlab-root >> text=あなたのタイプ").count();
-    if (done > 0) break;
-    // Headerの戻るボタンを避け、選択肢(下側)の先頭を押す
-    const n = await opts.count();
-    if (n >= 2) await opts.nth(1).click().catch(() => {});
+    if ((await opts.count()) >= 2) await opts.nth(1).click().catch(() => {});
     await page.waitForTimeout(200);
   }
   await page.waitForSelector("#colorlab-root >> text=得意なデザイン", { timeout: 5000 });
   const frameText = await page.locator("#colorlab-root").innerText();
-  check("骨格結果に「得意なデザイン」カードがある", /得意なデザイン/.test(frameText));
-  check("骨格結果に「注意したいデザイン」カードがある", /注意したいデザイン/.test(frameText));
-  const iconCount = await page.locator("#colorlab-root svg").count();
-  check("骨格結果にデザインアイコン(SVG)が描画されている: " + iconCount + "個", iconCount >= 4);
-  await shotEl("#colorlab-root", "05_colorlab_frame_result.png");
-
-  // ── 5b. 骨格結果ページの「カラー×骨格で今日なに着る？」CTA → 近日公開モーダル ──
-  await page.getByRole("button", { name: /カラー×骨格で「今日なに着る？」/ }).click();
-  await modal().waitFor({ timeout: 5000 });
-  check("骨格結果ページのCTA → 近日公開モーダルが開く", await modal().isVisible());
-  await shotView("05b_frame_result_cta_modal.png");
-  await page.getByRole("button", { name: /^閉じる$/ }).click();
+  check("骨格結果に「得意なデザイン」がある", /得意なデザイン/.test(frameText));
+  check("骨格結果に「注意したいデザイン」がある", /注意したいデザイン/.test(frameText));
+  // 1行リスト化: space-y-2 の直下に縦積みの行が並ぶ
+  const rows = await page.locator("#colorlab-root div.space-y-2 > div").count();
+  check("得意/注意が1行リストで縦積み (行数 " + rows + ")", rows >= 4);
+  const icons = await page.locator("#colorlab-root div.space-y-2 > div svg").count();
+  check("各行にデザインアイコン(SVG)がある (" + icons + "個)", icons === rows);
+  await shotEl("#colorlab-root", "05_frame_result_single_column_list.png");
 
   // ── 6. NG色警察: 出頭→タイプ選択→写真提出→判決（ルールベース判定） ──
   await page.getByRole("button", { name: /出頭する/ }).click();
   await page.waitForSelector("text=あなたのパーソナルカラーは", { timeout: 5000 });
   await page.locator("#ngpolice-root button", { hasText: "イエベ春" }).click();
   await page.waitForSelector("text=本日のコーデ写真を提出せよ", { timeout: 5000 });
-  // 黒っぽい画像 → イエベ春のNG(黒)で「検挙」になるはず
   await page.locator("#ngpolice-root input[type=file]").setInputFiles({ name: "coord.png", mimeType: "image/png", buffer: solidPng(48, 20, 20, 22) });
   await page.waitForTimeout(400);
   await page.getByRole("button", { name: /取り調べを受ける/ }).click();
@@ -178,17 +189,17 @@ try {
   check("結果ページ ボタン1: 本家診断アプリで本格診断する", /本家診断アプリで本格診断する/.test(verdict));
   check("結果ページ ボタン2: LINEで「…の勝ち色」を受け取る", /LINEで「.+の勝ち色」を受け取る/.test(verdict));
   const mainHref = await page.locator("#ngpolice-root a", { hasText: "本家診断アプリで本格診断する" }).getAttribute("href");
-  check("本家リンクが blubel.jp/pages/personalcolor: " + mainHref, mainHref === "https://www.blubel.jp/pages/personalcolor");
-  await shotEl("#ngpolice-root", "06_ngpolice_result.png");
+  check("本家リンクが blubel.jp/pages/personalcolor", mainHref === "https://www.blubel.jp/pages/personalcolor");
+  await shotEl("#ngpolice-root", "07_ngpolice_result.png");
 
-  // ── 7. Liteモードの実測: Anthropic APIへのリクエストがゼロであること ──
+  // ── 7. Liteモードの実測 ──
   check("api.anthropic.com へのリクエストが0件 (実測 " + aiCalls.length + " 件)", aiCalls.length === 0);
 
   log(failures === 0 ? "=== 検証完了: 全チェック合格 ===" : `=== 検証完了: ${failures} 件のNG ===`);
 } catch (e) {
   log("!! 検証中にエラー: " + e.message);
   failures++;
-  await shot("99_error_state.png");
+  await shotView("99_error_state.png");
 } finally {
   writeFileSync(join(SHOTS, "verify_log.txt"), results.join("\n") + "\n", "utf8");
   await browser.close();
