@@ -4,6 +4,24 @@ import {
   ArrowLeft, ArrowRight, Instagram, RotateCcw, Camera, Share2,
 } from "lucide-react";
 
+/* --- 診断イラスト(AI生成・左右ペアを分割してWebP化したもの) -------------------
+   test/build_quiz_art.mjs で src/assets/<元PNG> から生成する。
+   vite の assetsInlineLimit で base64 としてバンドルに内包される。 */
+import Q01A from "./assets/mens_q01_skin_warm.webp";
+import Q01B from "./assets/mens_q01_skin_cool.webp";
+import Q03A from "./assets/mens_q03_eye_light.webp";
+import Q03B from "./assets/mens_q03_eye_deep.webp";
+import Q04A from "./assets/mens_q04_wrist_green.webp";
+import Q04B from "./assets/mens_q04_wrist_blue.webp";
+import Q08A from "./assets/mens_q08_knit_light.webp";
+import Q08B from "./assets/mens_q08_knit_deep.webp";
+import Q11A from "./assets/mens_q11_flush_tan.webp";
+import Q11B from "./assets/mens_q11_flush_pink.webp";
+import Q13A from "./assets/mens_q13_hair_brown.webp";
+import Q13B from "./assets/mens_q13_hair_black.webp";
+// Q06(白T offwhite/white)は素材未着のため SVG のまま。素材が届いたら
+// ここに import を足し、Q06 の illust に pair を付けるだけで差し替わる。
+
 /* =========================================================================
  * 清潔感カラー診断（メンズ版） v1
  * - 女性版 color_lab_stylist_v23.jsx とはソースを完全分離（女性版は一切編集しない）
@@ -328,19 +346,19 @@ const FQ = [
  *  ※ 設問・選択肢に「ブルベ/イエベ」は一切出さない
  * ====================================================================== */
 const Q = [
-  { q: "Q1（肌の色み）\n鏡で見た顔の肌の色は、どちらに近いですか？", illust: { kind: "face", left: { skin: "#F2D3AE" }, right: { skin: "#F6D9CE" } }, A: [1, 3], B: [2, 4], a: "黄み・オークル寄り", b: "青み・ピンク寄り" },
+  { q: "Q1（肌の色み）\n鏡で見た顔の肌の色は、どちらに近いですか？", illust: { kind: "face", pair: [Q01A, Q01B], left: { skin: "#F2D3AE" }, right: { skin: "#F6D9CE" } }, A: [1, 3], B: [2, 4], a: "黄み・オークル寄り", b: "青み・ピンク寄り" },
   { q: "Q2（スーツの明るさ）\n顔映りが良いと言われるのは、どちらのスーツですか？", illust: { kind: "chips", left: { colors: ["#B7BCC4", "#D8C3A2", "#A9C4DE", "#C9CCD2"] }, right: { colors: ["#2B2E33", "#23325C", "#4E3A2C", "#1B1D24"] } }, A: [1, 2], B: [3, 4], a: "明るいグレー・ベージュ系", b: "濃紺・チャコール系" },
-  { q: "Q3（瞳の色）\n自分の瞳の色は、どちらに近いですか？", illust: { kind: "eye", left: { iris: "#8B5E3C" }, right: { iris: "#2E2620" } }, A: [1, 2], B: [3, 4], a: "明るい茶色・透明感がある", b: "濃い黒茶・深い色" },
-  { q: "Q4（手首の血管）\n手首の内側の血管は、何色に見えますか？", illust: { kind: "wrist", left: { vein: "#6E8B4E" }, right: { vein: "#5B7FAC" } }, A: [1, 3], B: [2, 4], a: "緑っぽく見える", b: "青・紫っぽく見える" },
+  { q: "Q3（瞳の色）\n自分の瞳の色は、どちらに近いですか？", illust: { kind: "eye", pair: [Q03A, Q03B], left: { iris: "#8B5E3C" }, right: { iris: "#2E2620" } }, A: [1, 2], B: [3, 4], a: "明るい茶色・透明感がある", b: "濃い黒茶・深い色" },
+  { q: "Q4（手首の血管）\n手首の内側の血管は、何色に見えますか？", illust: { kind: "wrist", pair: [Q04A, Q04B], left: { vein: "#6E8B4E" }, right: { vein: "#5B7FAC" } }, A: [1, 3], B: [2, 4], a: "緑っぽく見える", b: "青・紫っぽく見える" },
   { q: "Q5（時計・ベルトの金具）\nしっくりくるのは、どちらの金属ですか？", illust: { kind: "metal", left: { metal: "#C9A24B" }, right: { metal: "#B9BEC5" } }, A: [1, 3], B: [2, 4], a: "ゴールド系", b: "シルバー系" },
   { q: "Q6（白の選び方）\n顔まわりがきれいに見えるTシャツは？", illust: { kind: "face", left: { top: "#EFE6D6" }, right: { top: "#FFFFFF" } }, A: [1, 3], B: [2, 4], a: "生成り・オフホワイト", b: "混じり気のない真っ白" },
   { q: "Q7（似合う色の傾向）\nどちらの色の方がしっくりきますか？", illust: { kind: "chips", left: { colors: ["#E8907C", "#A8D8C8", "#A9C4DE", "#E0A96D"] }, right: { colors: ["#4E3A2C", "#23325C", "#6B6B3A", "#5C1A2B"] } }, A: [1, 2], B: [3, 4], a: "明るく澄んだ色", b: "深く落ち着いた色" },
-  { q: "Q8（ニットの濃さ）\n人に褒められることが多いのは？", illust: { kind: "face", left: { top: "#C9CCD2" }, right: { top: "#3A3D42" } }, A: [1, 2], B: [3, 4], a: "明るい色のニット", b: "濃い色のニット" },
+  { q: "Q8（ニットの濃さ）\n人に褒められることが多いのは？", illust: { kind: "face", pair: [Q08A, Q08B], left: { top: "#C9CCD2" }, right: { top: "#3A3D42" } }, A: [1, 2], B: [3, 4], a: "明るい色のニット", b: "濃い色のニット" },
   { q: "Q9（パンツの色）\n手持ちで一番使いやすいのは？", illust: { kind: "swatch", left: { color: "#D8C3A2" }, right: { color: "#4E3A2C" } }, A: [1, 2], B: [3, 4], a: "ライトベージュ", b: "ダークブラウン・黒" },
   { q: "Q10（ネクタイの色）\n顔色が良く見えるのは、どちらですか？", illust: { kind: "tie", left: { color: "#B5643F" }, right: { color: "#7B2137" } }, A: [1, 3], B: [2, 4], a: "テラコッタ（黄みの赤）", b: "ワインレッド（青みの赤）" },
-  { q: "Q11（運動後の顔）\n汗をかいたあと、顔はどうなりますか？", illust: { kind: "face", left: { skin: "#E3B48C" }, right: { skin: "#F2C0C0" } }, A: [1, 3], B: [2, 4], a: "赤黒く、日焼けしたようになる", b: "明るいピンクに赤らむ" },
+  { q: "Q11（運動後の顔）\n汗をかいたあと、顔はどうなりますか？", illust: { kind: "face", pair: [Q11A, Q11B], left: { skin: "#E3B48C" }, right: { skin: "#F2C0C0" } }, A: [1, 3], B: [2, 4], a: "赤黒く、日焼けしたようになる", b: "明るいピンクに赤らむ" },
   { q: "Q12（シャツの色）\n着ていて落ち着くのは、どちらですか？", illust: { kind: "shirt", left: { color: "#A9C4DE" }, right: { color: "#23325C" } }, A: [1, 2], B: [3, 4], a: "淡いサックスブルー", b: "深いネイビー" },
-  { q: "Q13（髪色）\n似合うと言われるのは、どちらですか？", illust: { kind: "menshair", left: { hair: "#8B5E3C" }, right: { hair: "#1B1D24" } }, A: [1, 2], B: [3, 4], a: "明るめの茶", b: "黒髪・暗めの髪" },
+  { q: "Q13（髪色）\n似合うと言われるのは、どちらですか？", illust: { kind: "menshair", pair: [Q13A, Q13B], left: { hair: "#8B5E3C" }, right: { hair: "#1B1D24" } }, A: [1, 2], B: [3, 4], a: "明るめの茶", b: "黒髪・暗めの髪" },
 ];
 
 const TIE_Q = {
@@ -456,8 +474,11 @@ function QuizIllust({ illust, aLabel, bLabel, onPick }) {
           className="rounded-xl p-3 text-center transition"
           style={{ background: C.card, border: `1.5px solid ${C.rule}`, boxShadow: "0 2px 10px rgba(31,42,68,.06)" }}
         >
-          <div className="mx-auto mb-2" style={{ width: "72%" }}>
-            <IllustHalf kind={illust.kind} v={v || {}} />
+          <div className="mx-auto mb-2" style={{ width: illust.pair ? "88%" : "72%" }}>
+            {illust.pair
+              ? <img src={illust.pair[k === "A" ? 0 : 1]} alt="" loading="lazy"
+                  style={{ width: "100%", height: "auto", display: "block" }} />
+              : <IllustHalf kind={illust.kind} v={v || {}} />}
           </div>
           <div className="text-[12.5px] font-bold leading-snug" style={{ color: C.ink }}>{label}</div>
         </button>

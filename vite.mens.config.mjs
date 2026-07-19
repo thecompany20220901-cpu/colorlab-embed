@@ -20,6 +20,10 @@ export default defineConfig({
     // 他ターゲットの出力を消さない（clean は npm script 側に集約）。
     emptyOutDir: false,
     target: "es2018",
+    // 画像は必ず base64 でJSに内包する。CDN(jsDelivr)から配信されるスクリプトを
+    // 設置ページ(iebel.jp)上で実行するため、相対パスの外部アセットは
+    // ページ側ドメインに解決されて404になる。単一<script>構成を崩さないための必須設定。
+    assetsInlineLimit: 1024 * 1024,
     lib: {
       entry: "src/mens-entry.jsx",
       name: "MensApp",
