@@ -19,8 +19,8 @@ import Q11A from "./assets/mens_q11_flush_tan.webp";
 import Q11B from "./assets/mens_q11_flush_pink.webp";
 import Q13A from "./assets/mens_q13_hair_brown.webp";
 import Q13B from "./assets/mens_q13_hair_black.webp";
-// Q06(白T offwhite/white)は素材未着のため SVG のまま。素材が届いたら
-// ここに import を足し、Q06 の illust に pair を付けるだけで差し替わる。
+import Q06A from "./assets/mens_q06_tee_offwhite.webp";
+import Q06B from "./assets/mens_q06_tee_white.webp";
 
 /* =========================================================================
  * 清潔感カラー診断（メンズ版） v1
@@ -351,7 +351,7 @@ const Q = [
   { q: "Q3（瞳の色）\n自分の瞳の色は、どちらに近いですか？", illust: { kind: "eye", pair: [Q03A, Q03B], left: { iris: "#8B5E3C" }, right: { iris: "#2E2620" } }, A: [1, 2], B: [3, 4], a: "明るい茶色・透明感がある", b: "濃い黒茶・深い色" },
   { q: "Q4（手首の血管）\n手首の内側の血管は、何色に見えますか？", illust: { kind: "wrist", pair: [Q04A, Q04B], left: { vein: "#6E8B4E" }, right: { vein: "#5B7FAC" } }, A: [1, 3], B: [2, 4], a: "緑っぽく見える", b: "青・紫っぽく見える" },
   { q: "Q5（時計・ベルトの金具）\nしっくりくるのは、どちらの金属ですか？", illust: { kind: "metal", left: { metal: "#C9A24B" }, right: { metal: "#B9BEC5" } }, A: [1, 3], B: [2, 4], a: "ゴールド系", b: "シルバー系" },
-  { q: "Q6（白の選び方）\n顔まわりがきれいに見えるTシャツは？", illust: { kind: "face", left: { top: "#EFE6D6" }, right: { top: "#FFFFFF" } }, A: [1, 3], B: [2, 4], a: "生成り・オフホワイト", b: "混じり気のない真っ白" },
+  { q: "Q6（白の選び方）\n顔まわりがきれいに見えるTシャツは？", illust: { kind: "face", pair: [Q06A, Q06B], left: { top: "#EFE6D6" }, right: { top: "#FFFFFF" } }, A: [1, 3], B: [2, 4], a: "生成り・オフホワイト", b: "混じり気のない真っ白" },
   { q: "Q7（似合う色の傾向）\nどちらの色の方がしっくりきますか？", illust: { kind: "chips", left: { colors: ["#E8907C", "#A8D8C8", "#A9C4DE", "#E0A96D"] }, right: { colors: ["#4E3A2C", "#23325C", "#6B6B3A", "#5C1A2B"] } }, A: [1, 2], B: [3, 4], a: "明るく澄んだ色", b: "深く落ち着いた色" },
   { q: "Q8（ニットの濃さ）\n人に褒められることが多いのは？", illust: { kind: "face", pair: [Q08A, Q08B], left: { top: "#C9CCD2" }, right: { top: "#3A3D42" } }, A: [1, 2], B: [3, 4], a: "明るい色のニット", b: "濃い色のニット" },
   { q: "Q9（パンツの色）\n手持ちで一番使いやすいのは？", illust: { kind: "swatch", left: { color: "#D8C3A2" }, right: { color: "#4E3A2C" } }, A: [1, 2], B: [3, 4], a: "ライトベージュ", b: "ダークブラウン・黒" },

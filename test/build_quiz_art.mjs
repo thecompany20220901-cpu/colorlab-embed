@@ -23,7 +23,11 @@ const PAIRS = [
   { key: "q08", src: "4.png", left: "mens_q08_knit_light", right: "mens_q08_knit_deep" },
   { key: "q11", src: "5.png", left: "mens_q11_flush_tan", right: "mens_q11_flush_pink" },
   { key: "q13", src: "6.png", left: "mens_q13_hair_brown", right: "mens_q13_hair_black" },
-  // q06(白T offwhite/white)は素材未着のため未定義。
+  // q06 は 2816x1536(他の2倍)。ウォーターマークが白シャツ上で判別できず
+  // (明部55%=誤爆ガード作動)、消すべきものが無いので下端カットは行わない。
+  // カットすると設問の主題であるTシャツの面積を削ってしまう。
+  { key: "q06", src: "Gemini_Generated_Image_1cffse1cffse1cff.png",
+    left: "mens_q06_tee_offwhite", right: "mens_q06_tee_white", crop: false },
 ];
 
 const INSET = 12;        // 中央の仕切り線を避ける
@@ -44,7 +48,7 @@ for (const pair of targets) {
   if (!fs.existsSync(file)) { console.log(`skip (無し): ${pair.src}`); continue; }
   const dataUrl = "data:image/png;base64," + fs.readFileSync(file).toString("base64");
 
-  const out = await page.evaluate(async ({ dataUrl, INSET, OUT_W, QUALITY, WM }) => {
+  const out = await page.evaluate(async ({ dataUrl, INSET, OUT_W, QUALITY, WM, doCrop }) => {
     const img = new Image();
     await new Promise((res, rej) => { img.onload = res; img.onerror = rej; img.src = dataUrl; });
 
@@ -53,13 +57,20 @@ for (const pair of targets) {
     const fx = full.getContext("2d");
     fx.drawImage(img, 0, 0);
 
+    // 素材ごとに解像度が違う(q06 は 2816x1536 = 2倍)。基準を高さ768に取り、
+    // ウォーターマーク位置・下端カット位置を実解像度へスケールする。
+    const S = full.height / 768;
+
     /* --- ウォーターマーク除去 -------------------------------------------
        ✦ は「白に近い半透明オーバーレイ」なので、周囲より明るい画素だけを
        マスクして Laplace 補間で埋める。輪郭線(周囲より暗い)は影響を受けない。
        矩形パッチの貼り替えだと白背景を持ってきて白い箱が残るため採用しない。 */
     // 判定は星の直近だけに限る。行全体で見ると人物右側の白背景を拾ってしまう
     // (2026-07-19 実測: 行中央値だと x1264-1408 が丸ごとマスクされた)。
-    const B = { x: WM.x - 14, y: WM.y - 14, w: WM.w + 28, h: WM.h + 28 };
+    const B = {
+      x: Math.round((WM.x - 14) * S), y: Math.round((WM.y - 14) * S),
+      w: Math.round((WM.w + 28) * S), h: Math.round((WM.h + 28) * S),
+    };
     const reg = fx.getImageData(B.x, B.y, B.w, B.h);
     const rd = reg.data;
     const lum = (i) => 0.299 * rd[i] + 0.587 * rd[i + 1] + 0.114 * rd[i + 2];
@@ -108,7 +119,7 @@ for (const pair of targets) {
     // ウォーターマーク(✦)は全素材で y≈645 の固定位置に入る。半透明オーバーレイのため
     // 補間除去では生地の陰影と区別できず薄く残る(2026-07-19 実測)。確実に消すため
     // 下端を一律カットする。いずれも頭部〜肩のバストアップなので構図上の損失はない。
-    const CROP_BOTTOM = 606;
+    const CROP_BOTTOM = doCrop ? Math.round(606 * S) : full.height;
 
     const bbox = (x0, x1) => {
       let minX = 1e9, minY = 1e9, maxX = -1, maxY = -1;
@@ -144,7 +155,7 @@ for (const pair of targets) {
       left: emit(bbox(0, half - INSET)),
       right: emit(bbox(half + INSET, full.width)),
     };
-  }, { dataUrl, INSET, OUT_W, QUALITY, WM });
+  }, { dataUrl, INSET, OUT_W, QUALITY, WM, doCrop: pair.crop !== false });
 
   for (const [side, name] of [["left", pair.left], ["right", pair.right]]) {
     const b64 = out[side].url.split(",")[1];
