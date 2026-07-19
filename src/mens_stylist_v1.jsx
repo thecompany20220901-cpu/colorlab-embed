@@ -15,7 +15,8 @@ const IG_HANDLE = "@seiketsu_lab";
 const IG_URL = "https://www.instagram.com/seiketsu_lab/";
 const PAGE_URL =
   (typeof import.meta !== "undefined" && import.meta.env && import.meta.env.VITE_MENS_PAGE_URL) ||
-  "https://www.iebel.jp/pages/personalcolor-mens";
+  // Shopify側の制約でスラッグにハイフンが使えず personalcolormens で確定（2026-07-19 設置済み）。
+  "https://www.iebel.jp/pages/personalcolormens";
 
 /* --- 清潔感研究所のカラートークン（IG レンダラと同一値） ------------------ */
 const C = {
