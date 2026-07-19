@@ -8,7 +8,8 @@
     "clean": "node -e \"const fs=require('fs');fs.rmSync('dist',{recursive:true,force:true});fs.mkdirSync('dist',{recursive:true})\"",
     "build:colorlab": "vite build --config vite.colorlab.config.mjs",
     "build:ngpolice": "vite build --config vite.ngpolice.config.mjs",
-    "build": "npm run clean && npm run build:colorlab && npm run build:ngpolice",
+    "build:mens": "vite build --config vite.mens.config.mjs",
+    "build": "npm run clean && npm run build:colorlab && npm run build:ngpolice && npm run build:mens",
     "verify": "node test/screenshot.mjs"
   },
   "dependencies": {

@@ -1,0 +1,19 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* preflight を無効化しているため、記事CSSと衝突しない最小リセットを
+   #mens-root 配下だけに適用する（外側の記事本文には一切影響しない）。 */
+#mens-root,
+#mens-root *,
+#mens-root *::before,
+#mens-root *::after { box-sizing: border-box; }
+#mens-root { line-height: 1.5; -webkit-text-size-adjust: 100%; color: #1F2A44; text-align: left; }
+#mens-root button { font: inherit; color: inherit; background: none; border: 0; margin: 0; padding: 0; cursor: pointer; }
+/* 記事側の h1{border-bottom} / h2{color} 等がタイトルに漏れるのを打ち消す。 */
+#mens-root h1, #mens-root h2, #mens-root h3, #mens-root p {
+  margin: 0; padding: 0; border: 0; color: inherit; font-size: inherit; line-height: inherit;
+}
+#mens-root img, #mens-root canvas { max-width: 100%; display: block; }
+#mens-root input, #mens-root a { font: inherit; }
+#mens-root a { color: inherit; }
