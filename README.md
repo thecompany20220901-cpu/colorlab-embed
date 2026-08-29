@@ -11,6 +11,31 @@ NG色警察（v2）を自己完結IIFEにビルドし、jsDelivr(CDN)で配信�
 - `test/screenshot.mjs` … Playwright検証（375px SS / localStorage再訪 / 画面遷移）
 - `test/screenshot_mens.mjs` … メンズ版のPlaywright検証（全ツール通し / 商品語の不在 / Lite判定）
 
+## 顔写真で診断（実測方式・v1.7.0〜）
+
+AIに写真を見せて判断させる方式をやめ、**白い紙を基準にした照明補正 + CIELab の実測**に置き換えた。
+外部通信は一切発生しない（`npm run verify` で `api.anthropic.com` 0件を実測）。
+
+| 項目 | 内容 |
+|---|---|
+| フラグ | `PHOTO_DIAGNOSE_ENABLED = true`（`AI_ENABLED` とは独立） |
+| 判定ロジックの出典 | `src/photo_diagnose_v3.jsx`（参照用。**どのビルドからも import されない**） |
+| 契約 | `aiPhotoDiagnose(base64, mediaType)` → `{type, second, confidence, hue_pct, value_pct, chroma_pct, reason}` |
+| サンプリング領域 | `PH_REGION`（白紙 0.34-0.76-0.66-0.92 / 左頬 / 右頬 / 髪） |
+| 品質ゲート | 暗すぎ / 白飛び / 色かぶり28%超 / 左右頬差ΔE14超 / 肌の生理的範囲外 → `gateError()` を throw して撮り直し画面へ |
+| 画面 | intro（撮影条件5項目 + 染髪確認）→ guide（ライブカメラ + 丸型グラデガイド）→ analyzing → rejected |
+
+**触るときの注意**
+
+- `hue_pct` / `value_pct` / `chroma_pct` は「そのタイプのラベル方向の強さ」。結果画面が軸ラベル
+  （Warm/Cool・Light/Deep・Clear/Soft）を1stタイプから決めるため、生の warmth/lightness/clarity を
+  そのまま入れると「Cool（青み）20%」のような矛盾表示になる。質問式 `finishQuiz()` と同じ考え方。
+- **ガイドの座標と `PH_REGION` は必ずセットで動かす。** 見た目だけ動かすと「ガイドに合わせたのに
+  測定エリアが違う」事故になる。`npm run verify` に中心Yズレ5px以内の恒久ゲートを入れてある。
+- 撮影ボタンは**映像の下の黒帯(96px)の中**に置く。映像に重ねると白紙ガイド＝測定範囲(0.76〜0.92)を
+  丸ごと覆ってしまう（実測で 68×54px の重なり）。オーバーレイSVGは内側ラッパで映像と同じ高さに
+  閉じ込めること（黒帯まで伸びるとガイドが50px下へズレる）。
+
 ## メンズ版（清潔感カラー診断）
 
 女性版とは**ソースを完全分離**した3つ目のビルドターゲット。女性版 `color_lab_stylist_v23.jsx`
@@ -42,10 +67,14 @@ NG色警察（v2）を自己完結IIFEにビルドし、jsDelivr(CDN)で配信�
 - Tailwind はビルド時にクラス抽出し **CSSをJSに内包**（実行時CDN不使用）
 - 全ユーティリティを `#colorlab-root` / `#ngpolice-root` 配下に**スコープ**（Shoppal既存CSSと衝突しない・preflightは無効化）
 - `window.ColorLabApp.mount("#colorlab-root")` / `window.NgPoliceApp.mount("#ngpolice-root")` で明示マウント
-- フェーズ1: AI機能（顔写真診断 / コーデ提案 / コーデ採点）は `AI_ENABLED=false` で「近日公開」化。
+- フェーズ1: AI機能（コーデ提案 / コーデ採点）は `AI_ENABLED=false` で「近日公開」化。
   NG色警察の取り調べは AI の代わりに**ルールベース簡易判定**（写真中央領域の平均色相）で完走。
-- AIゲートは**AI画面への入口5箇所すべて**に適用（ホーム3カード + 12タイプ結果ページCTA + 骨格結果ページCTA）。
+- AIゲートは**AI画面への入口4箇所すべて**に適用（ホームの大ボタン「コーデ提案」+ タイル「今日のコーデ採点」
+  + 12タイプ結果ページCTA。v21にあった骨格結果ページCTAは v23 で「おすすめコスメ」に差し替え済み）。
   押下時は「近日公開」モーダルへ流す。`npm run verify` で `api.anthropic.com` へのリクエストが0件であることを実測。
+- **「顔写真で診断」は v1.7.0 で実測方式に置換して解禁済み**（白基準補正 + CIELab・外部通信なし）。
+  専用フラグ `PHOTO_DIAGNOSE_ENABLED = true` で制御し、`AI_ENABLED` とは切り離してある。
+  詳細は下の「顔写真で診断（実測方式）」を参照。
 
 ## ビルド
 
@@ -77,18 +106,24 @@ npm run verify     # Playwrightで検証（要 npx playwright install chromium�
 
 | アプリ | 参照タグ | jsDelivr |
 |---|---|---|
-| colorlab | `@v1.3.0` | `https://cdn.jsdelivr.net/gh/thecompany20220901-cpu/colorlab-embed@v1.3.0/dist/colorlab.iife.js` |
+| colorlab | `@v1.7.0` | `https://cdn.jsdelivr.net/gh/thecompany20220901-cpu/colorlab-embed@v1.7.0/dist/colorlab.iife.js` |
 | ngpolice | `@v1.3.0` | `https://cdn.jsdelivr.net/gh/thecompany20220901-cpu/colorlab-embed@v1.3.0/dist/ngpolice.iife.js` |
+| mens | `@v1.6.1` | `https://cdn.jsdelivr.net/gh/thecompany20220901-cpu/colorlab-embed@v1.6.1/dist/mens.iife.js` |
 
-- v1.3.0 で colorlab=v21 / ngpolice=v2 に更新し、**両アプリのタグを v1.3.0 に揃えた**。
+- v1.7.0 の内容: 「顔写真で診断」をAI API方式から**実測方式（白基準補正 + CIELab）へ全面置換**して解禁。
+  撮影条件チェック → ライブカメラ + 丸型グラデガイド → 品質ゲート → 12タイプ結果ページへ合流。
+  ngpolice / mens は v1.7.0 でも中身に変更なし（タグを揃えていないので注意）。
 - v1.3.0 の内容: colorlab v21（バッジ拡大 / スクロールトップ / シェア画像修正 / パレット10色 等）、
   ngpolice v2（結果ページのボタン2つのレイアウト修正）。
-- 旧: colorlab `@v1.1.0`（v20）/ ngpolice `@v1.2.0`（v1）。
+- 旧: colorlab `@v1.1.0`（v20）→ `@v1.3.0`（v21）→ `@v1.4.0`（v23）→ `@v1.7.0`（v23 + 実測写真診断）。
+  **v1.4.0 のときスニペットの更新が漏れていた**（本番のShopifyページだけ手で v1.4.0 に差し替えられていた）。
+  タグを上げたら `snippet_*.html` の更新も必ずセットで行うこと。
 
 ## 次回予定タスク（メモ）
 
 1. **イエベ側の固定ページ設置** … 貼り付けるスニペットは同一（同じ jsDelivr URL）。両アプリとも `iebel`/`blubel` をアプリ内のタイプ選択で出し分ける作り＝**追加ビルド不要**。イエベ用の固定ページを作ってスニペットを貼るだけ。
-2. **フェーズ2 = AI機能の解禁** … Cloudflare Workers 中継（APIキーを秘匿したプロキシ）を用意し、`AI_ENABLED` を `true` に切り替えて再ビルド。対象は「顔写真で診断」「コーデ提案」「今日のコーデ採点」（colorlab）と「NG警察のAI取り調べ」（ルールベース→AIへ）。解禁後はタグを上げてスニペット差し替え。
+2. **フェーズ2 = AI機能の解禁** … Cloudflare Workers 中継（APIキーを秘匿したプロキシ）を用意し、`AI_ENABLED` を `true` に切り替えて再ビルド。対象は「コーデ提案」「今日のコーデ採点」（colorlab）と「NG警察のAI取り調べ」（ルールベース→AIへ）。解禁後はタグを上げてスニペット差し替え。
+   なお「顔写真で診断」は v1.7.0 で実測方式に置換したためフェーズ2の対象から外れた（AIプロキシ不要）。
    - なお v21 のソースは AI画面の入口のうちホーム3カードしかゲートしておらず、12タイプ/骨格の結果ページCTAが素通りしていたため、本リポジトリ側で同じゲートを追加している（`src/color_lab_stylist_v21.jsx` の該当2箇所）。**次のバージョンを取り込む際も同じ2箇所の確認が必要**。
 3. **ヘッダー微調整** … トップのパレット帯に「監修」文字が重なる箇所の微調整（帯の下の白余白へ寄せる等）。
 4. **375px での文字折返し** … ホームの「近日公開」バッジが「近日公/開」で改行される、骨格結果ページの

@@ -7,3 +7,4 @@ test/screenshots/
 probe.mjs
 install*.log
 pw_install.log
+src/_backup/

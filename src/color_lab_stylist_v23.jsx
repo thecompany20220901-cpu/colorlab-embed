@@ -427,7 +427,11 @@ const WD_WORRIES = [
 const NUM2KEY = { 1: "spring", 2: "summer", 3: "autumn", 4: "winter" };
 
 // 埋め込み公開時は false にする（対象機能に「近日公開」を表示）
+// AI_ENABLED はコーデ提案 / コーデ採点（外部AI依存）のゲート。false のまま維持する。
 const AI_ENABLED = false;
+// 「顔写真で診断」だけは 2026-08-29 に実測方式（白基準補正 + CIELab・外部通信なし）へ
+// 置換したため、AI_ENABLED とは切り離した専用フラグで解禁する。
+const PHOTO_DIAGNOSE_ENABLED = true;
 
 const TYPES = {
   spring: { key: "spring", num: 1, name: "イエベ春", en: "Spring", catch: "光をまとう、いきいきとした暖色", palette: ["#F7C9A0", "#F4A582", "#F6D65B", "#8FCB9B", "#FFF3E2"], palette10: [["アイボリー","#FFF3E2"],["アプリコット","#F7C9A0"],["コーラルピンク","#F4A582"],["ピーチ","#EE8B7E"],["イエロー","#F6D65B"],["ゴールデンイエロー","#F2B94C"],["ライトグリーン","#8FCB9B"],["明るいターコイズ","#67C7B0"],["キャメル","#C89B5A"],["オレンジ","#E8875C"]], ng: ["黒", "グレー", "青みの強い色"], accent: "#E8927C", site: "iebel", siteName: "IEBEL", siteUrl: "https://iebel.jp", sns: "@iebe_lab" },
@@ -787,6 +791,132 @@ async function shareResultImage(RT, secondName, axes) {
 }
 
 // ════════════════════════════════════════════
+// 顔写真で診断：白基準補正 + CIELab 実測エンジン
+// photo_diagnose_v3.jsx より移植。AI / 外部通信は一切使わない。
+// ════════════════════════════════════════════
+const clamp01 = (v) => Math.max(0, Math.min(1, v));
+
+const srgbToLinear = (c) => {
+  const s = c / 255;
+  return s <= 0.04045 ? s / 12.92 : Math.pow((s + 0.055) / 1.055, 2.4);
+};
+
+function rgbToLab(r, g, b) {
+  const R = srgbToLinear(r), G = srgbToLinear(g), B = srgbToLinear(b);
+  // sRGB D65 → XYZ
+  let X = R * 0.4124 + G * 0.3576 + B * 0.1805;
+  let Y = R * 0.2126 + G * 0.7152 + B * 0.0722;
+  let Z = R * 0.0193 + G * 0.1192 + B * 0.9505;
+  X /= 0.95047; Y /= 1.0; Z /= 1.08883;
+  const f = (t) => (t > 0.008856 ? Math.cbrt(t) : 7.787 * t + 16 / 116);
+  const fx = f(X), fy = f(Y), fz = f(Z);
+  return { L: 116 * fy - 16, a: 500 * (fx - fy), b: 200 * (fy - fz) };
+}
+
+const hex = (r, g, b) =>
+  "#" + [r, g, b].map((v) => Math.max(0, Math.min(255, Math.round(v))).toString(16).padStart(2, "0")).join("");
+
+/* 領域の中央値サンプリング(外れ値に強い) */
+function sampleRegion(data, W, H, x0, y0, x1, y1) {
+  const rs = [], gs = [], bs = [];
+  const sx = Math.max(0, Math.floor(x0 * W)), ex = Math.min(W, Math.floor(x1 * W));
+  const sy = Math.max(0, Math.floor(y0 * H)), ey = Math.min(H, Math.floor(y1 * H));
+  const step = Math.max(1, Math.floor(Math.min(ex - sx, ey - sy) / 40));
+  for (let y = sy; y < ey; y += step) {
+    for (let x = sx; x < ex; x += step) {
+      const i = (y * W + x) * 4;
+      rs.push(data[i]); gs.push(data[i + 1]); bs.push(data[i + 2]);
+    }
+  }
+  if (!rs.length) return null;
+  const med = (arr) => { const s = [...arr].sort((p, q) => p - q); return s[Math.floor(s.length / 2)]; };
+  return { r: med(rs), g: med(gs), b: med(bs), n: rs.length };
+}
+
+/* サンプリング領域(相対座標)。撮影ガイドの枠と必ず一致させること。 */
+const PH_REGION = {
+  white:  [0.34, 0.76, 0.66, 0.92], // 顎下の白い紙
+  cheekL: [0.24, 0.46, 0.36, 0.58],
+  cheekR: [0.64, 0.46, 0.76, 0.58],
+  hair:   [0.40, 0.06, 0.60, 0.16],
+};
+
+/* 撮影条件(すべてチェックするまで撮影へ進めない) */
+const PHOTO_CONDITIONS = [
+  { id: "window", label: "窓から1m以内・日中の自然光で撮る", why: "蛍光灯やLEDは色が偏ります" },
+  { id: "noLight", label: "照明を消す(自然光だけにする)", why: "光が混ざると補正できません" },
+  { id: "white", label: "白い紙かハンカチを顎の下に持つ", why: "照明のズレを補正する基準になります" },
+  { id: "hair", label: "髪を耳にかけ、顔まわりを出す", why: "頬の色を正しく測るためです" },
+  { id: "bare", label: "ノーメイクか薄化粧にする", why: "ファンデーションの色を測ってしまいます" },
+];
+
+/* 品質ゲートで却下するときの例外。title / body を撮り直し画面がそのまま出す。 */
+function gateError(title, body) {
+  const e = new Error(title);
+  e.isPhotoGate = true; e.title = title; e.body = body;
+  return e;
+}
+
+/* 染髪フラグ。aiPhotoDiagnose のシグネチャを変えないためモジュールスコープで受け渡す。 */
+let photoHairDyed = false;
+const setPhotoHairDyed = (v) => { photoHairDyed = !!v; };
+
+/* 3軸算出 + 4タイプ距離判定(参照ソース photo_diagnose_v3.jsx の diagnose() をそのまま移植) */
+function diagnoseByMeasure(skinLab, hairLab, skinRGB, hairDyed) {
+  /* 軸1: 色相(暖/寒)
+     肌のb*(黄み)とa*(赤み)の比。日本人の肌はb*=12〜24が中心域。
+     b*が高くa*との差が大きいほどWarm寄り。 */
+  const warmRaw = skinLab.b - skinLab.a * 0.55;
+  const warmth = clamp01((warmRaw - 4) / 14); // 0=Cool 1=Warm
+
+  /* 軸2: 明度。肌のL*。日本人の肌はL*=58〜75が中心域。 */
+  const lightness = clamp01((skinLab.L - 56) / 20); // 0=Deep 1=Light
+
+  /* 軸3: 清濁。肌の彩度C*と、髪と肌の明度差(コントラスト)。
+     コントラストが高く彩度が明瞭ほどClear。 */
+  const chromaC = Math.sqrt(skinLab.a ** 2 + skinLab.b ** 2);
+  const contrast = Math.abs(skinLab.L - hairLab.L);
+  /* 染髪している場合、髪コントラストは地の色素を反映しないため
+     重みを肌の彩度側へ寄せる(プロは地毛・瞳で清濁を見る) */
+  const wC = hairDyed ? 0.85 : 0.45;
+  const wK = hairDyed ? 0.15 : 0.55;
+  const clarity = clamp01(((chromaC - 12) / 12) * wC + ((contrast - 22) / 30) * wK);
+
+  /* 4タイプへの距離(各タイプの理想座標との近さ) */
+  const targets = { spring: [1, 1, 1], autumn: [1, 0, 0], summer: [0, 1, 0], winter: [0, 0, 1] };
+  const v = [warmth, lightness, clarity];
+  const scored = Object.entries(targets)
+    .map(([k, t]) => {
+      // 色相の重みを最大にする(タイプ分けの第一軸のため)
+      const w = [1.6, 1.0, 1.0];
+      const d = Math.sqrt(t.reduce((s, tv, i) => s + w[i] * (tv - v[i]) ** 2, 0));
+      return { key: k, dist: d };
+    })
+    .sort((p, q) => p.dist - q.dist);
+
+  // 信頼度: 1位と2位の差が小さいほど低い
+  const gap = scored[1].dist - scored[0].dist;
+  const confidence = gap > 0.55 ? "high" : gap > 0.25 ? "medium" : "low";
+
+  return {
+    first: scored[0].key,
+    second: scored[1].key,
+    axes: {
+      warmth: Math.round(warmth * 100),
+      lightness: Math.round(lightness * 100),
+      clarity: Math.round(clarity * 100),
+    },
+    metrics: {
+      L: skinLab.L.toFixed(1), a: skinLab.a.toFixed(1), b: skinLab.b.toFixed(1),
+      chroma: chromaC.toFixed(1), contrast: contrast.toFixed(1), hairL: hairLab.L.toFixed(1),
+    },
+    skinHex: hex(skinRGB.r, skinRGB.g, skinRGB.b),
+    confidence,
+    gap: gap.toFixed(2),
+  };
+}
+
+// ════════════════════════════════════════════
 // Claude API
 // ════════════════════════════════════════════
 // JSONパース強化: コードフェンス除去→先頭{...末尾}抽出→パース
@@ -845,17 +975,114 @@ ${type.name}の得意トーン（例: ${type.palette.join(", ")}）・苦手要�
   return parseAiJson(text);
 }
 
+// 【2026-08-29 置換】AI(api.anthropic.com)呼び出しを廃止し、白基準補正 + CIELab の
+// 決定論的な実測に置き換えた。シグネチャ・戻り値の契約は据え置きのため、呼び出し側
+// (結果画面 / localStorage保存 / SKU連携 / シェア) は無改修でそのまま動作する。
+// 戻り値: {type, second, confidence:"high|medium|low", hue_pct, value_pct, chroma_pct, reason}
+// 品質ゲートに掛かった場合は gateError() を throw する(呼び出し側の catch が撮り直し導線を出す)。
 async function aiPhotoDiagnose(base64, mediaType) {
-  const prompt = `この写真の肌・髪・瞳の色調傾向から、パーソナルカラー4タイプ（spring=イエベ春/autumn=イエベ秋/summer=ブルベ夏/winter=ブルベ冬)のうち、最も近い1stタイプと、次に近い2ndタイプを推定してください。
-あわせて3軸の傾向を55〜90の整数%で推定: hue_pct=色相の傾き（1stが暖色系ならWarm寄り、寒色系ならCool寄りの強さ）、value_pct=明度の傾き、chroma_pct=彩度（清濁）の傾き。
-注意: 人物の特定はせず、色調の分析のみ行うこと。照明の影響で確実な判定はできない前提で「傾向」として答えること。
-以下のJSONのみ出力（前置き・\`\`\`禁止）:
-{"type":"spring|autumn|summer|winter","second":"spring|autumn|summer|winter（typeとは別のもの）","confidence":"high|medium|low","hue_pct":数値,"value_pct":数値,"chroma_pct":数値,"reason":"判定理由を80字程度。肌の黄み/青み、明度など具体的に。やさしい語り口"}`;
-  const text = await callClaude([
-    { role: "user", content: [{ type: "image", source: { type: "base64", media_type: mediaType, data: base64 } }, { type: "text", text: prompt }] },
-  ]);
-  return parseAiJson(text);
+  const dataUrl = /^data:/.test(base64) ? base64 : `data:${mediaType || "image/jpeg"};base64,${base64}`;
+
+  // 1. 画像を canvas に描画して ImageData を得る
+  const img = await new Promise((resolve, reject) => {
+    const im = new Image();
+    im.onload = () => resolve(im);
+    im.onerror = () => reject(gateError("画像を開けませんでした", "別の写真でお試しください。"));
+    im.src = dataUrl;
+  });
+  const W = 600;
+  const H = Math.max(1, Math.round((img.height / img.width) * W));
+  const cv = document.createElement("canvas");
+  cv.width = W; cv.height = H;
+  const ctx = cv.getContext("2d", { willReadFrequently: true });
+  ctx.drawImage(img, 0, 0, W, H);
+  const { data } = ctx.getImageData(0, 0, W, H);
+
+  // 2. ガイド枠に対応した固定領域をサンプリング
+  const whiteRef = sampleRegion(data, W, H, PH_REGION.white[0], PH_REGION.white[1], PH_REGION.white[2], PH_REGION.white[3]);
+  const cheekL = sampleRegion(data, W, H, PH_REGION.cheekL[0], PH_REGION.cheekL[1], PH_REGION.cheekL[2], PH_REGION.cheekL[3]);
+  const cheekR = sampleRegion(data, W, H, PH_REGION.cheekR[0], PH_REGION.cheekR[1], PH_REGION.cheekR[2], PH_REGION.cheekR[3]);
+  const hairS = sampleRegion(data, W, H, PH_REGION.hair[0], PH_REGION.hair[1], PH_REGION.hair[2], PH_REGION.hair[3]);
+  if (!whiteRef || !cheekL || !cheekR || !hairS) {
+    throw gateError("写真を読み取れませんでした", "もう一度撮影してください。");
+  }
+
+  // 3. 品質ゲート（暗すぎ / 白飛び / 色かぶり28%超）
+  const wMax = Math.max(whiteRef.r, whiteRef.g, whiteRef.b);
+  const wMin = Math.min(whiteRef.r, whiteRef.g, whiteRef.b);
+  if (wMax < 120) {
+    throw gateError("白い紙が写っていないか、暗すぎます",
+      "顎の下に白い紙を持ち、窓の近くでもう一度撮ってください。白い紙が明るく写っている必要があります。");
+  }
+  if (wMax > 252 && wMin > 250) {
+    throw gateError("光が強すぎて白が飛んでいます",
+      "直射日光を避け、窓から少し離れて撮り直してください。");
+  }
+  const castRatio = (wMax - wMin) / wMax;
+  if (castRatio > 0.28) {
+    throw gateError("照明の色が強く偏っています",
+      "室内照明を消し、日中の自然光だけで撮り直してください。オレンジや青の光が混ざると測れません。");
+  }
+
+  // 4. ホワイトバランス補正 + 露出正規化
+  //    白紙の色偏りをチャンネル別ゲインで均し、さらに白紙が固定輝度(235 ≒ L*93)に
+  //    なるよう全体をスケールして「色の偏り」と「露出の明暗」の両方を補正する。
+  const WHITE_TARGET = 235;
+  const k = WHITE_TARGET / wMax;
+  const gain = {
+    r: (wMax / whiteRef.r) * k,
+    g: (wMax / whiteRef.g) * k,
+    b: (wMax / whiteRef.b) * k,
+  };
+  const corr = (sm) => ({
+    r: Math.min(255, sm.r * gain.r),
+    g: Math.min(255, sm.g * gain.g),
+    b: Math.min(255, sm.b * gain.b),
+  });
+  const skinRaw = { r: (cheekL.r + cheekR.r) / 2, g: (cheekL.g + cheekR.g) / 2, b: (cheekL.b + cheekR.b) / 2 };
+  const skin = corr(skinRaw);
+  const hair = corr(hairS);
+
+  // 5. CIELab 変換
+  const skinLab = rgbToLab(skin.r, skin.g, skin.b);
+  const hairLab = rgbToLab(hair.r, hair.g, hair.b);
+
+  // 6. 測定妥当性ゲート
+  // (a) 左右の頬が大きく違う = 位置ズレ or 片側からの強い光。どちらも測定不能
+  const cL = corr(cheekL), cR = corr(cheekR);
+  const lLab = rgbToLab(cL.r, cL.g, cL.b), rLab = rgbToLab(cR.r, cR.g, cR.b);
+  const cheekDiff = Math.sqrt((lLab.L - rLab.L) ** 2 + (lLab.a - rLab.a) ** 2 + (lLab.b - rLab.b) ** 2);
+  if (cheekDiff > 14) {
+    throw gateError("左右の頬で色が大きく違っています",
+      "顔の位置がガイドとずれているか、横から片側だけに光が当たっています。窓に正面から向き、顔を楕円の中央に合わせて撮り直してください。");
+  }
+  // (b) 肌として生理的にあり得る範囲か(壁・髪・服を測っていないか)
+  const skinOk =
+    skinLab.L >= 40 && skinLab.L <= 88 &&
+    skinLab.a >= 2 && skinLab.a <= 26 &&
+    skinLab.b >= 4 && skinLab.b <= 32;
+  if (!skinOk) {
+    throw gateError("頬の位置で肌以外を測ってしまいました",
+      "顔をガイドの楕円に合わせ、頬がオレンジの円に重なるように撮り直してください。前髪やマスクが頬にかかっていないかも確認してください。");
+  }
+
+  // 7. 3軸算出 + 4タイプ判定 → 既存契約の形へ整形
+  const m = diagnoseByMeasure(skinLab, hairLab, skin, photoHairDyed);
+  const first = m.first;
+  // 結果画面は軸ラベル(Warm/Cool・Light/Deep・Clear/Soft)を1stタイプから決めるため、
+  // %もそのラベル方向の強さに揃える(質問式 finishQuiz の pct と同じ考え方)。
+  const toward = (pct, positiveSide) => (positiveSide ? pct : 100 - pct);
+  return {
+    type: first,
+    second: m.second,
+    confidence: m.confidence,
+    hue_pct: toward(m.axes.warmth, first === "spring" || first === "autumn"),      // Warm側の強さ
+    value_pct: toward(m.axes.lightness, first === "spring" || first === "summer"), // Light側の強さ
+    chroma_pct: toward(m.axes.clarity, first === "spring" || first === "winter"),  // Clear側の強さ
+    reason: `白い紙で照明を補正したうえで、肌のb*${m.metrics.b}（黄み）・a*${m.metrics.a}（赤み）・明度L*${m.metrics.L}・彩度C*${m.metrics.chroma}・髪との明度差${m.metrics.contrast}を実測して判定しました。`,
+  };
 }
+
 
 // ════════════════════════════════════════════
 // UI 部品
@@ -953,12 +1180,19 @@ export default function App() {
   const [pB, setPB] = useState(null);
   const [copied, setCopied] = useState(false);
 
-  // photo
+  // photo（実測方式: intro=撮影条件 → guide=ライブカメラ → analyzing → rejected）
   const fileRef = useRef(null);
   const [phPreview, setPhPreview] = useState(null);
-  const [phLoading, setPhLoading] = useState(false);
-  const [phResult, setPhResult] = useState(null);
-  const [phError, setPhError] = useState("");
+  const [phStep, setPhStep] = useState("intro");
+  const [phChecked, setPhChecked] = useState({});
+  const [phDyed, setPhDyed] = useState(null); // null=未回答 / true=染めている
+  const [phReject, setPhReject] = useState(null); // {title, body}
+  const [phCamError, setPhCamError] = useState(null); // "denied" | "unavailable"
+  const [phCamReady, setPhCamReady] = useState(false);
+  const phVideoRef = useRef(null);
+  const phStreamRef = useRef(null);
+  const phCanvasRef = useRef(null);
+  const phAllChecked = PHOTO_CONDITIONS.every((c) => phChecked[c.id]);
 
   // ② カラーチェッカー
   const [checkColor, setCheckColor] = useState(null);
@@ -984,6 +1218,10 @@ export default function App() {
 
   const goHome = () => setMode("home");
   useEffect(() => { window.scrollTo({ top: 0, left: 0, behavior: "instant" }); }, [mode]);
+  // 顔写真診断から離れたらカメラを必ず解放する（撮影後・戻る・別タイルへ遷移のいずれでも）
+  useEffect(() => {
+    if (mode !== "photo") stopPhCamera();
+  }, [mode]);
 
   // ④ 診断結果の保存＆再訪（window.storage / 端末ごと）
   const [soonOpen, setSoonOpen] = useState(false);
@@ -1074,42 +1312,95 @@ export default function App() {
     setStLoading(false);
   };
 
-  const onPhoto = async (e) => {
+  // ── 顔写真で診断（実測方式・外部通信なし）──
+  const stopPhCamera = () => {
+    if (phStreamRef.current) {
+      phStreamRef.current.getTracks().forEach((t) => t.stop());
+      phStreamRef.current = null;
+    }
+    setPhCamReady(false);
+  };
+
+  const startPhCamera = async () => {
+    setPhCamError(null); setPhCamReady(false);
+    try {
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) throw new Error("unavailable");
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: "user", width: { ideal: 720 }, height: { ideal: 960 } },
+        audio: false,
+      });
+      phStreamRef.current = stream;
+      if (phVideoRef.current) {
+        phVideoRef.current.srcObject = stream;
+        await phVideoRef.current.play();
+        setPhCamReady(true);
+      }
+    } catch (e) {
+      setPhCamError(e && e.name === "NotAllowedError" ? "denied" : "unavailable");
+    }
+  };
+
+  // 実測 → 成功時は質問式とまったく同じ結果ページ(quizResult)へ合流させる
+  const runPhotoDiagnose = async (dataUrl, mediaType) => {
+    setPhPreview(dataUrl); setPhReject(null); setPhStep("analyzing");
+    try {
+      const r = await aiPhotoDiagnose(dataUrl.split(",")[1], mediaType || "image/jpeg");
+      if (r.type && TYPES[r.type]) {
+        const fT = TYPES[r.type];
+        const fallback2nd = { spring: "autumn", autumn: "spring", summer: "winter", winter: "summer" };
+        const sKey = r.second && TYPES[r.second] && r.second !== r.type ? r.second : fallback2nd[r.type];
+        const sT = TYPES[sKey];
+        setMyType(r.type); setMySecond(sKey);
+        const clamp = (v) => Math.min(90, Math.max(55, parseInt(v) || 65));
+        const axes = {
+          hue: { pct: clamp(r.hue_pct), label: r.type === "summer" || r.type === "winter" ? "Cool（青み）" : "Warm（黄み）" },
+          value: { pct: clamp(r.value_pct), label: r.type === "spring" || r.type === "summer" ? "Light（明るい）" : "Deep（深い）" },
+          chroma: { pct: clamp(r.chroma_pct), label: r.type === "spring" || r.type === "winter" ? "Clear（クリア）" : "Soft（ソフト）" },
+        };
+        const conf = r.confidence === "high" ? "高" : r.confidence === "medium" ? "中" : "低";
+        setQuizResult({
+          first: r.type, second: sKey,
+          url: RESULT_MAP[`${fT.num}-${sT.num}`] || fT.siteUrl,
+          axes,
+          note: `※お写真の色を実測した結果です（信頼度：${conf}）。${r.reason || ""}`,
+        });
+        setMode("quiz");
+      } else {
+        setPhReject({ title: "解析に失敗しました", body: "明るい場所で撮った写真でもう一度お試しください。" });
+        setPhStep("rejected");
+      }
+    } catch (err) {
+      if (err && err.isPhotoGate) setPhReject({ title: err.title, body: err.body });
+      else setPhReject({ title: "解析に失敗しました", body: "明るい場所で撮った写真でもう一度お試しください。" });
+      setPhStep("rejected");
+    }
+  };
+
+  const phCapture = () => {
+    const video = phVideoRef.current;
+    if (!video) return;
+    const cv = phCanvasRef.current || document.createElement("canvas");
+    cv.width = video.videoWidth; cv.height = video.videoHeight;
+    // 前面カメラは左右反転して見えるが、鏡像のまま解析しても頬の左右判定に影響しないため反転補正は不要
+    cv.getContext("2d").drawImage(video, 0, 0, cv.width, cv.height);
+    const dataUrl = cv.toDataURL("image/jpeg", 0.92);
+    stopPhCamera();
+    runPhotoDiagnose(dataUrl, "image/jpeg");
+  };
+
+  const onPhoto = (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    setPhResult(null); setPhError("");
+    stopPhCamera();
     const reader = new FileReader();
-    reader.onload = async () => {
-      const dataUrl = reader.result;
-      setPhPreview(dataUrl);
-      setPhLoading(true);
-      try {
-        const r = await aiPhotoDiagnose(dataUrl.split(",")[1], file.type || "image/jpeg");
-        if (r.type && TYPES[r.type]) {
-          const fT = TYPES[r.type];
-          const fallback2nd = { spring: "autumn", autumn: "spring", summer: "winter", winter: "summer" };
-          const sKey = r.second && TYPES[r.second] && r.second !== r.type ? r.second : fallback2nd[r.type];
-          const sT = TYPES[sKey];
-          setMyType(r.type); setMySecond(sKey);
-          const clamp = (v) => Math.min(90, Math.max(55, parseInt(v) || 65));
-          const axes = {
-            hue: { pct: clamp(r.hue_pct), label: r.type === "summer" || r.type === "winter" ? "Cool（青み）" : "Warm（黄み）" },
-            value: { pct: clamp(r.value_pct), label: r.type === "spring" || r.type === "summer" ? "Light（明るい）" : "Deep（深い）" },
-            chroma: { pct: clamp(r.chroma_pct), label: r.type === "spring" || r.type === "winter" ? "Clear（クリア）" : "Soft（ソフト）" },
-          };
-          const conf = r.confidence === "high" ? "高" : r.confidence === "medium" ? "中" : "低";
-          setQuizResult({
-            first: r.type, second: sKey,
-            url: RESULT_MAP[`${fT.num}-${sT.num}`] || fT.siteUrl,
-            axes,
-            note: `※お写真の色調からの推定です（信頼度：${conf}）。${r.reason || ""}`,
-          });
-          setMode("quiz");
-        } else { setPhError("解析に失敗しました。明るい場所で撮った写真でもう一度お試しください。"); }
-      } catch (err) { setPhError("解析に失敗しました。明るい場所で撮った写真でもう一度お試しください。"); }
-      setPhLoading(false);
-    };
+    reader.onload = () => runPhotoDiagnose(reader.result, file.type || "image/jpeg");
     reader.readAsDataURL(file);
+  };
+
+  const openPhoto = () => {
+    setPhStep("intro"); setPhChecked({}); setPhDyed(null);
+    setPhReject(null); setPhPreview(null); setPhCamError(null);
+    setMode("photo");
   };
 
   const pairData = pA && pB ? PAIR[pairKey(pA, pB)] : null;
@@ -1197,7 +1488,7 @@ export default function App() {
             </div>
             <div className="grid grid-cols-2 gap-2.5">
               {[
-                { icon: <Camera size={17} />, label: "顔写真で診断", soon: !AI_ENABLED, onClick: () => { if (!AI_ENABLED) { setSoonOpen(true); return; } setPhResult(null); setPhPreview(null); setMode("photo"); } },
+                { icon: <Camera size={17} />, label: "顔写真で診断", soon: !PHOTO_DIAGNOSE_ENABLED, onClick: () => { if (!PHOTO_DIAGNOSE_ENABLED) { setSoonOpen(true); return; } openPhoto(); } },
                 { icon: <Sparkles size={17} />, label: "骨格診断", onClick: startFrame },
               ].map((it, i) => (
                 <button key={i} onClick={it.onClick} className="flex items-center gap-2.5 rounded-2xl px-3.5 py-4 text-left transition-shadow hover:shadow-md" style={{ border: it.soon ? "1px solid #dedede" : "1px solid " + C.line, background: it.soon ? "#f7f7f7" : "white" }}>
@@ -1685,28 +1976,180 @@ export default function App() {
           </div>
         )}
 
-        {/* ═══ PHOTO ═══ */}
+        {/* ═══ PHOTO（白基準補正 + CIELab 実測。外部通信なし） ═══ */}
         {mode === "photo" && (
           <div>
             <Header title="顔写真で診断" onBack={goHome} />
             <div className="px-8 pb-12 pt-3">
-              <p className="text-xs leading-relaxed mb-5" style={{ color: C.sub }}>
-                自然光の下で撮った、正面からの写真がおすすめです。写真はこの診断のためだけに使われ、保存されません。照明の影響を受けるため、結果は「傾向」としてお楽しみください。より正確に知りたい方は12タイプ診断（質問式）をどうぞ。
-              </p>
-              <input ref={fileRef} type="file" accept="image/*" onChange={onPhoto} className="hidden" />
-              <button onClick={() => fileRef.current?.click()} className="w-full rounded-2xl py-10 flex flex-col items-center gap-3 transition-colors" style={{ border: "2px dashed " + C.line, color: C.sub }}>
-                <Upload size={26} style={{ color: C.main }} />
-                <span className="text-sm">写真を選ぶ / 撮影する</span>
-              </button>
-              {phPreview && <img src={phPreview} alt="preview" className="mt-5 w-28 h-28 object-cover rounded-2xl mx-auto" style={{ border: "1px solid " + C.line }} />}
-              {phLoading && (
-                <div className="text-center mt-6">
+
+              {/* ── STEP: intro（撮影条件チェック + 染髪確認） ── */}
+              {phStep === "intro" && (
+                <>
+                  <p className="text-xs leading-relaxed mb-5" style={{ color: C.sub }}>
+                    写真の色は照明で大きく変わります。この診断では<strong style={{ color: C.ink }}>白い紙を一緒に写して照明のズレを補正</strong>し、肌と髪の色を実測します。条件を満たさない写真は判定せずにお返しします。写真は端末の中だけで処理され、送信も保存もされません。
+                  </p>
+
+                  <div className="text-xs mb-1" style={{ color: C.faint }}>撮影条件（すべて必要です）</div>
+                  {PHOTO_CONDITIONS.map((c) => (
+                    <label key={c.id} style={{ display: "flex", gap: 12, padding: "13px 0", borderBottom: `1px solid ${C.line}`, cursor: "pointer", alignItems: "flex-start" }}>
+                      <input type="checkbox" checked={!!phChecked[c.id]} onChange={() => setPhChecked((st) => ({ ...st, [c.id]: !st[c.id] }))} style={{ marginTop: 3, width: 17, height: 17, accentColor: C.main, flexShrink: 0 }} />
+                      <span>
+                        <span style={{ display: "block", fontSize: 13.5, lineHeight: 1.5, color: C.ink }}>{c.label}</span>
+                        <span style={{ display: "block", fontSize: 11, color: C.sub, marginTop: 3 }}>{c.why}</span>
+                      </span>
+                    </label>
+                  ))}
+
+                  {/* 染髪の確認（清濁軸の測り方が変わる） */}
+                  <div className="mt-5">
+                    <div className="text-sm mb-2.5" style={{ color: C.ink }}>髪を染めていますか？（明るめのカラーやブリーチ）</div>
+                    <div style={{ display: "flex", gap: 8 }}>
+                      {[["yes", "染めている"], ["no", "地毛に近い"]].map(([v, l]) => (
+                        <button key={v} onClick={() => setPhDyed(v === "yes")}
+                          style={{ flex: 1, padding: "11px 0", fontSize: 13, cursor: "pointer", borderRadius: 999,
+                            border: `1px solid ${phDyed === (v === "yes") ? C.main : C.line}`,
+                            background: phDyed === (v === "yes") ? C.main : "#fff",
+                            color: phDyed === (v === "yes") ? "#fff" : C.ink }}>{l}</button>
+                      ))}
+                    </div>
+                    <div className="text-[11px] mt-1.5" style={{ color: C.faint }}>染めている場合、髪の色は判定に使わず肌の彩度で清濁を測ります</div>
+                  </div>
+
+                  <button onClick={() => { setPhotoHairDyed(phDyed === true); setPhStep("guide"); }} disabled={!phAllChecked || phDyed === null}
+                    style={{ width: "100%", marginTop: 22, padding: 16, borderRadius: 999, border: "none",
+                      background: (phAllChecked && phDyed !== null) ? C.main : "#d6d3ce", color: "#fff", fontSize: 14, letterSpacing: "0.06em",
+                      cursor: (phAllChecked && phDyed !== null) ? "pointer" : "not-allowed" }}>
+                    {(phAllChecked && phDyed !== null) ? "撮影にすすむ" : "すべての項目に答えてください"}
+                  </button>
+                </>
+              )}
+
+              {/* ── STEP: guide（ライブカメラ + リアルタイムガイド） ── */}
+              {phStep === "guide" && (
+                <>
+                  {!phCamReady && !phCamError && (
+                    <div className="text-center py-2">
+                      <p className="text-xs leading-relaxed mb-5" style={{ color: C.sub }}>
+                        カメラを起動します。顔を楕円に、白い紙を下の枠に合わせてから撮影してください。
+                      </p>
+                      <button onClick={startPhCamera} style={{ width: "100%", padding: 16, borderRadius: 999, border: "none", background: C.main, color: "#fff", fontSize: 14, letterSpacing: "0.06em", cursor: "pointer" }}>
+                        カメラを起動する
+                      </button>
+                      <div className="text-[11px] mt-2.5" style={{ color: C.faint }}>ブラウザからカメラの使用許可を聞かれたら「許可」を選んでください</div>
+                    </div>
+                  )}
+
+                  {phCamError && (
+                    <div className="text-center py-2">
+                      <p className="text-xs leading-relaxed mb-3.5" style={{ color: "#c2410c" }}>
+                        {phCamError === "denied"
+                          ? "カメラの使用が許可されていません。ブラウザの設定でこのサイトのカメラ利用を許可してから、もう一度お試しください。"
+                          : "カメラを起動できませんでした。かわりに、標準カメラで撮った写真を選んでください。"}
+                      </p>
+                      <button onClick={() => fileRef.current?.click()} style={{ width: "100%", padding: 16, borderRadius: 999, border: "none", background: C.main, color: "#fff", fontSize: 14, cursor: "pointer" }}>
+                        写真を選ぶ
+                      </button>
+                      <button onClick={startPhCamera} className="w-full mt-2.5 py-3 text-xs" style={{ color: C.sub }}>カメラをもう一度試す</button>
+                    </div>
+                  )}
+
+                  {/* 外側パネル: 下端に黒帯(96px)を作り、シャッターをそこへ置く。
+                      映像に重ねるとシャッターが白紙ガイド＝測定範囲(0.76〜0.92)を覆ってしまうため。
+                      ガイドとサンプリング座標は動かさない。 */}
+                  <div style={{ position: "relative", display: phCamReady ? "block" : "none", background: "#000", borderRadius: 16, overflow: "hidden", paddingBottom: 96 }}>
+                    {/* 内側ラッパ: オーバーレイSVGを映像と同じ高さに閉じ込める(黒帯まで伸ばさない) */}
+                    <div style={{ position: "relative" }}>
+                    <video ref={phVideoRef} playsInline muted style={{ width: "100%", display: "block", transform: "scaleX(-1)" }} />
+                    {/* リアルタイムガイド（サンプリング座標 PH_REGION と一致・丸型 + グラデーション） */}
+                    <svg viewBox="0 0 300 400" style={{ position: "absolute", inset: 0, width: "100%", height: "100%", pointerEvents: "none" }}>
+                      <defs>
+                        <linearGradient id="gFace" x1="0%" y1="0%" x2="100%" y2="100%">
+                          <stop offset="0%" stopColor="#F5F0FF" stopOpacity="0.95" />
+                          <stop offset="100%" stopColor="#FFE8F0" stopOpacity="0.95" />
+                        </linearGradient>
+                        <linearGradient id="gCheek" x1="0%" y1="0%" x2="100%" y2="100%">
+                          <stop offset="0%" stopColor="#FFB88C" />
+                          <stop offset="100%" stopColor="#FF7E5F" />
+                        </linearGradient>
+                        <linearGradient id="gHair" x1="0%" y1="0%" x2="100%" y2="100%">
+                          <stop offset="0%" stopColor="#8EC5FC" />
+                          <stop offset="100%" stopColor="#4F8FE8" />
+                        </linearGradient>
+                        <linearGradient id="gPaper" x1="0%" y1="0%" x2="100%" y2="100%">
+                          <stop offset="0%" stopColor="#A8F0C6" />
+                          <stop offset="100%" stopColor="#4ADE80" />
+                        </linearGradient>
+                      </defs>
+                      {/* 顔: 淡紫〜ピンクの点線楕円 */}
+                      <ellipse cx="150" cy="175" rx="82" ry="108" fill="none" stroke="url(#gFace)" strokeWidth="3" strokeDasharray="2 10" strokeLinecap="round" opacity="0.95" />
+                      {/* 頬: オレンジ〜コーラルの円（0.24-0.36 / 0.64-0.76, 0.46-0.58 の中心） */}
+                      <circle cx="93" cy="209" r="21" fill="none" stroke="url(#gCheek)" strokeWidth="3" strokeLinecap="round" />
+                      <circle cx="207" cy="209" r="21" fill="none" stroke="url(#gCheek)" strokeWidth="3" strokeLinecap="round" />
+                      <text x="93" y="248" fontSize="10" fill="#FF9569" textAnchor="middle" fontWeight="bold" style={{ filter: "drop-shadow(0 1px 2px rgba(0,0,0,.5))" }}>頬</text>
+                      <text x="207" y="248" fontSize="10" fill="#FF9569" textAnchor="middle" fontWeight="bold" style={{ filter: "drop-shadow(0 1px 2px rgba(0,0,0,.5))" }}>頬</text>
+                      {/* 髪: 水色〜青の円（0.40-0.60, 0.06-0.16 の中心） */}
+                      <circle cx="150" cy="51" r="26" fill="none" stroke="url(#gHair)" strokeWidth="3" strokeLinecap="round" />
+                      <text x="150" y="20" fontSize="10" fill="#6FA8F5" textAnchor="middle" fontWeight="bold" style={{ filter: "drop-shadow(0 1px 2px rgba(0,0,0,.5))" }}>髪</text>
+                      {/* 白紙: 黄緑〜緑の角丸楕円（0.34-0.66, 0.76-0.92 を包む） */}
+                      <ellipse cx="150" cy="339" rx="52" ry="33" fill="none" stroke="url(#gPaper)" strokeWidth="3" strokeLinecap="round" />
+                      <text x="150" y="387" fontSize="10" fill="#5EE897" textAnchor="middle" fontWeight="bold" style={{ filter: "drop-shadow(0 1px 2px rgba(0,0,0,.5))" }}>白い紙をここに</text>
+                    </svg>
+                    <div style={{ position: "absolute", top: 10, left: 0, right: 0, textAlign: "center", fontSize: 11, color: "#fff", textShadow: "0 1px 3px rgba(0,0,0,.8)" }}>
+                      枠に合わせて、正面から自然光の方を向いてください
+                    </div>
+                    </div>
+                    {/* 撮影ボタン: パネル下端18px・中央固定（黒帯の中＝ガイドに被らない位置） */}
+                    {phCamReady && (
+                      <button onClick={phCapture} aria-label="撮影する"
+                        style={{ position: "absolute", bottom: 18, left: "50%", transform: "translateX(-50%)",
+                          width: 68, height: 68, borderRadius: "50%", border: "4px solid #fff",
+                          background: "radial-gradient(circle at 35% 30%, #fff, #E8E4DE)",
+                          boxShadow: "0 4px 16px rgba(0,0,0,.4)", cursor: "pointer" }}>
+                        <span style={{ display: "block", width: 50, height: 50, margin: "0 auto", borderRadius: "50%", background: "#1B1F2A" }} />
+                      </button>
+                    )}
+                  </div>
+
+                  {phCamReady && (
+                    <button onClick={() => { stopPhCamera(); fileRef.current?.click(); }} className="w-full mt-2.5 py-2.5 text-xs" style={{ color: C.sub }}>かわりに写真を選ぶ</button>
+                  )}
+                  <input ref={fileRef} type="file" accept="image/*" onChange={onPhoto} style={{ display: "none" }} />
+                  <button onClick={() => { stopPhCamera(); setPhStep("intro"); }} className="w-full mt-2 py-3 text-xs" style={{ color: C.faint }}>条件を見直す</button>
+                  <canvas ref={phCanvasRef} style={{ display: "none" }} />
+                </>
+              )}
+
+              {/* ── STEP: analyzing ── */}
+              {phStep === "analyzing" && (
+                <div className="text-center py-14">
+                  {phPreview && <img src={phPreview} alt="" style={{ width: 110, height: 110, objectFit: "cover", borderRadius: "50%", margin: "0 auto 22px", filter: "grayscale(.4)" }} />}
                   <div className="inline-block w-8 h-8 rounded-full border-2 border-t-transparent animate-spin mb-3" style={{ borderColor: "#c3b4c4", borderTopColor: "transparent" }} />
-                  <p className="text-sm" style={{ color: C.sub }}>色調を解析しています…</p>
+                  <p className="text-sm" style={{ color: C.ink }}>色を測っています</p>
+                  <p className="text-xs mt-1.5" style={{ color: C.sub }}>白い紙で照明を補正しています…</p>
                 </div>
               )}
-              {phError && <p className="text-xs mt-4 text-center" style={{ color: "#c0392b" }}>{phError}</p>}
-              {null}
+
+              {/* ── STEP: rejected（品質ゲート却下 → 撮り直し導線） ── */}
+              {phStep === "rejected" && phReject && (
+                <div>
+                  <div style={{ borderLeft: "3px solid #c2410c", paddingLeft: 16, marginBottom: 20 }}>
+                    <div className="font-serif text-lg mb-2" style={{ color: C.ink }}>{phReject.title}</div>
+                    <p className="text-xs leading-relaxed" style={{ color: C.sub }}>{phReject.body}</p>
+                  </div>
+                  <p className="text-[11px] leading-relaxed mb-5" style={{ color: C.faint }}>
+                    正しく測れない写真で結果をお出しすることはしていません。条件を整えると精度が上がります。
+                  </p>
+                  <button onClick={() => { setPhReject(null); setPhStep("guide"); }}
+                    style={{ width: "100%", padding: 16, borderRadius: 999, border: "none", background: C.main, color: "#fff", fontSize: 14, cursor: "pointer" }}>
+                    撮り直す
+                  </button>
+                  <button onClick={() => { setPhReject(null); setPhChecked({}); setPhDyed(null); setPhStep("intro"); }}
+                    className="block w-full text-center px-6 py-3 rounded-full text-sm mt-2.5" style={{ border: "1px solid " + C.line, color: C.sub }}>
+                    条件を見直す
+                  </button>
+                </div>
+              )}
+
             </div>
           </div>
         )}
