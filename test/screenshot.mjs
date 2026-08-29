@@ -4,6 +4,9 @@
 // v1.4.0 (colorlab v23 / ngpolice v2) で確認する要点:
 //   - ホームの AI機能2つ（コーデ提案 / コーデ採点）が「グレートーン」+「近日公開」バッジ
 //   - 「顔写真で診断」は実測方式(白基準補正+CIELab)で解禁済み → 近日公開にならない
+//   - 「コーデ提案」はシーン別記事22本のデータ参照方式で解禁済み → 近日公開にならない
+//   - 「今日のコーデ採点」は色照合方式(CIELabのΔE)で解禁済み → 近日公開にならない
+//   - v1.8.0 で3機能とも解禁されたため、ホームに「近日公開」バッジは1つも無い
 //   - 近日公開モーダルがグローバル化（ホーム/結果ページの両方から開く）
 //   - 12タイプ結果ページ: 苦手色ブロックが1箇所に統合 / 勝ち色10選 / コスメ
 //   - コスメ一覧ページ: 上部の「似合うカラー」パレット
@@ -82,6 +85,23 @@ const PHOTO_OK = regionPng(600, 800, [190, 190, 195], [
   [0.64, 0.46, 0.76, 0.58, [233, 194, 168]],
   [0.34, 0.76, 0.66, 0.92, [235, 232, 228]],
 ]);
+// コーデ採点のサンプリング領域(SC_REGION)に合わせたフィクスチャ（判定対象はイエベ春）
+// 得意色: トップス=コーラルピンク #F4A582 / ボトムス=キャメル #C89B5A
+const SCORE_GOOD = regionPng(600, 800, [216, 216, 220], [
+  [0.34, 0.30, 0.66, 0.50, [244, 165, 130]],
+  [0.36, 0.60, 0.64, 0.80, [200, 155, 90]],
+]);
+// NG色: トップス=真っ黒 #141414 / ボトムス=グレー #8C8C93
+const SCORE_NG = regionPng(600, 800, [216, 216, 220], [
+  [0.34, 0.30, 0.66, 0.50, [20, 20, 20]],
+  [0.36, 0.60, 0.64, 0.80, [140, 140, 147]],
+]);
+// 全体が暗すぎる → 品質ゲートで却下されるべき写真
+const SCORE_DARK = regionPng(600, 800, [16, 16, 18], [
+  [0.34, 0.30, 0.66, 0.50, [26, 24, 24]],
+  [0.36, 0.60, 0.64, 0.80, [22, 22, 26]],
+]);
+
 // 白紙が暗すぎる（wMax < 120）→ 品質ゲートで却下されるべき写真
 const PHOTO_DARK = regionPng(600, 800, [30, 28, 26], [
   [0.24, 0.46, 0.36, 0.58, [70, 58, 50]],
@@ -137,18 +157,39 @@ try {
   await page.waitForSelector("#ngpolice-root button", { timeout: 15000 });
   const homeText = await page.locator("#colorlab-root").innerText();
   check("両アプリがマウントされ日本語が表示された", /診断/.test(homeText));
-  check("ホームの「近日公開」バッジが2個（コーデ提案 / コーデ採点のみ）", countOf(homeText, "近日公開") === 2);
-  check("「顔写真で診断」に「近日公開」が付いていない", !/顔写真で診断\s*近日公開/.test(homeText));
-  await shotEl("#colorlab-root", "01_home_gray_ai_buttons.png");
+  check("ホームに「近日公開」バッジが1つも無い（3機能とも解禁済み）", countOf(homeText, "近日公開") === 0);
+  await shotEl("#colorlab-root", "01_home.png");
 
-  // ── 2. 近日公開モーダル（グローバル化・「AI」の文字が無いこと） ──
-  await page.getByRole("button", { name: /今日のコーデ採点/ }).click();
-  await modal().waitFor({ timeout: 5000 });
-  const modalText = await page.locator("#colorlab-root div.fixed").first().innerText();
-  check("モーダルに「新機能は、近日公開！」がある", /新機能は、近日公開/.test(modalText));
-  check("モーダル本文に「AI」の文字が無い", !/AI/i.test(modalText));
-  await shotView("02_home_soon_modal.png");
-  await page.getByRole("button", { name: /^閉じる$/ }).click();
+  // ── 2. 旧「近日公開」だった3機能が、すべて実画面へ進むこと ──
+  const setProfile = async (v) => {
+    await page.evaluate((val) => {
+      try { val ? localStorage.setItem("colorlab-profile", val) : localStorage.removeItem("colorlab-profile"); } catch (e) {}
+    }, v);
+  };
+  for (const [label, marker] of [
+    ["今日のコーデ採点", "服の色とタイプの相性"],
+    ["顔写真で診断", "撮影条件（すべて必要です）"],
+    ["パーソナルカラー別コーデ提案", "今日のシーン"],
+  ]) {
+    await page.goto(ART, { waitUntil: "networkidle" });
+    // タイプ未診断だとタイプ選択が先に出る画面があるため、この節だけ一時的に診断済みにする
+    await setProfile(JSON.stringify({ myType: "spring", mySecond: "autumn", myFrame: null }));
+    await page.reload({ waitUntil: "networkidle" });
+    await page.waitForSelector("#colorlab-root button", { timeout: 10000 });
+    await cl().getByRole("button", { name: new RegExp(label) }).first().click();
+    const ok = await page.locator(`#colorlab-root >> text=${marker}`).first().isVisible({ timeout: 5000 }).catch(() => false);
+    check(`「${label}」が近日公開モーダルを出さず実画面へ進む`, ok && (await modal().count()) === 0);
+  }
+  await page.goto(ART, { waitUntil: "networkidle" });
+  await setProfile(null); // 次の12タイプ診断を素通りさせないため必ず消す
+  await page.reload({ waitUntil: "networkidle" });
+  await page.waitForSelector("#colorlab-root button", { timeout: 10000 });
+  // アプリはマウント時に {myType:null,...} を書き戻すため、キーの有無ではなく myType を見る
+  const cleared = await page.evaluate(() => {
+    try { return JSON.parse(localStorage.getItem("colorlab-profile") || "{}").myType || null; } catch (e) { return "err"; }
+  });
+  check("次の12タイプ診断のため保存タイプがクリアされている", cleared === null);
+  await shotEl("#colorlab-root", "02_home_all_enabled.png");
 
   // ── 3. 12タイプ診断 → 結果ページ（苦手色1箇所 + 勝ち色10選 + コスメ） ──
   await page.getByRole("button", { name: /パーソナルカラー診断（12タイプ）/ }).click();
@@ -162,13 +203,7 @@ try {
   check("結果ページに「仕上げのコスメはコレ！」がある", /仕上げのコスメはコレ/.test(resText));
   await shotEl("#colorlab-root", "03_quiz_result_ng1_and_cosme.png");
 
-  // ── 3b. 結果ページCTA → 近日公開モーダル（原本のゲート・グローバルモーダル） ──
-  await page.getByRole("button", { name: /このタイプで「今日なに着る？」/ }).click();
-  await modal().waitFor({ timeout: 5000 });
-  check("結果ページCTA → 近日公開モーダルが開く（グローバル化の確認）", await modal().isVisible());
-  await page.getByRole("button", { name: /^閉じる$/ }).click();
-
-  // ── 3c. シェア画像PNG（canvas → download） ──
+  // ── 3b. シェア画像PNG（canvas → download） ──
   const [download] = await Promise.all([
     page.waitForEvent("download", { timeout: 15000 }),
     page.getByRole("button", { name: /結果を画像で保存|保存・シェア|画像/ }).first().click(),
@@ -181,8 +216,14 @@ try {
   check("シェア画像PNGが生成された (" + shareSize.toLocaleString() + " bytes)", shareSize > 10000);
   log("  SS: 06_share_image.png (ダウンロード実物)");
 
+  // ── 3c. 結果ページCTA → コーデ提案へ遷移（解禁済みなので近日公開モーダルは出ない） ──
+  await page.getByRole("button", { name: /このタイプで「今日なに着る？」/ }).click();
+  await page.waitForSelector("#colorlab-root >> text=今日のシーン", { timeout: 5000 });
+  check("結果ページCTA → コーデ提案へ遷移する（近日公開モーダルが出ない）", (await modal().count()) === 0);
+
   // ── 4. コスメ一覧ページ: 上部の「似合うカラー」パレット ──
-  await cl().getByRole("button", { name: /メニューへ戻る/ }).first().click();
+  await page.goto(ART, { waitUntil: "networkidle" });
+  await page.waitForSelector("#colorlab-root button", { timeout: 10000 });
   await page.getByRole("button", { name: /おすすめコスメ/ }).click();
   await page.waitForSelector("#colorlab-root >> text=に似合うコスメはコレ", { timeout: 5000 });
   const cosmeText = await page.locator("#colorlab-root").innerText();
@@ -359,6 +400,159 @@ try {
     check("撮影後にカメラのトラックが解放されている", tracks === 0);
   } finally {
     await camBrowser.close();
+  }
+
+  // ── 6d. コーデ提案（シーン別記事のデータ参照方式・外部通信なし）──
+  await page.goto(ART, { waitUntil: "networkidle" });
+  await page.evaluate(() => { try { localStorage.removeItem("colorlab-profile"); } catch (e) {} });
+  await page.reload({ waitUntil: "networkidle" });
+  await page.waitForSelector("#colorlab-root button", { timeout: 10000 });
+  await cl().getByRole("button", { name: /パーソナルカラー別コーデ提案/ }).click();
+  await page.waitForSelector("#colorlab-root >> text=あなたのタイプは？", { timeout: 5000 });
+  check("コーデ提案タイル → 近日公開モーダルが出ず入力画面へ進む", (await modal().count()) === 0);
+  await cl().getByRole("button", { name: /イエベ春/ }).first().click();
+  await page.waitForSelector("#colorlab-root >> text=今日のシーン", { timeout: 5000 });
+
+  // 結果ブロックから title / styling / makeup_hint / SKU を読む
+  const readStylist = async () => {
+    const title = (await cl().locator("h3.text-2xl").last().innerText()).trim();
+    const styling = (await cl().locator("p.leading-relaxed.text-sm").first().innerText()).trim();
+    const makeup = (await cl().locator("p.mt-3.pt-3").count()) ? (await cl().locator("p.mt-3.pt-3").first().innerText()).replace(/^💄\s*/, "").trim() : "";
+    const skus = await cl().locator('a[href*="/items/"]').count();
+    return { title, styling, makeup, skus };
+  };
+  const runScene = async (label, setup) => {
+    await setup();
+    await cl().getByRole("button", { name: /にコーデを提案してもらう/ }).click();
+    await page.waitForSelector("#colorlab-root >> text=Today's Styling", { timeout: 10000 });
+    await page.waitForTimeout(250);
+    const r = await readStylist();
+    log(`  [${label}] title="${r.title}" (${r.title.length}字) / styling ${r.styling.length}字 / makeup ${r.makeup.length}字 / SKU ${r.skus}件`);
+    check(`${label}: title が15字以内 (${r.title.length}字)`, r.title.length > 0 && r.title.length <= 15);
+    check(`${label}: styling が180字以内 (${r.styling.length}字)`, r.styling.length > 20 && r.styling.length <= 180);
+    check(`${label}: makeup_hint が40字以内 (${r.makeup.length}字)`, r.makeup.length > 0 && r.makeup.length <= 40);
+    check(`${label}: 在庫に実在するSKUカードが2〜3点 (${r.skus}件)`, r.skus >= 2 && r.skus <= 3);
+    return r;
+  };
+
+  // (a) 就活（シーン=通勤 + 気分「面接」）
+  const rJob = await runScene("就活", async () => {
+    await cl().getByRole("button", { name: /^通勤$/ }).click();
+    await cl().locator('input[placeholder*="きちんと見せたい"]').fill("面接");
+  });
+  check("就活: 記事(就活)の内容が反映されている", /面接|襟元|スーツ|第一印象/.test(rJob.styling));
+  await shotEl("#colorlab-root", "15_stylist_jobhunt.png");
+
+  // (b) デート（シーン=デート + ディナー）
+  const rDate = await runScene("デート", async () => {
+    await cl().getByRole("button", { name: /^デート$/ }).click();
+    await cl().getByRole("button", { name: /^ディナー$/ }).click();
+    await cl().locator('input[placeholder*="きちんと見せたい"]').fill("");
+  });
+  check("デート: 記事(夜ディナー)の内容が反映されている", /ディナー|照明|夜|艶/.test(rDate.styling));
+  check("デート: 就活と別の提案になっている", rDate.styling !== rJob.styling);
+  await shotEl("#colorlab-root", "16_stylist_date_dinner.png");
+
+  // (c) 婚活（気分「婚活」で上書き）
+  const rKon = await runScene("婚活", async () => {
+    await cl().locator('input[placeholder*="きちんと見せたい"]').fill("婚活");
+  });
+  check("婚活: 記事(お見合い・初対面)の内容が反映されている", /見合い|初対面|信頼|安心|誠実|清潔/.test(rKon.styling));
+  check("婚活: デートと別の提案になっている", rKon.styling !== rDate.styling);
+  await shotEl("#colorlab-root", "17_stylist_konkatsu.png");
+
+  // 同じ入力なら同じ結果（決定論であること＝AI生成でないことの確認）
+  const rKon2 = await runScene("婚活(再実行)", async () => {});
+  check("同じ入力なら毎回同じ提案になる（決定論）", rKon2.styling === rKon.styling && rKon2.title === rKon.title);
+
+  // ── 6e. 今日のコーデ採点（色照合方式・外部通信なし）──
+  await page.goto(ART, { waitUntil: "networkidle" });
+  await page.evaluate(() => {
+    try { localStorage.setItem("colorlab-profile", JSON.stringify({ myType: "spring", mySecond: "autumn", myFrame: null })); } catch (e) {}
+  });
+  await page.reload({ waitUntil: "networkidle" });
+  await page.waitForSelector("#colorlab-root button", { timeout: 10000 });
+  await cl().getByRole("button", { name: /今日のコーデ採点/ }).click();
+  await page.waitForSelector("#colorlab-root >> text=服の色とタイプの相性", { timeout: 5000 });
+  check("採点タイル → 近日公開モーダルが出ず案内画面へ進む", (await modal().count()) === 0);
+  const introText = await cl().innerText();
+  check("案内画面に「シルエット・素材感は採点に含まれない」旨がある", /シルエット・素材感.*採点に含まれません/.test(introText));
+  await shotEl("#colorlab-root", "18_score_intro.png");
+
+  const readScore = async () => {
+    const t = await cl().innerText();
+    const m = t.match(/(\d+)\s*\/\s*100/);
+    const good = (await cl().locator("p.text-xs.leading-relaxed").nth(0).innerText()).trim();
+    return { score: m ? parseInt(m[1], 10) : null, text: t, good };
+  };
+  const scoreShot = async (buf, name) => {
+    await cl().locator('input[type=file]').first().setInputFiles({ name, mimeType: "image/png", buffer: buf });
+    await page.waitForSelector("#colorlab-root >> text=/\\/ 100|撮り直す/", { timeout: 15000 });
+    await page.waitForTimeout(250);
+    return readScore();
+  };
+
+  // (a) 明確に得意色のコーデ
+  const rGood = await scoreShot(SCORE_GOOD, "good.png");
+  log(`  [採点/得意色] score=${rGood.score}`);
+  check(`得意色のコーデでスコアが高い (${rGood.score}点)`, rGood.score !== null && rGood.score >= 80);
+  check("得意色: good に得意色である旨が出る", /得意色|勝ち色/.test(rGood.text));
+  check("結果画面に限界の注記がある", /服の色とタイプの相性のみを判定しています（シルエット・素材感は含みません）/.test(rGood.text));
+  await shotEl("#colorlab-root", "19_score_good.png");
+  await cl().getByRole("button", { name: /別のコーデを採点する/ }).click();
+
+  // (b) 明確にNG色のコーデ
+  await page.waitForSelector("#colorlab-root >> text=服の色とタイプの相性", { timeout: 5000 });
+  const rNg = await scoreShot(SCORE_NG, "ng.png");
+  log(`  [採点/NG色] score=${rNg.score}`);
+  check(`NG色のコーデでスコアが下がる (${rNg.score}点)`, rNg.score !== null && rNg.score <= 25);
+  check("NG色: improve にNG色名(真っ黒)と理由が出る", /真っ黒/.test(rNg.text) && /苦手な色/.test(rNg.text));
+  check("NG色: one_item に置換色(キャメル)が出る", /キャメル/.test(rNg.text));
+  check("得意色コーデより低いスコアになっている", rNg.score < rGood.score);
+  await shotEl("#colorlab-root", "20_score_ng.png");
+  await cl().getByRole("button", { name: /別のコーデを採点する/ }).click();
+
+  // (c) 品質ゲート（暗すぎ）
+  await page.waitForSelector("#colorlab-root >> text=服の色とタイプの相性", { timeout: 5000 });
+  await cl().locator('input[type=file]').first().setInputFiles({ name: "dark.png", mimeType: "image/png", buffer: SCORE_DARK });
+  await page.waitForSelector("#colorlab-root >> text=写真が暗すぎます", { timeout: 15000 });
+  const scRejText = await cl().innerText();
+  check("品質ゲート: 暗すぎる写真が却下される", /写真が暗すぎます/.test(scRejText));
+  check("却下画面に撮り直し導線がある", /撮り直す/.test(scRejText) && /最初から/.test(scRejText));
+  await shotEl("#colorlab-root", "21_score_rejected_dark.png");
+
+  // (d) 撮影ガイド（フェイクカメラで実描画・枠とサンプリング座標の一致を確認）
+  const scBrowser = await chromium.launch({ args: ["--use-fake-ui-for-media-stream", "--use-fake-device-for-media-stream"] });
+  try {
+    const c2 = await scBrowser.newContext({ viewport: { width: 375, height: 812 }, deviceScaleFactor: 2, permissions: ["camera"] });
+    const p2 = await c2.newPage();
+    p2.on("request", (r) => { if (/anthropic\.com/.test(r.url())) aiCalls.push(r.url()); });
+    await p2.goto(ART, { waitUntil: "networkidle" });
+    await p2.evaluate(() => { try { localStorage.setItem("colorlab-profile", JSON.stringify({ myType: "spring", mySecond: "autumn", myFrame: null })); } catch (e) {} });
+    await p2.reload({ waitUntil: "networkidle" });
+    await p2.waitForSelector("#colorlab-root button", { timeout: 15000 });
+    await p2.locator("#colorlab-root").getByRole("button", { name: /今日のコーデ採点/ }).click();
+    await p2.getByRole("button", { name: /カメラで撮る/ }).click();
+    await p2.getByRole("button", { name: /カメラを起動する/ }).click();
+    await p2.waitForSelector("#colorlab-root video", { state: "visible", timeout: 15000 });
+    await p2.waitForTimeout(800);
+    const boxOf = async (sel) => p2.locator(sel).evaluate((el) => { const b = el.getBoundingClientRect(); return { x: b.x, y: b.y, right: b.right, bottom: b.bottom }; });
+    const vb2 = await p2.locator("#colorlab-root video").boundingBox();
+    const topsBox = await boxOf('#colorlab-root svg rect[stroke="url(#gTops)"]');
+    const botsBox = await boxOf('#colorlab-root svg rect[stroke="url(#gBottoms)"]');
+    const sh2 = await p2.locator('#colorlab-root button[aria-label="撮影する"]').boundingBox();
+    const mid = (a, b) => (a + b) / 2;
+    const dTops = Math.abs(mid(topsBox.y, topsBox.bottom) - (vb2.y + 0.40 * vb2.height));
+    const dBots = Math.abs(mid(botsBox.y, botsBox.bottom) - (vb2.y + 0.70 * vb2.height));
+    check(`トップス枠が SC_REGION(0.30〜0.50) と一致 (中心Yズレ${dTops.toFixed(1)}px)`, dTops < 5);
+    check(`ボトムス枠が SC_REGION(0.60〜0.80) と一致 (中心Yズレ${dBots.toFixed(1)}px)`, dBots < 5);
+    check("撮影ボタンがガイド枠に重なっていない", sh2.y >= botsBox.bottom);
+    await p2.locator("#colorlab-root").screenshot({ path: join(SHOTS, "22_score_camera_guide.png") });
+    log("  SS: 22_score_camera_guide.png");
+    const tr = await p2.evaluate(() => document.querySelector("#colorlab-root video")?.srcObject?.getTracks?.().length ?? 0);
+    check("採点のカメラが起動している（撮影ガイドが実映像に重なる）", tr > 0);
+  } finally {
+    await scBrowser.close();
   }
 
   // ── 7. Liteモードの実測 ──
