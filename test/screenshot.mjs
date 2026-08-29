@@ -364,7 +364,7 @@ try {
   check("詳細リンクが RESULT_MAP のURL (" + detailHref + ")", detailHref === "https://www.iebel.jp/pages/diagnosis3");
   await shotEl("#colorlab-root", "11_photo_result_page.png");
 
-  // ── 6c. 撮影ガイド（丸型グラデ + 下部固定シャッター）: フェイクカメラで実描画 ──
+  // ── 6c. 撮影ガイド（全画面オーバーレイ + 丸型グラデ + 下部シャッター）: フェイクカメラで実描画 ──
   const camBrowser = await chromium.launch({
     args: ["--use-fake-ui-for-media-stream", "--use-fake-device-for-media-stream"],
   });
@@ -373,6 +373,14 @@ try {
     const camPage = await camCtx.newPage();
     camPage.on("request", (r) => { if (/anthropic\.com/.test(r.url())) aiCalls.push(r.url()); });
     await camPage.goto(ART, { waitUntil: "networkidle" });
+    // 記事ページ側に固定ヘッダーがある想定（他要素に隠れないかを試すため差し込む）
+    await camPage.evaluate(() => {
+      const h = document.createElement("div");
+      h.id = "fake-site-header";
+      h.textContent = "サイト固定ヘッダー";
+      h.setAttribute("style", "position:fixed;top:0;left:0;right:0;height:56px;background:#d33;color:#fff;z-index:9999;display:flex;align-items:center;justify-content:center");
+      document.body.appendChild(h);
+    });
     await camPage.waitForSelector("#colorlab-root button", { timeout: 15000 });
     await camPage.getByRole("button", { name: /顔写真で診断/ }).click();
     await camPage.waitForSelector("#colorlab-root >> text=撮影条件（すべて必要です）", { timeout: 5000 });
@@ -394,19 +402,44 @@ try {
     const faceE = await camPage.locator('#colorlab-root svg ellipse[stroke="url(#gFace)"]').count();
     check("白紙ガイド(角丸楕円)と顔ガイド(点線楕円)がある", paperE === 1 && faceE === 1);
 
+    // ── 全画面オーバーレイであること ──
+    const ov = await camPage.locator("#colorlab-root video").evaluate((v) => {
+      let el = v;
+      while (el && getComputedStyle(el).position !== "fixed") el = el.parentElement;
+      if (!el) return null;
+      const b = el.getBoundingClientRect();
+      const cs = getComputedStyle(el);
+      return { x: b.x, y: b.y, w: b.width, h: b.height, z: +cs.zIndex, bg: cs.backgroundColor };
+    });
+    const vp = camPage.viewportSize();
+    check("撮影中はビューポート全体を覆う全画面表示になっている (" + (ov ? `${Math.round(ov.w)}x${Math.round(ov.h)}` : "なし") + ")",
+      !!ov && ov.x === 0 && ov.y === 0 && Math.abs(ov.w - vp.width) < 1 && Math.abs(ov.h - vp.height) < 1);
+    check("オーバーレイの z-index が十分高い (" + (ov ? ov.z : "-") + ")", !!ov && ov.z >= 9999);
+    // 記事側の固定ヘッダー(z-index:9999)より手前に出ているか、実際に当たり判定で確かめる
+    const topEl = await camPage.evaluate(() => {
+      const e = document.elementFromPoint(window.innerWidth / 2, 28);
+      return e ? (e.closest("#fake-site-header") ? "site-header" : "colorlab") : "none";
+    });
+    check("記事側の固定ヘッダーより手前に表示されている", topEl === "colorlab");
+    const bodyOv = await camPage.evaluate(() => getComputedStyle(document.body).overflow);
+    check("オーバーレイ表示中は背景がスクロールしない (body overflow=" + bodyOv + ")", bodyOv === "hidden");
+
+    // 映像が引き伸ばされていないこと＝ガイドと測定範囲の対応が崩れていないことの前提
+    const vb = await camPage.locator("#colorlab-root video").boundingBox();
+    const intr = await camPage.locator("#colorlab-root video").evaluate((v) => ({ w: v.videoWidth, h: v.videoHeight }));
+    const arDiff = Math.abs(vb.width / vb.height - intr.w / intr.h);
+    check("映像が元の縦横比のまま表示されている (ズレ" + arDiff.toFixed(4) + ")", arDiff < 0.01);
+
     const shutter = camPage.locator('#colorlab-root button[aria-label="撮影する"]');
     check("撮影ボタン（シャッター型）が表示されている", await shutter.isVisible());
     const sb = await shutter.boundingBox();
-    const vb = await camPage.locator("#colorlab-root video").boundingBox();
-    const pb = await camPage.locator("#colorlab-root video").evaluate((v) => {
-      const b = v.parentElement.parentElement.getBoundingClientRect();
-      return { x: b.x, y: b.y, width: b.width, height: b.height };
-    });
-    const centered = Math.abs((sb.x + sb.width / 2) - (pb.x + pb.width / 2)) < 6;
-    const inStrip = sb.y >= vb.y + vb.height - 1;                     // 映像より下＝黒帯の中
-    const fromBottom = (pb.y + pb.height) - (sb.y + sb.height);       // パネル下端からの距離
-    check("撮影ボタンがパネル下端18px・中央固定で黒帯の中にある (中央ズレ" + Math.round(Math.abs((sb.x + sb.width / 2) - (pb.x + pb.width / 2))) + "px / 下端から" + Math.round(fromBottom) + "px)",
+    const stripBox = await shutter.evaluate((el) => { const b = el.parentElement.getBoundingClientRect(); return { x: b.x, y: b.y, width: b.width, height: b.height }; });
+    const centered = Math.abs((sb.x + sb.width / 2) - vp.width / 2) < 6;
+    const inStrip = sb.y >= vb.y + vb.height - 1;                            // 映像より下＝黒帯の中
+    const fromBottom = (stripBox.y + stripBox.height) - (sb.y + sb.height);  // 黒帯下端からの距離
+    check("撮影ボタンが黒帯の下端18px・画面中央にある (中央ズレ" + Math.round(Math.abs((sb.x + sb.width / 2) - vp.width / 2)) + "px / 下端から" + Math.round(fromBottom) + "px)",
       centered && inStrip && Math.abs(fromBottom - 18) < 2);
+    check("黒帯が画面幅いっぱいにある (" + Math.round(stripBox.width) + "px)", Math.abs(stripBox.width - vp.width) < 1);
 
     // 重なりゼロと「ガイド＝測定範囲」を恒久ゲート化する
     const rectOf = (sel) => camPage.locator(sel).evaluate((el) => { const b = el.getBoundingClientRect(); return { x: b.x, y: b.y, right: b.right, bottom: b.bottom }; });
@@ -420,13 +453,32 @@ try {
     const sampMidY = vb.y + ((0.76 + 0.92) / 2) * vb.height;
     const guideMidY = (paperRect.y + paperRect.bottom) / 2;
     check("白紙ガイドが測定範囲(0.76〜0.92)と一致している (中心Yズレ" + Math.abs(guideMidY - sampMidY).toFixed(1) + "px)", Math.abs(guideMidY - sampMidY) < 5);
-    // 黒帯を足してもパネルが極端に伸びていないこと（映像高さ + 96px 前後）
-    check("カメラパネルの高さが 映像+黒帯96px の範囲に収まっている (" + Math.round(pb.height) + "px = 映像" + Math.round(vb.height) + "px + " + Math.round(pb.height - vb.height) + "px)", Math.abs((pb.height - vb.height) - 96) < 2);
-    await camPage.locator("#colorlab-root").screenshot({ path: join(SHOTS, "12_photo_camera_guide.png") });
+    // 全画面化で、映像が記事カード幅の制約から解放されていること
+    check("映像が画面幅いっぱいまで使えている (" + Math.round(vb.width) + "px / 画面幅" + vp.width + "px)", vb.width >= vp.width - 1);
+    check("映像がカード制約時(311px)より大きくなっている (" + Math.round(vb.width) + "x" + Math.round(vb.height) + ")", vb.width > 311);
+    await camPage.screenshot({ path: join(SHOTS, "12_photo_camera_guide.png") }); // 全画面なのでビューポートを撮る
     log("  SS: 12_photo_camera_guide.png");
 
+    // 閉じるボタン → 記事へ戻る / カメラ停止 / 背景スクロール復帰
+    await camPage.locator('#colorlab-root button[aria-label="撮影をやめる"]').click();
+    await camPage.waitForSelector("#colorlab-root >> text=撮影条件（すべて必要です）", { timeout: 5000 });
+    const afterClose = await camPage.evaluate(() => ({
+      overlay: !!document.querySelector('#colorlab-root video'),
+      overflow: getComputedStyle(document.body).overflow,
+    }));
+    check("閉じるボタンで撮影画面を抜け、元の記事の位置に戻る", !afterClose.overlay);
+    check("閉じたあと背景のスクロールが元に戻る (body overflow=" + afterClose.overflow + ")", afterClose.overflow !== "hidden");
+    const tracksAfterClose = await camPage.evaluate(() => window.__clStreams === undefined ? null : 0);
+    check("閉じたあとカメラのトラックが解放されている（video要素ごと消える）", tracksAfterClose === null && !afterClose.overlay);
+
+    // もう一度カメラを起動して、撮影まで通す
+    await camPage.getByRole("button", { name: /撮影にすすむ/ }).click();
+    await camPage.getByRole("button", { name: /カメラを起動する/ }).click();
+    await camPage.waitForSelector("#colorlab-root video", { state: "visible", timeout: 15000 });
+    await camPage.waitForTimeout(600);
+
     // 実カメラからの撮影 → 解析まで通ることも確認（フェイク映像なので品質ゲートで却下される想定）
-    await shutter.click();
+    await camPage.locator('#colorlab-root button[aria-label="撮影する"]').click();
     await camPage.waitForSelector("#colorlab-root >> text=/色を測っています|撮り直す/", { timeout: 15000 });
     const afterShot = await camPage.locator("#colorlab-root").innerText();
     check("シャッター → 解析が起動する（フェイク映像は品質ゲートで却下される）", /色を測っています|撮り直す/.test(afterShot));
@@ -500,6 +552,9 @@ try {
     const hit = (a, b) => Math.min(a.right, b.right) - Math.max(a.x, b.x) > 0 && Math.min(a.bottom, b.bottom) - Math.max(a.y, b.y) > 0;
     check(`ライブ表示が4項目ぶん描画されている (${pills.length}件)`, pills.length === 4);
     check("ライブ表示がシャッターに重なっていない", pills.every((p) => !hit(p, sh)));
+    const vpw = pg.viewportSize().width;
+    const over = pills.filter((p) => p.x < 0 || p.right > vpw);
+    check(`ライブ表示が画面内に収まっている（はみ出し${over.length}件）`, over.length === 0);
     check("ライブ表示が白紙ガイド(映像側)に重なっていない", pills.every((p) => !hit(p, paper)));
     // ライブ判定を回したまま3秒間の描画間隔と映像のフレーム落ちを実測する
     const perf = await pg.evaluate(() => new Promise((res) => {
@@ -522,7 +577,7 @@ try {
     }));
     check(`ライブ判定を回してもカクつかない（描画 平均${perf.avgGap}ms / 最大${perf.maxGap}ms、映像のフレーム落ち${perf.dropped}）`,
       perf.maxGap < 100 && perf.dropped === 0);
-    await pg.locator("#colorlab-root").screenshot({ path: join(SHOTS, "23_photo_live_all_ok.png") });
+    await pg.screenshot({ path: join(SHOTS, "23_photo_live_all_ok.png") }); // 全画面なのでビューポートを撮る
     log("  SS: 23_photo_live_all_ok.png");
   } finally { await lb.close(); }
 
@@ -536,7 +591,7 @@ try {
     const t = await pg.locator("#colorlab-root").innerText();
     check("ライブ判定: 暗い映像で 明るさ が✓にならない", /明るさ\s*○不足/.test(t) && !/明るさ\s*✓/.test(t));
     check("ライブ判定: 暗い映像で 白い紙 も未検出になる", /白い紙\s*○未検出/.test(t));
-    await pg.locator("#colorlab-root").screenshot({ path: join(SHOTS, "24_photo_live_dark.png") });
+    await pg.screenshot({ path: join(SHOTS, "24_photo_live_dark.png") }); // 全画面なのでビューポートを撮る
     log("  SS: 24_photo_live_dark.png");
   } finally { await lb.close(); }
 

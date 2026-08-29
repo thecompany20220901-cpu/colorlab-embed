@@ -1700,6 +1700,8 @@ export default function App() {
   const phCanvasRef = useRef(null);
   const phLiveCanvasRef = useRef(null); // ライブ判定用（撮影用の phCanvasRef とは別に持つ）
   const [phLive, setPhLive] = useState(null);
+  const phAreaRef = useRef(null);       // 全画面時に映像を収める領域
+  const [phBox, setPhBox] = useState(null); // 映像の表示サイズ {w,h}（縦横比は必ず映像のまま）
   const phAllChecked = PHOTO_CONDITIONS.every((c) => phChecked[c.id]);
 
   // ② カラーチェッカー
@@ -1739,6 +1741,42 @@ export default function App() {
   // 撮影ステップへ移ると画面が一気に短くなる（条件チェックの全高 3,600px 超 → 撮影画面）。
   // ブラウザはスクロール位置を保つため、そのままだとカメラ映像の上部が画面外に隠れる。
   // 記事の途中に埋め込まれている前提なので、ページ先頭ではなくウィジェットの先頭へ戻す。
+  // 全画面撮影中は、映像を「元の縦横比のまま」領域いっぱいに収める。
+  // object-fit:cover で引き伸ばすと、ガイドSVGと実際に撮れる範囲(PH_REGION)がズレるため、
+  // 必ずアスペクト比を保ったまま JS でサイズを決める。
+  useEffect(() => {
+    if (phStep !== "guide" || !phCamReady) { setPhBox(null); return; }
+    const fit = () => {
+      const v = phVideoRef.current, area = phAreaRef.current;
+      if (!v || !v.videoWidth || !area) return;
+      const aw = area.clientWidth, ah = area.clientHeight;
+      const ar = v.videoWidth / v.videoHeight;
+      let w = aw, h = aw / ar;
+      if (h > ah) { h = ah; w = ah * ar; }
+      setPhBox((p) => (p && p.w === Math.round(w) && p.h === Math.round(h) ? p : { w: Math.round(w), h: Math.round(h) }));
+    };
+    fit();
+    const v = phVideoRef.current;
+    if (v) v.addEventListener("loadedmetadata", fit);
+    window.addEventListener("resize", fit);
+    window.addEventListener("orientationchange", fit);
+    const id = setTimeout(fit, 300); // メタデータ到着が遅れる端末向けの保険
+    return () => {
+      if (v) v.removeEventListener("loadedmetadata", fit);
+      window.removeEventListener("resize", fit);
+      window.removeEventListener("orientationchange", fit);
+      clearTimeout(id);
+    };
+  }, [phStep, phCamReady]);
+
+  // 全画面表示のあいだは背景（記事本体）をスクロールさせない。閉じたら必ず元へ戻す。
+  useEffect(() => {
+    if (!(phStep === "guide" && phCamReady)) return;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => { document.body.style.overflow = prev; };
+  }, [phStep, phCamReady]);
+
   // 撮影中のライブ判定。毎フレームではなく 400ms 間隔で間引く（120px に縮小して測るので軽い）
   useEffect(() => {
     if (phStep !== "guide" || !phCamReady) { setPhLive(null); return; }
@@ -2610,15 +2648,23 @@ export default function App() {
                     </div>
                   )}
 
-                  {/* 外側パネル: 下端に黒帯(96px)を作り、シャッターをそこへ置く。
-                      映像に重ねるとシャッターが白紙ガイド＝測定範囲(0.76〜0.92)を覆ってしまうため。
-                      ガイドとサンプリング座標は動かさない。
-                      marginLeft/Right の -32 は本文の px-8 の打ち消し。カード幅いっぱいまで
-                      映像を広げ、独立版(photo_diagnose_v3.jsx)と同等の表示サイズにするため。 */}
-                  <div style={{ position: "relative", display: phCamReady ? "block" : "none", background: "#000", overflow: "hidden", paddingBottom: 96, marginLeft: -32, marginRight: -32 }}>
-                    {/* 内側ラッパ: オーバーレイSVGを映像と同じ高さに閉じ込める(黒帯まで伸ばさない) */}
-                    <div style={{ position: "relative" }}>
-                    <video ref={phVideoRef} playsInline muted style={{ width: "100%", display: "block", transform: "scaleX(-1)" }} />
+                  {/* 撮影中はビューポート全体を占有する全画面オーバーレイにする。
+                      記事カードの幅制約から外れて、映像を最大限大きく見せるため。
+                      案Cの考え方（映像の下に黒帯、そこにシャッターとライブ判定を置く）は
+                      カード基準からビューポート基準に置き換えただけで維持している。 */}
+                  <div style={{ display: phCamReady ? "flex" : "none", position: "fixed", inset: 0, zIndex: 99999, background: "#000", flexDirection: "column" }}>
+                    {/* ヘッダー: 閉じる（元の記事の位置に戻る） */}
+                    <div style={{ flex: "0 0 auto", height: 48, display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0 12px" }}>
+                      <button onClick={() => { stopPhCamera(); setPhStep("intro"); }} aria-label="撮影をやめる"
+                        style={{ width: 36, height: 36, borderRadius: "50%", border: "none", background: "rgba(255,255,255,0.12)", color: "#fff", fontSize: 16, lineHeight: 1, cursor: "pointer" }}>✕</button>
+                      <span style={{ fontSize: 12, color: "rgba(255,255,255,0.85)" }}>顔写真で診断</span>
+                      <span style={{ width: 36 }} />
+                    </div>
+                    {/* 映像の領域。ここに縦横比を保ったまま最大サイズで収める */}
+                    <div ref={phAreaRef} style={{ flex: "1 1 auto", minHeight: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                    {/* 内側ラッパ: オーバーレイSVGを映像と同じ箱に閉じ込める（ここがズレると測る場所が変わる） */}
+                    <div style={{ position: "relative", width: phBox ? phBox.w : "100%", height: phBox ? phBox.h : "auto" }}>
+                    <video ref={phVideoRef} playsInline muted style={{ width: "100%", height: phBox ? "100%" : "auto", display: "block", transform: "scaleX(-1)" }} />
                     {/* リアルタイムガイド（サンプリング座標 PH_REGION と一致・丸型 + グラデーション） */}
                     <svg viewBox="0 0 300 400" style={{ position: "absolute", inset: 0, width: "100%", height: "100%", pointerEvents: "none" }}>
                       <defs>
@@ -2657,8 +2703,13 @@ export default function App() {
                       枠に合わせて、正面から自然光の方を向いてください
                     </div>
                     </div>
-                    {/* ライブ判定の表示。黒帯の中でシャッターの左右に置き、
-                        映像のガイド枠にもシャッターにも重ならない位置に配置する（案Cの構造を維持）。 */}
+                    </div>
+                    {/* 「あくまで目安」であることを、判定表示のすぐ上に常時出す */}
+                    <p style={{ flex: "0 0 auto", margin: 0, padding: "0 16px 6px", textAlign: "center", fontSize: 10.5, lineHeight: 1.6, color: "rgba(255,255,255,0.55)" }}>
+                      下の4項目は撮影前の目安です。すべて✓でも、撮影後の判定で撮り直しをお願いすることがあります。
+                    </p>
+                    {/* 黒帯: ライブ判定4項目とシャッター。画面幅いっぱいに置く（案Cの配置思想のまま） */}
+                    <div style={{ flex: "0 0 auto", position: "relative", height: 96 }}>
                     {phCamReady && (
                       <div style={{ position: "absolute", left: 0, right: 0, bottom: 0, height: 96, display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0 10px", pointerEvents: "none" }}>
                         {[PH_LIVE_ITEMS.slice(0, 2), PH_LIVE_ITEMS.slice(2)].map((col, ci) => (
@@ -2688,18 +2739,18 @@ export default function App() {
                         <span style={{ display: "block", width: 50, height: 50, margin: "0 auto", borderRadius: "50%", background: "#1B1F2A" }} />
                       </button>
                     )}
+                    </div>
+                    {/* 下部の代替導線 */}
+                    <div style={{ flex: "0 0 auto", display: "flex", justifyContent: "center", gap: 20, padding: "2px 0 max(10px, env(safe-area-inset-bottom))" }}>
+                      <button onClick={() => { stopPhCamera(); fileRef.current?.click(); }} style={{ border: "none", background: "none", color: "rgba(255,255,255,0.7)", fontSize: 12, cursor: "pointer" }}>かわりに写真を選ぶ</button>
+                      <button onClick={() => { stopPhCamera(); setPhStep("intro"); }} style={{ border: "none", background: "none", color: "rgba(255,255,255,0.7)", fontSize: 12, cursor: "pointer" }}>条件を見直す</button>
+                    </div>
                   </div>
 
-                  {phCamReady && (
-                    <button onClick={() => { stopPhCamera(); fileRef.current?.click(); }} className="w-full mt-2.5 py-2.5 text-xs" style={{ color: C.sub }}>かわりに写真を選ぶ</button>
-                  )}
-                  {phCamReady && (
-                    <p className="text-[11px] leading-relaxed mt-2.5 text-center" style={{ color: C.faint }}>
-                      上の4項目は撮影前の目安です。すべて✓でも、撮影後の判定で撮り直しをお願いすることがあります。
-                    </p>
-                  )}
                   <input ref={fileRef} type="file" accept="image/*" onChange={onPhoto} style={{ display: "none" }} />
-                  <button onClick={() => { stopPhCamera(); setPhStep("intro"); }} className="w-full mt-2 py-3 text-xs" style={{ color: C.faint }}>条件を見直す</button>
+                  {!phCamReady && (
+                    <button onClick={() => { stopPhCamera(); setPhStep("intro"); }} className="w-full mt-2 py-3 text-xs" style={{ color: C.faint }}>条件を見直す</button>
+                  )}
                   <canvas ref={phCanvasRef} style={{ display: "none" }} />
                   <canvas ref={phLiveCanvasRef} style={{ display: "none" }} />
                 </>

@@ -68,9 +68,13 @@ AIに写真を見せて判断させる方式をやめ、**白い紙を基準に�
 - **本判定（`aiPhotoDiagnose()` の品質ゲート）とは別ロジックの軽量版。**120px の縮小フレームを見る
   だけの粗い近似で、4項目すべて✓でも本判定で却下されることはあり得る。画面にもその旨を明記している。
 - サンプリング領域（`PH_REGION`）と閾値は本判定と揃えてあるので、**どちらかを変えるときは両方**を見直す。
-- カメラパネルは本文の `px-8` を `marginLeft/Right: -32` で打ち消して全幅にしてある（独立版と同等の表示幅）。
-  撮影ステップに入ったら `rootRef.scrollIntoView()` でウィジェット先頭へ戻す（戻さないと映像の上部が
-  画面外に隠れる。条件チェック画面の全高が 3,600px を超えるため）。
+- **撮影中は全画面オーバーレイ**（`position:fixed; inset:0; z-index:99999`）。記事の他要素の上に重なる。
+  表示中は `document.body` の `overflow` を hidden にし、閉じたら必ず元へ戻す。
+  ✕ボタンで `intro` に戻り、`stopPhCamera()` でストリームを止める。
+  - **`object-fit: cover` を使ってはいけない。**引き伸ばすとガイドSVGと実測範囲(`PH_REGION`)がズレる。
+    映像は必ず元の縦横比のまま、JS（`phBox`）で領域に収まる最大サイズを算出して表示する。
+    `npm run verify` に「映像の縦横比のズレ < 0.01」の恒久ゲートを入れてある。
+  - カメラ未起動・エラー時のUIは従来どおり記事カードの中に出る（全画面になるのは映像が出てから）。
 - `npm run verify` は Chromium の `--use-file-for-fake-video-capture` に自前生成した Y4M を流し込み、
   「条件を満たす映像で4項目✓」「暗い映像で✓にならない」「描画60fps維持・フレーム落ち0」を実測している。
 
@@ -148,10 +152,12 @@ npm run verify     # Playwrightで検証（要 npx playwright install chromium�
 
 | アプリ | 参照タグ | jsDelivr |
 |---|---|---|
-| colorlab | `@v1.9.0` | `https://cdn.jsdelivr.net/gh/thecompany20220901-cpu/colorlab-embed@v1.9.0/dist/colorlab.iife.js` |
+| colorlab | `@v1.10.0` | `https://cdn.jsdelivr.net/gh/thecompany20220901-cpu/colorlab-embed@v1.10.0/dist/colorlab.iife.js` |
 | ngpolice | `@v1.3.0` | `https://cdn.jsdelivr.net/gh/thecompany20220901-cpu/colorlab-embed@v1.3.0/dist/ngpolice.iife.js` |
 | mens | `@v1.6.1` | `https://cdn.jsdelivr.net/gh/thecompany20220901-cpu/colorlab-embed@v1.6.1/dist/mens.iife.js` |
 
+- v1.10.0 の内容: 顔写真診断の撮影ステップを**ビューポート全体を覆う全画面オーバーレイ**に変更。
+  記事カードの幅制約から外れ、映像が 311×415 → 375×500 に。
 - v1.9.0 の内容: 顔写真診断の撮影画面に**リアルタイム条件チェック表示**（明るさ / 白い紙 / 顔の位置 /
   左右バランスの4項目）を新設。あわせてカメラ映像の表示崩れ（幅247px→311px、上部の見切れ）を修正し、
   スニペットを DOMContentLoaded 待ちの安全なマウント処理に更新した。
