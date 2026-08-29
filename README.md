@@ -60,6 +60,20 @@ AIに写真を見せて判断させる方式をやめ、**白い紙を基準に�
   両方に明記している。この注記を消さないこと。
 - ガイド枠の座標は `SC_REGION` と一致させること（`npm run verify` に中心Yズレ5px以内のゲートがある）。
 
+## 撮影中のライブ条件チェック（v1.9.0〜）
+
+`guide` ステップで `livePhotoCheck()` が 400ms 間隔に間引いて動き、明るさ / 白い紙 / 顔の位置 /
+左右バランスの4項目を黒帯の中（シャッターの左右）に表示する。
+
+- **本判定（`aiPhotoDiagnose()` の品質ゲート）とは別ロジックの軽量版。**120px の縮小フレームを見る
+  だけの粗い近似で、4項目すべて✓でも本判定で却下されることはあり得る。画面にもその旨を明記している。
+- サンプリング領域（`PH_REGION`）と閾値は本判定と揃えてあるので、**どちらかを変えるときは両方**を見直す。
+- カメラパネルは本文の `px-8` を `marginLeft/Right: -32` で打ち消して全幅にしてある（独立版と同等の表示幅）。
+  撮影ステップに入ったら `rootRef.scrollIntoView()` でウィジェット先頭へ戻す（戻さないと映像の上部が
+  画面外に隠れる。条件チェック画面の全高が 3,600px を超えるため）。
+- `npm run verify` は Chromium の `--use-file-for-fake-video-capture` に自前生成した Y4M を流し込み、
+  「条件を満たす映像で4項目✓」「暗い映像で✓にならない」「描画60fps維持・フレーム落ち0」を実測している。
+
 ## メンズ版（清潔感カラー診断）
 
 女性版とは**ソースを完全分離**した3つ目のビルドターゲット。女性版 `color_lab_stylist_v23.jsx`
@@ -134,10 +148,13 @@ npm run verify     # Playwrightで検証（要 npx playwright install chromium�
 
 | アプリ | 参照タグ | jsDelivr |
 |---|---|---|
-| colorlab | `@v1.8.0` | `https://cdn.jsdelivr.net/gh/thecompany20220901-cpu/colorlab-embed@v1.8.0/dist/colorlab.iife.js` |
+| colorlab | `@v1.9.0` | `https://cdn.jsdelivr.net/gh/thecompany20220901-cpu/colorlab-embed@v1.9.0/dist/colorlab.iife.js` |
 | ngpolice | `@v1.3.0` | `https://cdn.jsdelivr.net/gh/thecompany20220901-cpu/colorlab-embed@v1.3.0/dist/ngpolice.iife.js` |
 | mens | `@v1.6.1` | `https://cdn.jsdelivr.net/gh/thecompany20220901-cpu/colorlab-embed@v1.6.1/dist/mens.iife.js` |
 
+- v1.9.0 の内容: 顔写真診断の撮影画面に**リアルタイム条件チェック表示**（明るさ / 白い紙 / 顔の位置 /
+  左右バランスの4項目）を新設。あわせてカメラ映像の表示崩れ（幅247px→311px、上部の見切れ）を修正し、
+  スニペットを DOMContentLoaded 待ちの安全なマウント処理に更新した。
 - v1.8.0 の内容: 「コーデ提案」を**シーン別記事22本のデータ参照方式**へ、「今日のコーデ採点」を
   **色照合方式（CIELab のΔE）**へ全面置換して解禁。これで「近日公開」は全廃。
   未使用になった `callClaude` / `parseAiJson` をソースから削除。

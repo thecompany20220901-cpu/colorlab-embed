@@ -1144,6 +1144,54 @@ function gateError(title, body) {
   return e;
 }
 
+/* ════════════════════════════════════════════
+   撮影中のライブ判定（撮る前の「目安」表示のためだけの軽量版）
+
+   ★これは aiPhotoDiagnose() の品質ゲート（本判定）とは別ロジックである。
+     - 本判定 : 撮影ボタン押下後に、600px に描き直した静止画で厳密に判定する。
+                白基準補正 + 露出正規化まで行い、却下時は撮り直し画面へ遷移する。
+     - ライブ : 120px の縮小フレームを 400ms ごとに見るだけの粗い近似。
+                手ブレ・オートホワイトバランスの追従中などで値が揺れる。
+     ★ライブ判定が4項目すべて✓でも、本判定で却下されることはあり得る。
+       ライブ判定は撮影の目安であって、最終判定を保証するものではない。
+     サンプリング領域(PH_REGION)と閾値だけは本判定と揃えてあるので、
+     どちらかを変えるときは両方を必ず見直すこと。
+   ════════════════════════════════════════════ */
+function livePhotoCheck(video, canvas) {
+  if (!video || !video.videoWidth) return null;
+  const W = 120;
+  const H = Math.max(1, Math.round((video.videoHeight / video.videoWidth) * W));
+  const cv = canvas || document.createElement("canvas");
+  cv.width = W; cv.height = H;
+  const ctx = cv.getContext("2d", { willReadFrequently: true });
+  ctx.drawImage(video, 0, 0, W, H);
+  const { data } = ctx.getImageData(0, 0, W, H);
+  const pick = (k) => sampleRegion(data, W, H, PH_REGION[k][0], PH_REGION[k][1], PH_REGION[k][2], PH_REGION[k][3]);
+  const white = pick("white"), cheekL = pick("cheekL"), cheekR = pick("cheekR");
+  if (!white || !cheekL || !cheekR) return null;
+
+  const wMax = Math.max(white.r, white.g, white.b), wMin = Math.min(white.r, white.g, white.b);
+  const bright = wMax >= 120 && !(wMax > 252 && wMin > 250);   // 本判定の暗すぎ/白飛びに対応
+  const paper = bright && (wMax - wMin) / wMax <= 0.28;        // 本判定の色かぶりに対応
+
+  // 白い紙が取れているときだけ、本判定と同じ考え方でホワイトバランスを当ててから肌を見る
+  const g = paper ? { r: 235 / white.r, g: 235 / white.g, b: 235 / white.b } : { r: 1, g: 1, b: 1 };
+  const corr = (c) => rgbToLab(Math.min(255, c.r * g.r), Math.min(255, c.g * g.g), Math.min(255, c.b * g.b));
+  const lL = corr(cheekL), lR = corr(cheekR);
+  const skinOk = (l) => l.L >= 40 && l.L <= 88 && l.a >= 2 && l.a <= 26 && l.b >= 4 && l.b <= 32;
+  const face = paper && skinOk(lL) && skinOk(lR);             // 本判定の「肌の生理的範囲」に対応
+  const balance = deltaE(lL, lR) <= 14;                       // 本判定の左右頬差ΔEに対応
+  return { bright, paper, face, balance };
+}
+
+/* ライブ判定の表示項目。ok=満たしている / まだのときは下の文言を出す。 */
+const PH_LIVE_ITEMS = [
+  { key: "bright", icon: "💡", label: "明るさ", ok: "十分", ng: "不足" },
+  { key: "paper", icon: "📄", label: "白い紙", ok: "検出", ng: "未検出" },
+  { key: "face", icon: "👤", label: "顔の位置", ok: "枠内", ng: "ズレ" },
+  { key: "balance", icon: "⚖️", label: "左右", ok: "良好", ng: "偏り" },
+];
+
 /* インカメラの起動/停止。顔写真診断とコーデ採点で共用する。 */
 async function startCameraInto(videoRef, streamRef, setReady, setError) {
   setError(null); setReady(false);
@@ -1650,6 +1698,8 @@ export default function App() {
   const phVideoRef = useRef(null);
   const phStreamRef = useRef(null);
   const phCanvasRef = useRef(null);
+  const phLiveCanvasRef = useRef(null); // ライブ判定用（撮影用の phCanvasRef とは別に持つ）
+  const [phLive, setPhLive] = useState(null);
   const phAllChecked = PHOTO_CONDITIONS.every((c) => phChecked[c.id]);
 
   // ② カラーチェッカー
@@ -1679,12 +1729,37 @@ export default function App() {
   const [wdWorry, setWdWorry] = useState(null);
 
   const goHome = () => setMode("home");
+  const rootRef = useRef(null);
   useEffect(() => { window.scrollTo({ top: 0, left: 0, behavior: "instant" }); }, [mode]);
   // 顔写真診断から離れたらカメラを必ず解放する（撮影後・戻る・別タイルへ遷移のいずれでも）
   useEffect(() => {
     if (mode !== "photo") stopPhCamera();
     if (mode !== "score") stopScCamera();
   }, [mode]);
+  // 撮影ステップへ移ると画面が一気に短くなる（条件チェックの全高 3,600px 超 → 撮影画面）。
+  // ブラウザはスクロール位置を保つため、そのままだとカメラ映像の上部が画面外に隠れる。
+  // 記事の途中に埋め込まれている前提なので、ページ先頭ではなくウィジェットの先頭へ戻す。
+  // 撮影中のライブ判定。毎フレームではなく 400ms 間隔で間引く（120px に縮小して測るので軽い）
+  useEffect(() => {
+    if (phStep !== "guide" || !phCamReady) { setPhLive(null); return; }
+    let alive = true;
+    const tick = () => {
+      if (!alive) return;
+      try {
+        const r = livePhotoCheck(phVideoRef.current, phLiveCanvasRef.current);
+        if (r) setPhLive(r);
+      } catch (e) { /* 測れないフレームは黙って見送る */ }
+    };
+    tick();
+    const id = setInterval(tick, 400);
+    return () => { alive = false; clearInterval(id); };
+  }, [phStep, phCamReady]);
+
+  useEffect(() => {
+    if (phStep !== "guide" && scStep !== "guide") return;
+    const el = rootRef.current;
+    if (el && el.scrollIntoView) el.scrollIntoView({ block: "start", behavior: "instant" });
+  }, [phStep, scStep]);
 
   // ④ 診断結果の保存＆再訪（window.storage / 端末ごと）
   const [soonOpen, setSoonOpen] = useState(false);
@@ -1893,7 +1968,7 @@ export default function App() {
   const RT = quizResult ? TYPES[quizResult.first] : null;
 
   return (
-    <div className="min-h-screen w-full flex items-start justify-center p-4 font-sans" style={{ background: "linear-gradient(160deg,#fbf9f7 0%,#f3eef2 50%,#eef2f4 100%)" }}>
+    <div ref={rootRef} className="min-h-screen w-full flex items-start justify-center p-4 font-sans" style={{ background: "linear-gradient(160deg,#fbf9f7 0%,#f3eef2 50%,#eef2f4 100%)" }}>
       <style>{`
         @keyframes fadeUp { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
         .fade-up { animation: fadeUp .5s ease both; }
@@ -2537,8 +2612,10 @@ export default function App() {
 
                   {/* 外側パネル: 下端に黒帯(96px)を作り、シャッターをそこへ置く。
                       映像に重ねるとシャッターが白紙ガイド＝測定範囲(0.76〜0.92)を覆ってしまうため。
-                      ガイドとサンプリング座標は動かさない。 */}
-                  <div style={{ position: "relative", display: phCamReady ? "block" : "none", background: "#000", borderRadius: 16, overflow: "hidden", paddingBottom: 96 }}>
+                      ガイドとサンプリング座標は動かさない。
+                      marginLeft/Right の -32 は本文の px-8 の打ち消し。カード幅いっぱいまで
+                      映像を広げ、独立版(photo_diagnose_v3.jsx)と同等の表示サイズにするため。 */}
+                  <div style={{ position: "relative", display: phCamReady ? "block" : "none", background: "#000", overflow: "hidden", paddingBottom: 96, marginLeft: -32, marginRight: -32 }}>
                     {/* 内側ラッパ: オーバーレイSVGを映像と同じ高さに閉じ込める(黒帯まで伸ばさない) */}
                     <div style={{ position: "relative" }}>
                     <video ref={phVideoRef} playsInline muted style={{ width: "100%", display: "block", transform: "scaleX(-1)" }} />
@@ -2580,6 +2657,27 @@ export default function App() {
                       枠に合わせて、正面から自然光の方を向いてください
                     </div>
                     </div>
+                    {/* ライブ判定の表示。黒帯の中でシャッターの左右に置き、
+                        映像のガイド枠にもシャッターにも重ならない位置に配置する（案Cの構造を維持）。 */}
+                    {phCamReady && (
+                      <div style={{ position: "absolute", left: 0, right: 0, bottom: 0, height: 96, display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0 10px", pointerEvents: "none" }}>
+                        {[PH_LIVE_ITEMS.slice(0, 2), PH_LIVE_ITEMS.slice(2)].map((col, ci) => (
+                          <div key={ci} style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                            {col.map((it) => {
+                              const ok = !!(phLive && phLive[it.key]);
+                              const col2 = ok ? "#5EE897" : "#FF9569";
+                              return (
+                                <span key={it.key} style={{ display: "flex", alignItems: "center", gap: 4, padding: "4px 8px", borderRadius: 999, background: "rgba(255,255,255,0.10)", border: `1px solid ${col2}55`, fontSize: 10, lineHeight: 1.2, color: "#fff", whiteSpace: "nowrap" }}>
+                                  <span style={{ fontSize: 10 }}>{it.icon}</span>
+                                  <span style={{ opacity: 0.85 }}>{it.label}</span>
+                                  <span style={{ color: col2, fontWeight: "bold" }}>{ok ? "✓" : "○"}{ok ? it.ok : it.ng}</span>
+                                </span>
+                              );
+                            })}
+                          </div>
+                        ))}
+                      </div>
+                    )}
                     {/* 撮影ボタン: パネル下端18px・中央固定（黒帯の中＝ガイドに被らない位置） */}
                     {phCamReady && (
                       <button onClick={phCapture} aria-label="撮影する"
@@ -2595,9 +2693,15 @@ export default function App() {
                   {phCamReady && (
                     <button onClick={() => { stopPhCamera(); fileRef.current?.click(); }} className="w-full mt-2.5 py-2.5 text-xs" style={{ color: C.sub }}>かわりに写真を選ぶ</button>
                   )}
+                  {phCamReady && (
+                    <p className="text-[11px] leading-relaxed mt-2.5 text-center" style={{ color: C.faint }}>
+                      上の4項目は撮影前の目安です。すべて✓でも、撮影後の判定で撮り直しをお願いすることがあります。
+                    </p>
+                  )}
                   <input ref={fileRef} type="file" accept="image/*" onChange={onPhoto} style={{ display: "none" }} />
                   <button onClick={() => { stopPhCamera(); setPhStep("intro"); }} className="w-full mt-2 py-3 text-xs" style={{ color: C.faint }}>条件を見直す</button>
                   <canvas ref={phCanvasRef} style={{ display: "none" }} />
+                  <canvas ref={phLiveCanvasRef} style={{ display: "none" }} />
                 </>
               )}
 
@@ -3018,8 +3122,9 @@ export default function App() {
                         </div>
                       )}
 
-                      {/* 外側パネル: 下端の黒帯にシャッターを置く（枠に被らせないため。顔写真診断と同じ構造） */}
-                      <div style={{ position: "relative", display: scCamReady ? "block" : "none", background: "#000", borderRadius: 16, overflow: "hidden", paddingBottom: 96 }}>
+                      {/* 外側パネル: 下端の黒帯にシャッターを置く（枠に被らせないため。顔写真診断と同じ構造）
+                          marginLeft/Right の -32 は本文の px-8 の打ち消し（顔写真診断と同じ理由） */}
+                      <div style={{ position: "relative", display: scCamReady ? "block" : "none", background: "#000", overflow: "hidden", paddingBottom: 96, marginLeft: -32, marginRight: -32 }}>
                         {/* 内側ラッパ: オーバーレイSVGを映像と同じ高さに閉じ込める */}
                         <div style={{ position: "relative" }}>
                           <video ref={scVideoRef} playsInline muted style={{ width: "100%", display: "block", transform: "scaleX(-1)" }} />

@@ -108,6 +108,43 @@ const PHOTO_DARK = regionPng(600, 800, [30, 28, 26], [
   [0.34, 0.76, 0.66, 0.92, [64, 63, 62]],
 ]);
 
+// 領域を塗り分けた映像を Y4M(I420) で作る。Chromium の
+// --use-file-for-fake-video-capture に渡すと、その映像がカメラとして流れる。
+function y4mFromRegions(W, H, base, rects, frames = 2) {
+  const box = rects.map(([x0, y0, x1, y1, c]) => [Math.floor(x0 * W), Math.floor(y0 * H), Math.floor(x1 * W), Math.floor(y1 * H), c]);
+  const at = (x, y) => {
+    let c = base;
+    for (const [x0, y0, x1, y1, col] of box) if (x >= x0 && x < x1 && y >= y0 && y < y1) c = col;
+    return c;
+  };
+  const ySize = W * H, cSize = (W / 2) * (H / 2);
+  const Y = Buffer.alloc(ySize), U = Buffer.alloc(cSize), V = Buffer.alloc(cSize);
+  const cl = (v) => Math.max(0, Math.min(255, Math.round(v)));
+  for (let y = 0; y < H; y++) {
+    for (let x = 0; x < W; x++) {
+      const [r, g, b] = at(x, y);
+      Y[y * W + x] = cl(0.299 * r + 0.587 * g + 0.114 * b);
+    }
+  }
+  for (let y = 0; y < H; y += 2) {
+    for (let x = 0; x < W; x += 2) {
+      let r = 0, g = 0, b = 0;
+      for (const [dx, dy] of [[0, 0], [1, 0], [0, 1], [1, 1]]) {
+        const c = at(Math.min(W - 1, x + dx), Math.min(H - 1, y + dy));
+        r += c[0]; g += c[1]; b += c[2];
+      }
+      r /= 4; g /= 4; b /= 4;
+      const i = (y / 2) * (W / 2) + x / 2;
+      U[i] = cl(-0.169 * r - 0.331 * g + 0.5 * b + 128);
+      V[i] = cl(0.5 * r - 0.419 * g - 0.081 * b + 128);
+    }
+  }
+  const head = Buffer.from(`YUV4MPEG2 W${W} H${H} F15:1 Ip A1:1 C420mpeg2\n`, "ascii");
+  const parts = [head];
+  for (let f = 0; f < frames; f++) parts.push(Buffer.from("FRAME\n", "ascii"), Y, U, V);
+  return Buffer.concat(parts);
+}
+
 const results = [];
 const log = (m) => { console.log(m); results.push(m); };
 let failures = 0;
@@ -401,6 +438,107 @@ try {
   } finally {
     await camBrowser.close();
   }
+
+  // ── 6c-2. 撮影中のライブ条件チェック表示 ──
+  // フェイクカメラに Y4M を流し込み、「条件を満たす映像」と「暗い映像」で表示が変わることを見る
+  const { writeFileSync: wfs } = await import("fs");
+  const { tmpdir } = await import("os");
+  const okY4m = join(tmpdir(), "colorlab_live_ok.y4m");
+  const darkY4m = join(tmpdir(), "colorlab_live_dark.y4m");
+  // 顔写真診断のサンプリング領域(PH_REGION)に合わせた「条件を満たす映像」
+  wfs(okY4m, y4mFromRegions(480, 640, [190, 190, 195], [
+    [0.40, 0.06, 0.60, 0.16, [62, 46, 38]],     // 髪
+    [0.24, 0.46, 0.36, 0.58, [233, 194, 168]],  // 左頬
+    [0.64, 0.46, 0.76, 0.58, [233, 194, 168]],  // 右頬
+    [0.34, 0.76, 0.66, 0.92, [235, 232, 228]],  // 白い紙
+  ]));
+  // 同じ構図だが全体が暗い映像（白い紙が暗すぎる）
+  wfs(darkY4m, y4mFromRegions(480, 640, [24, 24, 26], [
+    [0.40, 0.06, 0.60, 0.16, [14, 12, 12]],
+    [0.24, 0.46, 0.36, 0.58, [56, 46, 40]],
+    [0.64, 0.46, 0.76, 0.58, [56, 46, 40]],
+    [0.34, 0.76, 0.66, 0.92, [70, 69, 68]],
+  ]));
+
+  const openPhotoGuide = async (pg) => {
+    await pg.goto(ART, { waitUntil: "networkidle" });
+    await pg.waitForSelector("#colorlab-root button", { timeout: 15000 });
+    await pg.locator("#colorlab-root").getByRole("button", { name: /顔写真で診断/ }).click();
+    await pg.waitForSelector("#colorlab-root >> text=撮影条件（すべて必要です）", { timeout: 5000 });
+    const cb = pg.locator("#colorlab-root input[type=checkbox]");
+    for (let i = 0; i < (await cb.count()); i++) await cb.nth(i).check();
+    await pg.locator("#colorlab-root").getByRole("button", { name: /^地毛に近い$/ }).click();
+    await pg.locator("#colorlab-root").getByRole("button", { name: /撮影にすすむ/ }).click();
+    await pg.locator("#colorlab-root").getByRole("button", { name: /カメラを起動する/ }).click();
+    await pg.waitForSelector("#colorlab-root video", { state: "visible", timeout: 15000 });
+    await pg.waitForTimeout(1400); // 400ms間隔のライブ判定が数回まわるのを待つ
+  };
+  const liveBrowser = async (y4m) => chromium.launch({
+    args: ["--use-fake-ui-for-media-stream", "--use-fake-device-for-media-stream", "--use-file-for-fake-video-capture=" + y4m],
+  });
+
+  // (a) 条件を満たす映像 → 4項目すべて ✓
+  let lb = await liveBrowser(okY4m);
+  try {
+    const c = await lb.newContext({ viewport: { width: 375, height: 812 }, deviceScaleFactor: 2, permissions: ["camera"] });
+    const pg = await c.newPage();
+    pg.on("request", (r) => { if (/anthropic\.com/.test(r.url())) aiCalls.push(r.url()); });
+    await openPhotoGuide(pg);
+    const t = await pg.locator("#colorlab-root").innerText();
+    check("ライブ判定: 明るさ ✓十分", /明るさ\s*✓十分/.test(t));
+    check("ライブ判定: 白い紙 ✓検出", /白い紙\s*✓検出/.test(t));
+    check("ライブ判定: 顔の位置 ✓枠内", /顔の位置\s*✓枠内/.test(t));
+    check("ライブ判定: 左右 ✓良好", /左右\s*✓良好/.test(t));
+    check("「あくまで目安」であることが画面に書かれている", /撮影前の目安です/.test(t) && /撮り直しをお願いすることがあります/.test(t));
+
+    // シャッター・ガイド枠と重なっていないこと（案Cの構造を崩していない）
+    const rectOf = async (sel) => pg.locator(sel).first().evaluate((el) => { const b = el.getBoundingClientRect(); return { x: b.x, y: b.y, right: b.right, bottom: b.bottom }; });
+    const sh = await rectOf('#colorlab-root button[aria-label="撮影する"]');
+    const paper = await rectOf('#colorlab-root svg ellipse[stroke="url(#gPaper)"]');
+    const pills = await pg.locator("#colorlab-root span", { hasText: /明るさ|白い紙|顔の位置|左右/ }).evaluateAll((els) =>
+      els.filter((e) => e.children.length === 3).map((e) => { const b = e.getBoundingClientRect(); return { x: b.x, y: b.y, right: b.right, bottom: b.bottom }; }));
+    const hit = (a, b) => Math.min(a.right, b.right) - Math.max(a.x, b.x) > 0 && Math.min(a.bottom, b.bottom) - Math.max(a.y, b.y) > 0;
+    check(`ライブ表示が4項目ぶん描画されている (${pills.length}件)`, pills.length === 4);
+    check("ライブ表示がシャッターに重なっていない", pills.every((p) => !hit(p, sh)));
+    check("ライブ表示が白紙ガイド(映像側)に重なっていない", pills.every((p) => !hit(p, paper)));
+    // ライブ判定を回したまま3秒間の描画間隔と映像のフレーム落ちを実測する
+    const perf = await pg.evaluate(() => new Promise((res) => {
+      const v = document.querySelector("#colorlab-root video");
+      const q0 = v.getVideoPlaybackQuality ? v.getVideoPlaybackQuality() : null;
+      const gaps = []; let last = performance.now(); const t0 = last;
+      const step = (t) => {
+        gaps.push(t - last); last = t;
+        if (t - t0 < 3000) requestAnimationFrame(step);
+        else {
+          const q1 = v.getVideoPlaybackQuality ? v.getVideoPlaybackQuality() : null;
+          res({
+            dropped: q0 && q1 ? q1.droppedVideoFrames - q0.droppedVideoFrames : 0,
+            avgGap: +(gaps.reduce((a, b) => a + b, 0) / gaps.length).toFixed(1),
+            maxGap: +Math.max(...gaps).toFixed(1),
+          });
+        }
+      };
+      requestAnimationFrame(step);
+    }));
+    check(`ライブ判定を回してもカクつかない（描画 平均${perf.avgGap}ms / 最大${perf.maxGap}ms、映像のフレーム落ち${perf.dropped}）`,
+      perf.maxGap < 100 && perf.dropped === 0);
+    await pg.locator("#colorlab-root").screenshot({ path: join(SHOTS, "23_photo_live_all_ok.png") });
+    log("  SS: 23_photo_live_all_ok.png");
+  } finally { await lb.close(); }
+
+  // (b) 暗い映像 → 明るさが ✓ にならない
+  lb = await liveBrowser(darkY4m);
+  try {
+    const c = await lb.newContext({ viewport: { width: 375, height: 812 }, deviceScaleFactor: 2, permissions: ["camera"] });
+    const pg = await c.newPage();
+    pg.on("request", (r) => { if (/anthropic\.com/.test(r.url())) aiCalls.push(r.url()); });
+    await openPhotoGuide(pg);
+    const t = await pg.locator("#colorlab-root").innerText();
+    check("ライブ判定: 暗い映像で 明るさ が✓にならない", /明るさ\s*○不足/.test(t) && !/明るさ\s*✓/.test(t));
+    check("ライブ判定: 暗い映像で 白い紙 も未検出になる", /白い紙\s*○未検出/.test(t));
+    await pg.locator("#colorlab-root").screenshot({ path: join(SHOTS, "24_photo_live_dark.png") });
+    log("  SS: 24_photo_live_dark.png");
+  } finally { await lb.close(); }
 
   // ── 6d. コーデ提案（シーン別記事のデータ参照方式・外部通信なし）──
   await page.goto(ART, { waitUntil: "networkidle" });

@@ -29,7 +29,18 @@
     <div id="colorlab-root">アプリを読み込み中…</div>
     <script src="../dist/colorlab.iife.js"
       onerror="var e=document.getElementById('colorlab-root'); if(e) e.textContent='アプリの読み込みに失敗しました。ページを再読み込みしてください。';"></script>
-    <script>window.ColorLabApp && window.ColorLabApp.mount("#colorlab-root");</script>
+    <script>
+    (function () {
+      var tries = 0;
+      function mount() {
+        var el = document.getElementById('colorlab-root');
+        if (el && window.ColorLabApp && window.ColorLabApp.mount) { window.ColorLabApp.mount('#colorlab-root'); return; }
+        if (++tries < 40) setTimeout(mount, 100);
+      }
+      if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', mount);
+      else mount();
+    })();
+    </script>
     <!-- ここまで -->
 
     <h2>② NG色警察 🚨</h2>
