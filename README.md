@@ -69,6 +69,16 @@ AIに写真を見せて判断させる方式をやめ、**白い紙を基準に�
   だけの粗い近似で、4項目すべて✓でも本判定で却下されることはあり得る。画面にもその旨を明記している。
 - サンプリング領域（`PH_REGION`）と閾値は本判定と揃えてあるので、**どちらかを変えるときは両方**を見直す。
 - **撮影中は全画面オーバーレイ**（`position:fixed; inset:0; z-index:99999`）。記事の他要素の上に重なる。
+  顔写真診断とコーデ採点で共通の `FullscreenCamera` を使い、**`createPortal` で `document.body` 直下**
+  に描画する。`#colorlab-root` の中に置くと、埋め込み先の祖先に transform / filter / perspective /
+  will-change / backdrop-filter / contain のいずれかがあった場合、`position:fixed` の基準が
+  ビューポートでなくその祖先になり全画面にならない。`npm run verify` に transform / filter /
+  will-change の3ケースの回帰ゲートがある。
+  - ポータル化に伴い、**video 要素はカメラ準備OKになってから生える**。そのため `getUserMedia` の
+    直後に `srcObject` を差し込むことはできない（差し込むとカメラが永久に起動しない）。
+    ストリームは ref に保持し、描画後に `attachCameraStream()` で接続すること。
+  - オーバーレイは `#colorlab-root` の外に出るため **Tailwind のユーティリティが効かない。**
+    インラインスタイルだけで組み、フォントも `FS_FONT` で明示すること。
   表示中は `document.body` の `overflow` を hidden にし、閉じたら必ず元へ戻す。
   ✕ボタンで `intro` に戻り、`stopPhCamera()` でストリームを止める。
   - **`object-fit: cover` を使ってはいけない。**引き伸ばすとガイドSVGと実測範囲(`PH_REGION`)がズレる。
@@ -152,10 +162,12 @@ npm run verify     # Playwrightで検証（要 npx playwright install chromium�
 
 | アプリ | 参照タグ | jsDelivr |
 |---|---|---|
-| colorlab | `@v1.10.0` | `https://cdn.jsdelivr.net/gh/thecompany20220901-cpu/colorlab-embed@v1.10.0/dist/colorlab.iife.js` |
+| colorlab | `@v1.11.0` | `https://cdn.jsdelivr.net/gh/thecompany20220901-cpu/colorlab-embed@v1.11.0/dist/colorlab.iife.js` |
 | ngpolice | `@v1.3.0` | `https://cdn.jsdelivr.net/gh/thecompany20220901-cpu/colorlab-embed@v1.3.0/dist/ngpolice.iife.js` |
 | mens | `@v1.6.1` | `https://cdn.jsdelivr.net/gh/thecompany20220901-cpu/colorlab-embed@v1.6.1/dist/mens.iife.js` |
 
+- v1.11.0 の内容: 撮影オーバーレイを **createPortal で body 直下**へ描画。埋め込み先の祖先に
+  transform 等があっても全画面が壊れないようにした。コーデ採点の撮影画面も全画面に横展開。
 - v1.10.0 の内容: 顔写真診断の撮影ステップを**ビューポート全体を覆う全画面オーバーレイ**に変更。
   記事カードの幅制約から外れ、映像が 311×415 → 375×500 に。
 - v1.9.0 の内容: 顔写真診断の撮影画面に**リアルタイム条件チェック表示**（明るさ / 白い紙 / 顔の位置 /

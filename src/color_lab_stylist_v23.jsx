@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from "react";
+import { createPortal } from "react-dom";
 import { Sparkles, ArrowRight, ArrowLeft, RotateCcw, Copy, Check, Camera, Heart, Palette, Shirt, Upload, ExternalLink, Brush, Scissors, Ban, Droplet, Paintbrush, ShoppingBag, Eraser } from "lucide-react";
 
 // ════════════════════════════════════════════
@@ -1202,15 +1203,23 @@ async function startCameraInto(videoRef, streamRef, setReady, setError) {
       audio: false,
     });
     streamRef.current = stream;
-    if (videoRef.current) {
-      videoRef.current.srcObject = stream;
-      await videoRef.current.play();
-      setReady(true);
-    }
+    // ここで video 要素はまだ存在しない（オーバーレイは ready になってから描画される）。
+    // 先に ready を立て、描画後に attachCameraStream() で接続する。
+    setReady(true);
+    if (videoRef.current) attachCameraStream(videoRef, streamRef);
   } catch (e) {
     setError(e && e.name === "NotAllowedError" ? "denied" : "unavailable");
   }
 }
+/* 描画された video 要素に、保持しておいたストリームを接続する。 */
+function attachCameraStream(videoRef, streamRef) {
+  const v = videoRef.current, st = streamRef.current;
+  if (!v || !st || v.srcObject === st) return;
+  v.srcObject = st;
+  const p = v.play();
+  if (p && p.catch) p.catch(() => {});
+}
+
 function stopCameraOf(streamRef, setReady) {
   if (streamRef.current) {
     streamRef.current.getTracks().forEach((t) => t.stop());
@@ -1642,6 +1651,66 @@ function TypePicker({ value, onChange, label }) {
   );
 }
 
+/* 撮影用の全画面オーバーレイ。顔写真診断とコーデ採点で共用する。
+
+   ★createPortal で document.body 直下に出すのが肝。
+     #colorlab-root の中に置くと、埋め込み先ページの祖先に transform / filter /
+     perspective / will-change / backdrop-filter / contain のいずれかが付いていた場合、
+     position:fixed の基準がビューポートではなくその祖先になり、全画面にならない。
+     ポータルで body 直下へ逃がしておけば、埋め込み先の CSS に左右されない。
+
+   ★映像は object-fit:cover で引き伸ばさない。引き伸ばすと画が切り取られ、
+     ガイドSVGと実際に撮れる範囲(PH_REGION / SC_REGION)がズレる。
+     box（呼び出し側が算出した縦横比どおりのサイズ）をそのまま使う。
+
+   Tailwind のユーティリティは #colorlab-root 配下にしか効かないため、
+   ここでは一切使わずインラインスタイルだけで組む。フォントも明示する。 */
+const FS_FONT = 'ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif';
+
+function FullscreenCamera({ open, title, hint, note, videoRef, areaRef, box, guide, pills, onCapture, onClose, onPickFile, pickLabel, closeLabel }) {
+  if (!open || typeof document === "undefined" || !document.body) return null;
+  const link = { border: "none", background: "none", color: "rgba(255,255,255,0.7)", fontSize: 12, fontFamily: FS_FONT, cursor: "pointer" };
+  return createPortal(
+    <div style={{ position: "fixed", inset: 0, zIndex: 99999, background: "#000", display: "flex", flexDirection: "column", fontFamily: FS_FONT }}>
+      {/* ヘッダー: 閉じる（元の記事の位置に戻る） */}
+      <div style={{ flex: "0 0 auto", height: 48, display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0 12px" }}>
+        <button onClick={onClose} aria-label="撮影をやめる"
+          style={{ width: 36, height: 36, borderRadius: "50%", border: "none", background: "rgba(255,255,255,0.12)", color: "#fff", fontSize: 16, fontFamily: FS_FONT, lineHeight: 1, cursor: "pointer" }}>✕</button>
+        <span style={{ fontSize: 12, color: "rgba(255,255,255,0.85)" }}>{title}</span>
+        <span style={{ width: 36 }} />
+      </div>
+      {/* 映像の領域。ここに縦横比を保ったまま最大サイズで収める */}
+      <div ref={areaRef} style={{ flex: "1 1 auto", minHeight: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
+        {/* 内側ラッパ: ガイドSVGを映像と同じ箱に閉じ込める（ここがズレると測る場所が変わる） */}
+        <div style={{ position: "relative", width: box ? box.w : "100%", height: box ? box.h : "auto" }}>
+          <video ref={videoRef} playsInline muted style={{ width: "100%", height: box ? "100%" : "auto", display: "block", transform: "scaleX(-1)" }} />
+          {guide}
+          <div style={{ position: "absolute", top: 10, left: 0, right: 0, textAlign: "center", fontSize: 11, color: "#fff", textShadow: "0 1px 3px rgba(0,0,0,.8)" }}>{hint}</div>
+        </div>
+      </div>
+      {note && (
+        <p style={{ flex: "0 0 auto", margin: 0, padding: "0 16px 6px", textAlign: "center", fontSize: 10.5, lineHeight: 1.6, color: "rgba(255,255,255,0.55)" }}>{note}</p>
+      )}
+      {/* 黒帯: ライブ判定とシャッター。画面幅いっぱいに置く（案Cの配置思想のまま） */}
+      <div style={{ flex: "0 0 auto", position: "relative", height: 96 }}>
+        {pills}
+        <button onClick={onCapture} aria-label="撮影する"
+          style={{ position: "absolute", bottom: 18, left: "50%", transform: "translateX(-50%)",
+            width: 68, height: 68, borderRadius: "50%", border: "4px solid #fff",
+            background: "radial-gradient(circle at 35% 30%, #fff, #E8E4DE)",
+            boxShadow: "0 4px 16px rgba(0,0,0,.4)", cursor: "pointer" }}>
+          <span style={{ display: "block", width: 50, height: 50, margin: "0 auto", borderRadius: "50%", background: "#1B1F2A" }} />
+        </button>
+      </div>
+      <div style={{ flex: "0 0 auto", display: "flex", justifyContent: "center", gap: 20, padding: "2px 0 max(10px, env(safe-area-inset-bottom))" }}>
+        <button onClick={onPickFile} style={link}>{pickLabel}</button>
+        <button onClick={onClose} style={link}>{closeLabel}</button>
+      </div>
+    </div>,
+    document.body
+  );
+}
+
 function Header({ title, onBack }) {
   return (
     <div className="flex items-center gap-3 px-6 pt-6 pb-2">
@@ -1724,6 +1793,8 @@ export default function App() {
   const scVideoRef = useRef(null);
   const scStreamRef = useRef(null);
   const scCanvasRef = useRef(null);
+  const scAreaRef = useRef(null);
+  const [scBox, setScBox] = useState(null);
   // ⑤ ワードローブ・ウィザード
   const [wdStep, setWdStep] = useState(1);
   const [wdScene, setWdScene] = useState(null);
@@ -1741,22 +1812,29 @@ export default function App() {
   // 撮影ステップへ移ると画面が一気に短くなる（条件チェックの全高 3,600px 超 → 撮影画面）。
   // ブラウザはスクロール位置を保つため、そのままだとカメラ映像の上部が画面外に隠れる。
   // 記事の途中に埋め込まれている前提なので、ページ先頭ではなくウィジェットの先頭へ戻す。
+  // どちらの撮影画面が開いているか（顔写真診断 / コーデ採点）
+  const camOpen = phStep === "guide" && phCamReady ? "photo" : scStep === "guide" && scCamReady ? "score" : null;
+
   // 全画面撮影中は、映像を「元の縦横比のまま」領域いっぱいに収める。
-  // object-fit:cover で引き伸ばすと、ガイドSVGと実際に撮れる範囲(PH_REGION)がズレるため、
-  // 必ずアスペクト比を保ったまま JS でサイズを決める。
+  // object-fit:cover で引き伸ばすと、ガイドSVGと実際に撮れる範囲(PH_REGION / SC_REGION)が
+  // ズレるため、必ずアスペクト比を保ったまま JS でサイズを決める。
   useEffect(() => {
-    if (phStep !== "guide" || !phCamReady) { setPhBox(null); return; }
+    if (!camOpen) { setPhBox(null); setScBox(null); return; }
+    const videoRef = camOpen === "photo" ? phVideoRef : scVideoRef;
+    const areaRef = camOpen === "photo" ? phAreaRef : scAreaRef;
+    const setBox = camOpen === "photo" ? setPhBox : setScBox;
     const fit = () => {
-      const v = phVideoRef.current, area = phAreaRef.current;
+      const v = videoRef.current, area = areaRef.current;
       if (!v || !v.videoWidth || !area) return;
       const aw = area.clientWidth, ah = area.clientHeight;
       const ar = v.videoWidth / v.videoHeight;
       let w = aw, h = aw / ar;
       if (h > ah) { h = ah; w = ah * ar; }
-      setPhBox((p) => (p && p.w === Math.round(w) && p.h === Math.round(h) ? p : { w: Math.round(w), h: Math.round(h) }));
+      const next = { w: Math.round(w), h: Math.round(h) };
+      setBox((p) => (p && p.w === next.w && p.h === next.h ? p : next));
     };
     fit();
-    const v = phVideoRef.current;
+    const v = videoRef.current;
     if (v) v.addEventListener("loadedmetadata", fit);
     window.addEventListener("resize", fit);
     window.addEventListener("orientationchange", fit);
@@ -1767,15 +1845,21 @@ export default function App() {
       window.removeEventListener("orientationchange", fit);
       clearTimeout(id);
     };
-  }, [phStep, phCamReady]);
+  }, [camOpen]);
+
+  // オーバーレイが描画されたら、保持しておいたストリームを video に接続する
+  useEffect(() => {
+    if (!camOpen) return;
+    attachCameraStream(camOpen === "photo" ? phVideoRef : scVideoRef, camOpen === "photo" ? phStreamRef : scStreamRef);
+  }, [camOpen]);
 
   // 全画面表示のあいだは背景（記事本体）をスクロールさせない。閉じたら必ず元へ戻す。
   useEffect(() => {
-    if (!(phStep === "guide" && phCamReady)) return;
+    if (!camOpen) return;
     const prev = document.body.style.overflow;
     document.body.style.overflow = "hidden";
     return () => { document.body.style.overflow = prev; };
-  }, [phStep, phCamReady]);
+  }, [camOpen]);
 
   // 撮影中のライブ判定。毎フレームではなく 400ms 間隔で間引く（120px に縮小して測るので軽い）
   useEffect(() => {
@@ -2648,24 +2732,21 @@ export default function App() {
                     </div>
                   )}
 
-                  {/* 撮影中はビューポート全体を占有する全画面オーバーレイにする。
-                      記事カードの幅制約から外れて、映像を最大限大きく見せるため。
-                      案Cの考え方（映像の下に黒帯、そこにシャッターとライブ判定を置く）は
-                      カード基準からビューポート基準に置き換えただけで維持している。 */}
-                  <div style={{ display: phCamReady ? "flex" : "none", position: "fixed", inset: 0, zIndex: 99999, background: "#000", flexDirection: "column" }}>
-                    {/* ヘッダー: 閉じる（元の記事の位置に戻る） */}
-                    <div style={{ flex: "0 0 auto", height: 48, display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0 12px" }}>
-                      <button onClick={() => { stopPhCamera(); setPhStep("intro"); }} aria-label="撮影をやめる"
-                        style={{ width: 36, height: 36, borderRadius: "50%", border: "none", background: "rgba(255,255,255,0.12)", color: "#fff", fontSize: 16, lineHeight: 1, cursor: "pointer" }}>✕</button>
-                      <span style={{ fontSize: 12, color: "rgba(255,255,255,0.85)" }}>顔写真で診断</span>
-                      <span style={{ width: 36 }} />
-                    </div>
-                    {/* 映像の領域。ここに縦横比を保ったまま最大サイズで収める */}
-                    <div ref={phAreaRef} style={{ flex: "1 1 auto", minHeight: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
-                    {/* 内側ラッパ: オーバーレイSVGを映像と同じ箱に閉じ込める（ここがズレると測る場所が変わる） */}
-                    <div style={{ position: "relative", width: phBox ? phBox.w : "100%", height: phBox ? phBox.h : "auto" }}>
-                    <video ref={phVideoRef} playsInline muted style={{ width: "100%", height: phBox ? "100%" : "auto", display: "block", transform: "scaleX(-1)" }} />
-                    {/* リアルタイムガイド（サンプリング座標 PH_REGION と一致・丸型 + グラデーション） */}
+                  {/* 撮影中はビューポート全体を占有する全画面オーバーレイ（body直下へポータル） */}
+                  <FullscreenCamera
+                    open={phCamReady}
+                    title="顔写真で診断"
+                    hint="枠に合わせて、正面から自然光の方を向いてください"
+                    note="下の4項目は撮影前の目安です。すべて✓でも、撮影後の判定で撮り直しをお願いすることがあります。"
+                    videoRef={phVideoRef}
+                    areaRef={phAreaRef}
+                    box={phBox}
+                    onCapture={phCapture}
+                    onClose={() => { stopPhCamera(); setPhStep("intro"); }}
+                    onPickFile={() => { stopPhCamera(); fileRef.current?.click(); }}
+                    pickLabel="かわりに写真を選ぶ"
+                    closeLabel="条件を見直す"
+                    guide={(
                     <svg viewBox="0 0 300 400" style={{ position: "absolute", inset: 0, width: "100%", height: "100%", pointerEvents: "none" }}>
                       <defs>
                         <linearGradient id="gFace" x1="0%" y1="0%" x2="100%" y2="100%">
@@ -2699,18 +2780,8 @@ export default function App() {
                       <ellipse cx="150" cy="339" rx="52" ry="33" fill="none" stroke="url(#gPaper)" strokeWidth="3" strokeLinecap="round" />
                       <text x="150" y="387" fontSize="10" fill="#5EE897" textAnchor="middle" fontWeight="bold" style={{ filter: "drop-shadow(0 1px 2px rgba(0,0,0,.5))" }}>白い紙をここに</text>
                     </svg>
-                    <div style={{ position: "absolute", top: 10, left: 0, right: 0, textAlign: "center", fontSize: 11, color: "#fff", textShadow: "0 1px 3px rgba(0,0,0,.8)" }}>
-                      枠に合わせて、正面から自然光の方を向いてください
-                    </div>
-                    </div>
-                    </div>
-                    {/* 「あくまで目安」であることを、判定表示のすぐ上に常時出す */}
-                    <p style={{ flex: "0 0 auto", margin: 0, padding: "0 16px 6px", textAlign: "center", fontSize: 10.5, lineHeight: 1.6, color: "rgba(255,255,255,0.55)" }}>
-                      下の4項目は撮影前の目安です。すべて✓でも、撮影後の判定で撮り直しをお願いすることがあります。
-                    </p>
-                    {/* 黒帯: ライブ判定4項目とシャッター。画面幅いっぱいに置く（案Cの配置思想のまま） */}
-                    <div style={{ flex: "0 0 auto", position: "relative", height: 96 }}>
-                    {phCamReady && (
+                    )}
+                    pills={(
                       <div style={{ position: "absolute", left: 0, right: 0, bottom: 0, height: 96, display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0 10px", pointerEvents: "none" }}>
                         {[PH_LIVE_ITEMS.slice(0, 2), PH_LIVE_ITEMS.slice(2)].map((col, ci) => (
                           <div key={ci} style={{ display: "flex", flexDirection: "column", gap: 6 }}>
@@ -2729,23 +2800,7 @@ export default function App() {
                         ))}
                       </div>
                     )}
-                    {/* 撮影ボタン: パネル下端18px・中央固定（黒帯の中＝ガイドに被らない位置） */}
-                    {phCamReady && (
-                      <button onClick={phCapture} aria-label="撮影する"
-                        style={{ position: "absolute", bottom: 18, left: "50%", transform: "translateX(-50%)",
-                          width: 68, height: 68, borderRadius: "50%", border: "4px solid #fff",
-                          background: "radial-gradient(circle at 35% 30%, #fff, #E8E4DE)",
-                          boxShadow: "0 4px 16px rgba(0,0,0,.4)", cursor: "pointer" }}>
-                        <span style={{ display: "block", width: 50, height: 50, margin: "0 auto", borderRadius: "50%", background: "#1B1F2A" }} />
-                      </button>
-                    )}
-                    </div>
-                    {/* 下部の代替導線 */}
-                    <div style={{ flex: "0 0 auto", display: "flex", justifyContent: "center", gap: 20, padding: "2px 0 max(10px, env(safe-area-inset-bottom))" }}>
-                      <button onClick={() => { stopPhCamera(); fileRef.current?.click(); }} style={{ border: "none", background: "none", color: "rgba(255,255,255,0.7)", fontSize: 12, cursor: "pointer" }}>かわりに写真を選ぶ</button>
-                      <button onClick={() => { stopPhCamera(); setPhStep("intro"); }} style={{ border: "none", background: "none", color: "rgba(255,255,255,0.7)", fontSize: 12, cursor: "pointer" }}>条件を見直す</button>
-                    </div>
-                  </div>
+                  />
 
                   <input ref={fileRef} type="file" accept="image/*" onChange={onPhoto} style={{ display: "none" }} />
                   {!phCamReady && (
@@ -3173,13 +3228,22 @@ export default function App() {
                         </div>
                       )}
 
-                      {/* 外側パネル: 下端の黒帯にシャッターを置く（枠に被らせないため。顔写真診断と同じ構造）
-                          marginLeft/Right の -32 は本文の px-8 の打ち消し（顔写真診断と同じ理由） */}
-                      <div style={{ position: "relative", display: scCamReady ? "block" : "none", background: "#000", overflow: "hidden", paddingBottom: 96, marginLeft: -32, marginRight: -32 }}>
-                        {/* 内側ラッパ: オーバーレイSVGを映像と同じ高さに閉じ込める */}
-                        <div style={{ position: "relative" }}>
-                          <video ref={scVideoRef} playsInline muted style={{ width: "100%", display: "block", transform: "scaleX(-1)" }} />
-                          {/* ガイド枠は SC_REGION と同じ座標。顔写真診断のグラデーションと同系統の配色にそろえる */}
+                      {/* 撮影中はビューポート全体を占有する全画面オーバーレイ（body直下へポータル）。
+                          顔写真診断と同じ FullscreenCamera を使う。 */}
+                      <FullscreenCamera
+                        open={scCamReady}
+                        title="今日のコーデ採点"
+                        hint="上の枠にトップス、下の枠にボトムスを合わせてください"
+                        note="判定するのは服の色とタイプの相性だけです（シルエット・素材感は含みません）。"
+                        videoRef={scVideoRef}
+                        areaRef={scAreaRef}
+                        box={scBox}
+                        onCapture={scCapture}
+                        onClose={() => { stopScCamera(); setScStep("intro"); }}
+                        onPickFile={() => { stopScCamera(); scFileRef.current?.click(); }}
+                        pickLabel="かわりに写真を選ぶ"
+                        closeLabel="戻る"
+                        guide={(
                           <svg viewBox="0 0 300 400" style={{ position: "absolute", inset: 0, width: "100%", height: "100%", pointerEvents: "none" }}>
                             <defs>
                               <linearGradient id="gTops" x1="0%" y1="0%" x2="100%" y2="100%">
@@ -3198,25 +3262,12 @@ export default function App() {
                             <rect x="108" y="240" width="84" height="80" rx="14" fill="none" stroke="url(#gBottoms)" strokeWidth="3" strokeLinejoin="round" />
                             <text x="150" y="336" fontSize="10" fill="#6FA8F5" textAnchor="middle" fontWeight="bold" style={{ filter: "drop-shadow(0 1px 2px rgba(0,0,0,.5))" }}>ボトムス</text>
                           </svg>
-                          <div style={{ position: "absolute", top: 10, left: 0, right: 0, textAlign: "center", fontSize: 11, color: "#fff", textShadow: "0 1px 3px rgba(0,0,0,.8)" }}>
-                            上の枠にトップス、下の枠にボトムスを合わせてください
-                          </div>
-                        </div>
-                        {scCamReady && (
-                          <button onClick={scCapture} aria-label="撮影する"
-                            style={{ position: "absolute", bottom: 18, left: "50%", transform: "translateX(-50%)",
-                              width: 68, height: 68, borderRadius: "50%", border: "4px solid #fff",
-                              background: "radial-gradient(circle at 35% 30%, #fff, #E8E4DE)",
-                              boxShadow: "0 4px 16px rgba(0,0,0,.4)", cursor: "pointer" }}>
-                            <span style={{ display: "block", width: 50, height: 50, margin: "0 auto", borderRadius: "50%", background: "#1B1F2A" }} />
-                          </button>
                         )}
-                      </div>
+                      />
                       <input ref={scFileRef} type="file" accept="image/*" className="hidden" onChange={onScorePhoto} />
-                      {scCamReady && (
-                        <button onClick={() => { stopScCamera(); scFileRef.current?.click(); }} className="w-full mt-2.5 py-2.5 text-xs" style={{ color: C.sub }}>かわりに写真を選ぶ</button>
+                      {!scCamReady && (
+                        <button onClick={() => { stopScCamera(); setScStep("intro"); }} className="w-full mt-2 py-3 text-xs" style={{ color: C.faint }}>戻る</button>
                       )}
-                      <button onClick={() => { stopScCamera(); setScStep("intro"); }} className="w-full mt-2 py-3 text-xs" style={{ color: C.faint }}>戻る</button>
                       <canvas ref={scCanvasRef} style={{ display: "none" }} />
                     </>
                   )}

@@ -390,20 +390,27 @@ try {
     await camPage.getByRole("button", { name: /^地毛に近い$/ }).click();
     await camPage.getByRole("button", { name: /撮影にすすむ/ }).click();
     await camPage.getByRole("button", { name: /カメラを起動する/ }).click();
-    await camPage.waitForSelector("#colorlab-root video", { state: "visible", timeout: 15000 });
+    await camPage.waitForSelector("video", { state: "visible", timeout: 15000 });
     await camPage.waitForTimeout(800);
 
-    const grads = await camPage.locator("#colorlab-root svg linearGradient").count();
+    // オーバーレイは body 直下（ポータル）に出るので、#colorlab-root 配下では探さない
+    const portalOk = await camPage.evaluate(() => {
+      const v = document.querySelector("video");
+      if (!v) return "video なし";
+      return v.closest("#colorlab-root") ? "colorlab-root の中" : (v.parentElement && document.body.contains(v) ? "body 直下" : "不明");
+    });
+    check("撮影オーバーレイが body 直下（ポータル）に描画されている", portalOk === "body 直下");
+    const grads = await camPage.locator("svg linearGradient").count();
     check("ガイドのグラデーション定義が4本（顔/頬/髪/白紙）", grads === 4);
-    const cheeks = await camPage.locator('#colorlab-root svg circle[stroke="url(#gCheek)"]').count();
-    const hairC = await camPage.locator('#colorlab-root svg circle[stroke="url(#gHair)"]').count();
+    const cheeks = await camPage.locator('svg circle[stroke="url(#gCheek)"]').count();
+    const hairC = await camPage.locator('svg circle[stroke="url(#gHair)"]').count();
     check("頬ガイドが丸型で2個・髪ガイドが丸型で1個", cheeks === 2 && hairC === 1);
-    const paperE = await camPage.locator('#colorlab-root svg ellipse[stroke="url(#gPaper)"]').count();
-    const faceE = await camPage.locator('#colorlab-root svg ellipse[stroke="url(#gFace)"]').count();
+    const paperE = await camPage.locator('svg ellipse[stroke="url(#gPaper)"]').count();
+    const faceE = await camPage.locator('svg ellipse[stroke="url(#gFace)"]').count();
     check("白紙ガイド(角丸楕円)と顔ガイド(点線楕円)がある", paperE === 1 && faceE === 1);
 
     // ── 全画面オーバーレイであること ──
-    const ov = await camPage.locator("#colorlab-root video").evaluate((v) => {
+    const ov = await camPage.locator("video").evaluate((v) => {
       let el = v;
       while (el && getComputedStyle(el).position !== "fixed") el = el.parentElement;
       if (!el) return null;
@@ -425,12 +432,12 @@ try {
     check("オーバーレイ表示中は背景がスクロールしない (body overflow=" + bodyOv + ")", bodyOv === "hidden");
 
     // 映像が引き伸ばされていないこと＝ガイドと測定範囲の対応が崩れていないことの前提
-    const vb = await camPage.locator("#colorlab-root video").boundingBox();
-    const intr = await camPage.locator("#colorlab-root video").evaluate((v) => ({ w: v.videoWidth, h: v.videoHeight }));
+    const vb = await camPage.locator("video").boundingBox();
+    const intr = await camPage.locator("video").evaluate((v) => ({ w: v.videoWidth, h: v.videoHeight }));
     const arDiff = Math.abs(vb.width / vb.height - intr.w / intr.h);
     check("映像が元の縦横比のまま表示されている (ズレ" + arDiff.toFixed(4) + ")", arDiff < 0.01);
 
-    const shutter = camPage.locator('#colorlab-root button[aria-label="撮影する"]');
+    const shutter = camPage.locator('button[aria-label="撮影する"]');
     check("撮影ボタン（シャッター型）が表示されている", await shutter.isVisible());
     const sb = await shutter.boundingBox();
     const stripBox = await shutter.evaluate((el) => { const b = el.parentElement.getBoundingClientRect(); return { x: b.x, y: b.y, width: b.width, height: b.height }; });
@@ -443,8 +450,8 @@ try {
 
     // 重なりゼロと「ガイド＝測定範囲」を恒久ゲート化する
     const rectOf = (sel) => camPage.locator(sel).evaluate((el) => { const b = el.getBoundingClientRect(); return { x: b.x, y: b.y, right: b.right, bottom: b.bottom }; });
-    const paperRect = await rectOf('#colorlab-root svg ellipse[stroke="url(#gPaper)"]');
-    const labelRect = await camPage.locator("#colorlab-root svg text", { hasText: "白い紙をここに" }).evaluate((el) => { const b = el.getBoundingClientRect(); return { x: b.x, y: b.y, right: b.right, bottom: b.bottom }; });
+    const paperRect = await rectOf('svg ellipse[stroke="url(#gPaper)"]');
+    const labelRect = await camPage.locator("svg text", { hasText: "白い紙をここに" }).evaluate((el) => { const b = el.getBoundingClientRect(); return { x: b.x, y: b.y, right: b.right, bottom: b.bottom }; });
     const shRect = { x: sb.x, y: sb.y, right: sb.x + sb.width, bottom: sb.y + sb.height };
     const hits = (a, b) => Math.min(a.right, b.right) - Math.max(a.x, b.x) > 0 && Math.min(a.bottom, b.bottom) - Math.max(a.y, b.y) > 0;
     check("シャッターが白紙ガイド楕円に重なっていない (クリアランス" + Math.round(shRect.y - paperRect.bottom) + "px)", !hits(shRect, paperRect));
@@ -460,10 +467,10 @@ try {
     log("  SS: 12_photo_camera_guide.png");
 
     // 閉じるボタン → 記事へ戻る / カメラ停止 / 背景スクロール復帰
-    await camPage.locator('#colorlab-root button[aria-label="撮影をやめる"]').click();
+    await camPage.locator('button[aria-label="撮影をやめる"]').click();
     await camPage.waitForSelector("#colorlab-root >> text=撮影条件（すべて必要です）", { timeout: 5000 });
     const afterClose = await camPage.evaluate(() => ({
-      overlay: !!document.querySelector('#colorlab-root video'),
+      overlay: !!document.querySelector('video'),
       overflow: getComputedStyle(document.body).overflow,
     }));
     check("閉じるボタンで撮影画面を抜け、元の記事の位置に戻る", !afterClose.overlay);
@@ -474,21 +481,75 @@ try {
     // もう一度カメラを起動して、撮影まで通す
     await camPage.getByRole("button", { name: /撮影にすすむ/ }).click();
     await camPage.getByRole("button", { name: /カメラを起動する/ }).click();
-    await camPage.waitForSelector("#colorlab-root video", { state: "visible", timeout: 15000 });
+    await camPage.waitForSelector("video", { state: "visible", timeout: 15000 });
     await camPage.waitForTimeout(600);
 
     // 実カメラからの撮影 → 解析まで通ることも確認（フェイク映像なので品質ゲートで却下される想定）
-    await camPage.locator('#colorlab-root button[aria-label="撮影する"]').click();
+    await camPage.locator('button[aria-label="撮影する"]').click();
     await camPage.waitForSelector("#colorlab-root >> text=/色を測っています|撮り直す/", { timeout: 15000 });
     const afterShot = await camPage.locator("#colorlab-root").innerText();
     check("シャッター → 解析が起動する（フェイク映像は品質ゲートで却下される）", /色を測っています|撮り直す/.test(afterShot));
     await camPage.waitForTimeout(600);
     await camPage.locator("#colorlab-root").screenshot({ path: join(SHOTS, "13_photo_capture_gate.png") });
     log("  SS: 13_photo_capture_gate.png");
-    const tracks = await camPage.evaluate(() => document.querySelector("#colorlab-root video")?.srcObject?.getTracks?.().length ?? 0);
+    const tracks = await camPage.evaluate(() => document.querySelector("video")?.srcObject?.getTracks?.().length ?? 0);
     check("撮影後にカメラのトラックが解放されている", tracks === 0);
   } finally {
     await camBrowser.close();
+  }
+
+  // ── 6c-1. 祖先に transform がある埋め込み先でも全画面になるか ──
+  // position:fixed は祖先に transform/filter/perspective/will-change/contain があると
+  // ビューポートではなくその祖先が基準になる。本番CMSがそういうCSSを当てても壊れないよう、
+  // ポータルで body 直下へ逃がしている。ここはその回帰ゲート。
+  for (const [label, css] of [
+    ["transform", "transform:translateZ(0)"],
+    ["filter", "filter:blur(0px)"],
+    ["will-change", "will-change:transform"],
+  ]) {
+    const tb = await chromium.launch({ args: ["--use-fake-ui-for-media-stream", "--use-fake-device-for-media-stream"] });
+    try {
+      const c = await tb.newContext({ viewport: { width: 375, height: 812 }, deviceScaleFactor: 2, permissions: ["camera"] });
+      const pg = await c.newPage();
+      await pg.goto(ART, { waitUntil: "networkidle" });
+      // #colorlab-root の祖先に、containing block を作るCSSを当てる
+      await pg.evaluate((decl) => {
+        const el = document.getElementById("colorlab-root").parentElement;
+        el.setAttribute("style", (el.getAttribute("style") || "") + ";" + decl);
+      }, css);
+      // 素の position:fixed だと祖先に閉じ込められることを、まず実測して示す
+      const trapped = await pg.evaluate(() => {
+        const t = document.createElement("div");
+        t.setAttribute("style", "position:fixed;inset:0");
+        document.getElementById("colorlab-root").appendChild(t);
+        const b = t.getBoundingClientRect();
+        t.remove();
+        return !(Math.abs(b.width - window.innerWidth) < 1 && Math.abs(b.height - window.innerHeight) < 1);
+      });
+      await pg.waitForSelector("#colorlab-root button", { timeout: 15000 });
+      await pg.locator("#colorlab-root").getByRole("button", { name: /顔写真で診断/ }).click();
+      await pg.waitForSelector("#colorlab-root >> text=撮影条件（すべて必要です）", { timeout: 5000 });
+      const cb2 = pg.locator("#colorlab-root input[type=checkbox]");
+      for (let i = 0; i < (await cb2.count()); i++) await cb2.nth(i).check();
+      await pg.locator("#colorlab-root").getByRole("button", { name: /^地毛に近い$/ }).click();
+      await pg.locator("#colorlab-root").getByRole("button", { name: /撮影にすすむ/ }).click();
+      await pg.locator("#colorlab-root").getByRole("button", { name: /カメラを起動する/ }).click();
+      await pg.waitForSelector("video", { state: "visible", timeout: 15000 });
+      await pg.waitForTimeout(600);
+      const box = await pg.evaluate(() => {
+        let el = document.querySelector("video");
+        while (el && getComputedStyle(el).position !== "fixed") el = el.parentElement;
+        if (!el) return null;
+        const b = el.getBoundingClientRect();
+        return { x: b.x, y: b.y, w: b.width, h: b.height, vw: window.innerWidth, vh: window.innerHeight };
+      });
+      const full = !!box && Math.abs(box.x) < 1 && Math.abs(box.y) < 1 && Math.abs(box.w - box.vw) < 1 && Math.abs(box.h - box.vh) < 1;
+      check(`祖先に ${label} があっても全画面になる（素のfixedは閉じ込められる=${trapped} / 実測 ${box ? Math.round(box.w) + "x" + Math.round(box.h) : "なし"}）`, full && trapped);
+      if (label === "transform") {
+        await pg.screenshot({ path: join(SHOTS, "29_fullscreen_with_transform_ancestor.png") });
+        log("  SS: 29_fullscreen_with_transform_ancestor.png");
+      }
+    } finally { await tb.close(); }
   }
 
   // ── 6c-2. 撮影中のライブ条件チェック表示 ──
@@ -522,7 +583,7 @@ try {
     await pg.locator("#colorlab-root").getByRole("button", { name: /^地毛に近い$/ }).click();
     await pg.locator("#colorlab-root").getByRole("button", { name: /撮影にすすむ/ }).click();
     await pg.locator("#colorlab-root").getByRole("button", { name: /カメラを起動する/ }).click();
-    await pg.waitForSelector("#colorlab-root video", { state: "visible", timeout: 15000 });
+    await pg.waitForSelector("video", { state: "visible", timeout: 15000 });
     await pg.waitForTimeout(1400); // 400ms間隔のライブ判定が数回まわるのを待つ
   };
   const liveBrowser = async (y4m) => chromium.launch({
@@ -536,7 +597,7 @@ try {
     const pg = await c.newPage();
     pg.on("request", (r) => { if (/anthropic\.com/.test(r.url())) aiCalls.push(r.url()); });
     await openPhotoGuide(pg);
-    const t = await pg.locator("#colorlab-root").innerText();
+    const t = await pg.locator("body").innerText();
     check("ライブ判定: 明るさ ✓十分", /明るさ\s*✓十分/.test(t));
     check("ライブ判定: 白い紙 ✓検出", /白い紙\s*✓検出/.test(t));
     check("ライブ判定: 顔の位置 ✓枠内", /顔の位置\s*✓枠内/.test(t));
@@ -545,9 +606,9 @@ try {
 
     // シャッター・ガイド枠と重なっていないこと（案Cの構造を崩していない）
     const rectOf = async (sel) => pg.locator(sel).first().evaluate((el) => { const b = el.getBoundingClientRect(); return { x: b.x, y: b.y, right: b.right, bottom: b.bottom }; });
-    const sh = await rectOf('#colorlab-root button[aria-label="撮影する"]');
-    const paper = await rectOf('#colorlab-root svg ellipse[stroke="url(#gPaper)"]');
-    const pills = await pg.locator("#colorlab-root span", { hasText: /明るさ|白い紙|顔の位置|左右/ }).evaluateAll((els) =>
+    const sh = await rectOf('button[aria-label="撮影する"]');
+    const paper = await rectOf('svg ellipse[stroke="url(#gPaper)"]');
+    const pills = await pg.locator("span", { hasText: /明るさ|白い紙|顔の位置|左右/ }).evaluateAll((els) =>
       els.filter((e) => e.children.length === 3).map((e) => { const b = e.getBoundingClientRect(); return { x: b.x, y: b.y, right: b.right, bottom: b.bottom }; }));
     const hit = (a, b) => Math.min(a.right, b.right) - Math.max(a.x, b.x) > 0 && Math.min(a.bottom, b.bottom) - Math.max(a.y, b.y) > 0;
     check(`ライブ表示が4項目ぶん描画されている (${pills.length}件)`, pills.length === 4);
@@ -558,7 +619,7 @@ try {
     check("ライブ表示が白紙ガイド(映像側)に重なっていない", pills.every((p) => !hit(p, paper)));
     // ライブ判定を回したまま3秒間の描画間隔と映像のフレーム落ちを実測する
     const perf = await pg.evaluate(() => new Promise((res) => {
-      const v = document.querySelector("#colorlab-root video");
+      const v = document.querySelector("video");
       const q0 = v.getVideoPlaybackQuality ? v.getVideoPlaybackQuality() : null;
       const gaps = []; let last = performance.now(); const t0 = last;
       const step = (t) => {
@@ -588,7 +649,7 @@ try {
     const pg = await c.newPage();
     pg.on("request", (r) => { if (/anthropic\.com/.test(r.url())) aiCalls.push(r.url()); });
     await openPhotoGuide(pg);
-    const t = await pg.locator("#colorlab-root").innerText();
+    const t = await pg.locator("body").innerText();
     check("ライブ判定: 暗い映像で 明るさ が✓にならない", /明るさ\s*○不足/.test(t) && !/明るさ\s*✓/.test(t));
     check("ライブ判定: 暗い映像で 白い紙 も未検出になる", /白い紙\s*○未検出/.test(t));
     await pg.screenshot({ path: join(SHOTS, "24_photo_live_dark.png") }); // 全画面なのでビューポートを撮る
@@ -727,22 +788,33 @@ try {
     await p2.locator("#colorlab-root").getByRole("button", { name: /今日のコーデ採点/ }).click();
     await p2.getByRole("button", { name: /カメラで撮る/ }).click();
     await p2.getByRole("button", { name: /カメラを起動する/ }).click();
-    await p2.waitForSelector("#colorlab-root video", { state: "visible", timeout: 15000 });
+    await p2.waitForSelector("video", { state: "visible", timeout: 15000 });
     await p2.waitForTimeout(800);
     const boxOf = async (sel) => p2.locator(sel).evaluate((el) => { const b = el.getBoundingClientRect(); return { x: b.x, y: b.y, right: b.right, bottom: b.bottom }; });
-    const vb2 = await p2.locator("#colorlab-root video").boundingBox();
-    const topsBox = await boxOf('#colorlab-root svg rect[stroke="url(#gTops)"]');
-    const botsBox = await boxOf('#colorlab-root svg rect[stroke="url(#gBottoms)"]');
-    const sh2 = await p2.locator('#colorlab-root button[aria-label="撮影する"]').boundingBox();
+    const vb2 = await p2.locator("video").boundingBox();
+    const topsBox = await boxOf('svg rect[stroke="url(#gTops)"]');
+    const botsBox = await boxOf('svg rect[stroke="url(#gBottoms)"]');
+    const sh2 = await p2.locator('button[aria-label="撮影する"]').boundingBox();
+    const scPortal = await p2.evaluate(() => !document.querySelector("video").closest("#colorlab-root"));
+    check("コーデ採点の撮影画面も body 直下（ポータル）に出る", scPortal);
+    const scFull = await p2.evaluate(() => {
+      let el = document.querySelector("video");
+      while (el && getComputedStyle(el).position !== "fixed") el = el.parentElement;
+      if (!el) return null;
+      const b = el.getBoundingClientRect();
+      return { w: b.width, h: b.height, vw: window.innerWidth, vh: window.innerHeight };
+    });
+    check("コーデ採点の撮影画面も全画面になっている (" + (scFull ? `${Math.round(scFull.w)}x${Math.round(scFull.h)}` : "なし") + ")",
+      !!scFull && Math.abs(scFull.w - scFull.vw) < 1 && Math.abs(scFull.h - scFull.vh) < 1);
     const mid = (a, b) => (a + b) / 2;
     const dTops = Math.abs(mid(topsBox.y, topsBox.bottom) - (vb2.y + 0.40 * vb2.height));
     const dBots = Math.abs(mid(botsBox.y, botsBox.bottom) - (vb2.y + 0.70 * vb2.height));
     check(`トップス枠が SC_REGION(0.30〜0.50) と一致 (中心Yズレ${dTops.toFixed(1)}px)`, dTops < 5);
     check(`ボトムス枠が SC_REGION(0.60〜0.80) と一致 (中心Yズレ${dBots.toFixed(1)}px)`, dBots < 5);
     check("撮影ボタンがガイド枠に重なっていない", sh2.y >= botsBox.bottom);
-    await p2.locator("#colorlab-root").screenshot({ path: join(SHOTS, "22_score_camera_guide.png") });
+    await p2.screenshot({ path: join(SHOTS, "22_score_camera_guide.png") }); // 全画面なのでビューポートを撮る
     log("  SS: 22_score_camera_guide.png");
-    const tr = await p2.evaluate(() => document.querySelector("#colorlab-root video")?.srcObject?.getTracks?.().length ?? 0);
+    const tr = await p2.evaluate(() => document.querySelector("video")?.srcObject?.getTracks?.().length ?? 0);
     check("採点のカメラが起動している（撮影ガイドが実映像に重なる）", tr > 0);
   } finally {
     await scBrowser.close();
