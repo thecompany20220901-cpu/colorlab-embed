@@ -15,6 +15,17 @@ import React, { useState, useRef, useCallback } from "react";
    4. 3軸(色相/明度/清濁)を数値算出 → 4タイプへ規則で分類
    5. 品質ゲート: 暗すぎ/白飛び/白基準なし/強い色かぶりは判定前に却下
    6. 計測値を全部開示(ブラックボックスにしない=信頼の源泉)
+
+   ─ 移植するときに必ず守る不変条件(2026-08-29 追加) ─
+   A. ガイドの図形座標と sampleRegion() の引数は**必ずセットで動かす**。見た目だけ動かすと
+      「ガイドに合わせたのに測定エリアが違う」事故になる。実測で cy を 339→310 にしただけで
+      ガイド中心が測定範囲から 21.4px ずれた。移植先には
+      「ガイド中心と測定帯の中心が5px以内」を自動テストのゲートとして必ず入れること。
+   B. 撮影ボタンは**映像に重ねない**。下端固定のシャッター(68px, bottom:18)は白紙ガイド＝
+      測定範囲(0.76〜0.92)を 68x54px 丸ごと覆う。映像の下に黒帯(paddingBottom:96px)を作り、
+      その中へ置く。位置は「パネル下端18px・中央」のままなので親指の可到達性は落ちない。
+   C. オーバーレイSVGは**映像と同じ高さ**に閉じ込める(内側に position:relative のラッパを1枚
+      挟む)。inset:0 のまま黒帯まで伸ばすと、ガイドが 50.5px 下へずれる。
    ═══════════════════════════════════════════════════════ */
 
 /* ---------- 色科学 ---------- */
@@ -450,7 +461,10 @@ export default function PhotoDiagnoseV2() {
               </div>
             )}
 
-            <div style={{ position: "relative", display: cameraReady ? "block" : "none", background: "#000", borderRadius: 2, overflow: "hidden" }}>
+            {/* 外側パネル: 下端に黒帯(96px)を作り、シャッターをそこへ置く(不変条件B) */}
+            <div style={{ position: "relative", display: cameraReady ? "block" : "none", background: "#000", borderRadius: 2, overflow: "hidden", paddingBottom: 96 }}>
+              {/* 内側ラッパ: オーバーレイSVGを映像と同じ高さに閉じ込める(不変条件C) */}
+              <div style={{ position: "relative" }}>
               <video ref={videoRef} playsInline muted style={{ width: "100%", display: "block", transform: "scaleX(-1)" }} />
               {/* リアルタイムガイドのオーバーレイ(サンプリング座標は不変・見た目のみ丸型+グラデーションに変更) */}
               <svg viewBox="0 0 300 400" style={{ position: "absolute", inset: 0, width: "100%", height: "100%", pointerEvents: "none" }}>
@@ -482,15 +496,17 @@ export default function PhotoDiagnoseV2() {
                 {/* 髪: 四角→丸に変更。サンプリング範囲(0.40-0.60, 0.06-0.16)の中心に配置 */}
                 <circle cx="150" cy="51" r="26" fill="none" stroke="url(#gHair)" strokeWidth="3" strokeLinecap="round" />
                 <text x="150" y="20" fontSize="10" fill="#6FA8F5" textAnchor="middle" fontWeight="bold" style={{ filter: "drop-shadow(0 1px 2px rgba(0,0,0,.5))" }}>髪</text>
-                {/* 白紙: 角丸の楕円に変更。サンプリング範囲(0.34-0.66, 0.76-0.92)を包む */}
+                {/* 白紙: 角丸の楕円。サンプリング範囲(0.34-0.66, 0.76-0.92)を包む。
+                  cy=339 は analyze() の whiteRef と対。動かすなら sampleRegion 側も同時に(不変条件A) */}
                 <ellipse cx="150" cy="339" rx="52" ry="33" fill="none" stroke="url(#gPaper)" strokeWidth="3" strokeLinecap="round" />
                 <text x="150" y="387" fontSize="10" fill="#5EE897" textAnchor="middle" fontWeight="bold" style={{ filter: "drop-shadow(0 1px 2px rgba(0,0,0,.5))" }}>白い紙をここに</text>
               </svg>
               <div style={{ position: "absolute", top: 10, left: 0, right: 0, textAlign: "center", fontSize: 11, color: "#fff", textShadow: "0 1px 3px rgba(0,0,0,.8)" }}>
                 枠に合わせて、正面から自然光の方を向いてください
               </div>
+              </div>
 
-              {/* 撮影ボタンを映像に重ねて下部固定(親指が届く位置) */}
+              {/* 撮影ボタン: パネル下端18px・中央固定(黒帯の中＝白紙ガイドに被らない位置) */}
               {cameraReady && (
                 <button
                   onClick={captureFromVideo}
