@@ -1180,7 +1180,11 @@ function livePhotoCheck(video, canvas) {
   const corr = (c) => rgbToLab(Math.min(255, c.r * g.r), Math.min(255, c.g * g.g), Math.min(255, c.b * g.b));
   const lL = corr(cheekL), lR = corr(cheekR);
   const skinOk = (l) => l.L >= 40 && l.L <= 88 && l.a >= 2 && l.a <= 26 && l.b >= 4 && l.b <= 32;
-  const face = paper && skinOk(lL) && skinOk(lR);             // 本判定の「肌の生理的範囲」に対応
+  // ★顔の位置は「白い紙でWB補正したあとの肌」を見る判定なので、白紙が取れていないと測れない。
+  //   ここで false（＝○ズレ＝位置が悪い）を返すと、位置は合っているのに「ズレています」と
+  //   嘘を伝えることになる（2026-08-29 実機で発生）。測れないときは null＝判定不可を返し、
+  //   表示側で「白い紙が先」とグレー表示にする。白紙が取れたあとは本判定と同じ基準で判定する。
+  const face = paper ? (skinOk(lL) && skinOk(lR)) : null;     // 本判定の「肌の生理的範囲」に対応
   const balance = deltaE(lL, lR) <= 14;                       // 本判定の左右頬差ΔEに対応
   return { bright, paper, face, balance };
 }
@@ -1189,7 +1193,8 @@ function livePhotoCheck(video, canvas) {
 const PH_LIVE_ITEMS = [
   { key: "bright", icon: "💡", label: "明るさ", ok: "十分", ng: "不足" },
   { key: "paper", icon: "📄", label: "白い紙", ok: "検出", ng: "未検出" },
-  { key: "face", icon: "👤", label: "顔の位置", ok: "枠内", ng: "ズレ" },
+  // pending は「まだ測れない」。顔の位置は白い紙でWB補正できて初めて測れる。
+  { key: "face", icon: "👤", label: "顔の位置", ok: "枠内", ng: "ズレ", pending: "白い紙が先" },
   { key: "balance", icon: "⚖️", label: "左右", ok: "良好", ng: "偏り" },
 ];
 
@@ -2786,13 +2791,18 @@ export default function App() {
                         {[PH_LIVE_ITEMS.slice(0, 2), PH_LIVE_ITEMS.slice(2)].map((col, ci) => (
                           <div key={ci} style={{ display: "flex", flexDirection: "column", gap: 6 }}>
                             {col.map((it) => {
-                              const ok = !!(phLive && phLive[it.key]);
-                              const col2 = ok ? "#5EE897" : "#FF9569";
+                              // 3状態: ✓(緑)=満たしている / ○(オレンジ)=まだ / —(グレー)=まだ測れない
+                              const v = phLive ? phLive[it.key] : undefined;
+                              const pending = v === null || v === undefined;
+                              const ok = v === true;
+                              const col2 = ok ? "#5EE897" : pending ? "#B9B4BE" : "#FF9569";
+                              const mark = ok ? "✓" : pending ? "—" : "○";
+                              const text = ok ? it.ok : pending ? (it.pending || "測定中") : it.ng;
                               return (
                                 <span key={it.key} style={{ display: "flex", alignItems: "center", gap: 4, padding: "4px 8px", borderRadius: 999, background: "rgba(255,255,255,0.10)", border: `1px solid ${col2}55`, fontSize: 10, lineHeight: 1.2, color: "#fff", whiteSpace: "nowrap" }}>
                                   <span style={{ fontSize: 10 }}>{it.icon}</span>
                                   <span style={{ opacity: 0.85 }}>{it.label}</span>
-                                  <span style={{ color: col2, fontWeight: "bold" }}>{ok ? "✓" : "○"}{ok ? it.ok : it.ng}</span>
+                                  <span style={{ color: col2, fontWeight: "bold" }}>{mark}{text}</span>
                                 </span>
                               );
                             })}

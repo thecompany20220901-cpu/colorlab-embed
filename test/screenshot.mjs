@@ -102,6 +102,11 @@ const SCORE_DARK = regionPng(600, 800, [16, 16, 18], [
   [0.36, 0.60, 0.64, 0.80, [22, 22, 26]],
 ]);
 
+// 白い紙のかわりに「明るいが色づいた面」（木の机・ベージュの壁など）が写っている映像。
+// 明るさは足りるが色かぶり33%で白紙は未検出。頬は正しい肌色なので、
+// 「顔の位置」を ○ズレ と出してはいけない（位置は合っているため）状態を再現する。
+const LIVE_NOPAPER = [190, 190, 195];
+
 // 白紙が暗すぎる（wMax < 120）→ 品質ゲートで却下されるべき写真
 const PHOTO_DARK = regionPng(600, 800, [30, 28, 26], [
   [0.24, 0.46, 0.36, 0.58, [70, 58, 50]],
@@ -600,7 +605,7 @@ try {
     const t = await pg.locator("body").innerText();
     check("ライブ判定: 明るさ ✓十分", /明るさ\s*✓十分/.test(t));
     check("ライブ判定: 白い紙 ✓検出", /白い紙\s*✓検出/.test(t));
-    check("ライブ判定: 顔の位置 ✓枠内", /顔の位置\s*✓枠内/.test(t));
+    check("ライブ判定: 顔の位置 ✓枠内（白紙が取れたら本判定と同じ基準で判定される）", /顔の位置\s*✓枠内/.test(t));
     check("ライブ判定: 左右 ✓良好", /左右\s*✓良好/.test(t));
     check("「あくまで目安」であることが画面に書かれている", /撮影前の目安です/.test(t) && /撮り直しをお願いすることがあります/.test(t));
 
@@ -654,6 +659,30 @@ try {
     check("ライブ判定: 暗い映像で 白い紙 も未検出になる", /白い紙\s*○未検出/.test(t));
     await pg.screenshot({ path: join(SHOTS, "24_photo_live_dark.png") }); // 全画面なのでビューポートを撮る
     log("  SS: 24_photo_live_dark.png");
+  } finally { await lb.close(); }
+
+  // (c) 白い紙だけ取れない映像 → 「顔の位置」は ○ズレ ではなく 「— 白い紙が先」になる
+  //     （頬は正しい肌色なので、位置が悪いと嘘を伝えてはいけない）
+  const noPaperY4m = join(tmpdir(), "colorlab_live_nopaper.y4m");
+  wfs(noPaperY4m, y4mFromRegions(480, 640, LIVE_NOPAPER, [
+    [0.40, 0.06, 0.60, 0.16, [62, 46, 38]],
+    [0.24, 0.46, 0.36, 0.58, [233, 194, 168]],   // 正しい肌色
+    [0.64, 0.46, 0.76, 0.58, [233, 194, 168]],
+    [0.34, 0.76, 0.66, 0.92, [210, 180, 140]],   // 明るいが色かぶり33% → 白紙は未検出
+  ]));
+  lb = await liveBrowser(noPaperY4m);
+  try {
+    const c = await lb.newContext({ viewport: { width: 375, height: 812 }, deviceScaleFactor: 2, permissions: ["camera"] });
+    const pg = await c.newPage();
+    pg.on("request", (r) => { if (/anthropic\.com/.test(r.url())) aiCalls.push(r.url()); });
+    await openPhotoGuide(pg);
+    const t = await pg.locator("body").innerText();
+    check("ライブ判定: 白紙が取れないと 白い紙 は ○未検出", /白い紙\s*○未検出/.test(t));
+    check("ライブ判定: そのとき 明るさ は ✓十分（keisukeの実機と同じ状態）", /明るさ\s*✓十分/.test(t));
+    check("ライブ判定: 顔の位置が「— 白い紙が先」になる（○ズレ と誤表示しない）",
+      /顔の位置\s*—白い紙が先/.test(t) && !/顔の位置\s*○ズレ/.test(t));
+    await pg.screenshot({ path: join(SHOTS, "32_photo_live_paper_first.png") });
+    log("  SS: 32_photo_live_paper_first.png");
   } finally { await lb.close(); }
 
   // ── 6d. コーデ提案（シーン別記事のデータ参照方式・外部通信なし）──
@@ -818,6 +847,67 @@ try {
     check("採点のカメラが起動している（撮影ガイドが実映像に重なる）", tr > 0);
   } finally {
     await scBrowser.close();
+  }
+
+  // ── 6f. SPA（Next.js相当）での自動マウント ──
+  // 本番の blubel.jp は Next.js の SPA。サイト内リンクから来ると、ページ本文に貼った
+  // <script> は実行されない（React が innerHTML 相当で差し込むため）。
+  // そこで「スクリプトは共通ヘッダーで常時読み込み → #colorlab-root を見つけたら自動マウント」
+  // という作りにした。ここはその回帰ゲート。
+  {
+    const spaPage = join(tmpdir(), "colorlab_spa.html");
+    // 共通ヘッダーでスクリプトを読み、本文は後から JS で差し込む（＝SPA遷移の再現）
+    wfs(spaPage, `<!DOCTYPE html><html lang="ja"><head><meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<script src="file:///${join(__dirname, "..", "dist", "colorlab.iife.js").replace(/\\/g, "/")}"></script>
+</head><body>
+<div id="app"><h1>トップページ</h1><p>ここから記事へ遷移します。</p></div>
+<script>
+  // Next.js のクライアント遷移を模す: innerHTML で本文を差し込む。
+  // この中の <script> はブラウザ仕様で実行されない（本番と同じ条件）。
+  window.goToArticle = function () {
+    document.getElementById('app').innerHTML =
+      '<h1>パーソナルカラー診断</h1>' +
+      '<div id="colorlab-root">アプリを読み込み中…</div>' +
+      '<scr' + 'ipt>window.ColorLabApp && window.ColorLabApp.mount("#colorlab-root");</scr' + 'ipt>';
+    history.pushState({}, '', '?p=personalcolor'); // file:// では絶対パスは使えないためクエリで代用
+  };
+  window.rerenderArticle = function () {
+    // SPA の再描画で中身を消される状況を模す
+    document.getElementById('colorlab-root').innerHTML = 'アプリを読み込み中…';
+  };
+</script>
+</body></html>`, "utf8");
+
+    const spaBrowser = await chromium.launch();
+    try {
+      const c = await spaBrowser.newContext({ viewport: { width: 375, height: 812 } });
+      const pg = await c.newPage();
+      await pg.goto("file:///" + spaPage.replace(/\\/g, "/"), { waitUntil: "networkidle" });
+      check("SPA: 遷移前は #colorlab-root がまだ無い", (await pg.locator("#colorlab-root").count()) === 0);
+
+      // クライアント遷移（本文を innerHTML で差し込む。中の <script> は実行されない）
+      await pg.evaluate(() => window.goToArticle());
+      await pg.waitForSelector("#colorlab-root button", { timeout: 8000 }).catch(() => {});
+      const mounted = await pg.evaluate(() => {
+        const el = document.getElementById("colorlab-root");
+        return { children: el ? el.children.length : -1, text: el ? el.textContent.trim().slice(0, 12) : null };
+      });
+      check(`SPA: クライアント遷移でも自動マウントされる（子要素${mounted.children}個 / text="${mounted.text}"）`,
+        mounted.children > 0 && !/アプリを読み込み中/.test(mounted.text || ""));
+      await pg.screenshot({ path: join(SHOTS, "33_spa_automount.png") });
+      log("  SS: 33_spa_automount.png");
+
+      // SPA の再描画で消されても貼り直されるか
+      await pg.evaluate(() => window.rerenderArticle());
+      await pg.waitForTimeout(1200);
+      const remounted = await pg.evaluate(() => {
+        const el = document.getElementById("colorlab-root");
+        return { children: el ? el.children.length : -1, text: el ? el.textContent.trim().slice(0, 12) : null };
+      });
+      check(`SPA: 再描画で消されても貼り直される（子要素${remounted.children}個）`,
+        remounted.children > 0 && !/アプリを読み込み中/.test(remounted.text || ""));
+    } finally { await spaBrowser.close(); }
   }
 
   // ── 7. Liteモードの実測 ──
