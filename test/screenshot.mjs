@@ -105,6 +105,32 @@ const SCORE_DARK = regionPng(600, 800, [16, 16, 18], [
   [0.36, 0.60, 0.64, 0.80, [22, 22, 26]],
 ]);
 
+// フレームごとに頬の赤みが a* の上限(26)をまたいで揺れる映像。
+// 実機ではカメラのAWBが±2%揺れるだけで a* が±1.8ほど振れ、余裕1.6の判定が✓と○を往復する
+// （2026-08-31 実測）。その状況を再現して、表示がチラつかないことを確認するためのもの。
+function y4mFlicker(W, H) {
+  const frames = [];
+  // 頬の赤みを 1フレームおきに変える（境界の内側 / 外側）
+  // a* の上限26を実際にまたぐ色にすること（またがないとゲートが素通りする）。
+  // 振れ幅は実機のAWB変動の実測(a*が±1.8〜3.5)に合わせる。これ以上大きく振らすと
+  // 「AWBの揺れ」ではなく「別の色を測っている」状況になり、○に落ちるのが正しい挙動になる。
+  //   [248,176,156] → a*23.2 厳密(上限26)の内側
+  //   [250,168,150] → a*27.5 厳密の外・余裕(+3)の内側 … ヒステリシスで✓を保つべき対象
+  // 安定化が無ければ、この2つが交互に来るだけで表示は400msごとに✓と○を往復する。
+  for (const cheek of [[248, 176, 156], [250, 168, 150], [248, 176, 156], [250, 168, 150]]) {
+    frames.push(y4mFromRegions(W, H, [190, 190, 195], [
+      [0.40, 0.06, 0.60, 0.16, [62, 46, 38]],
+      [0.30, 0.44, 0.42, 0.60, cheek],
+      [0.58, 0.44, 0.70, 0.60, cheek],
+      [0.34, 0.76, 0.66, 0.92, [235, 232, 228]],
+    ], 1));
+  }
+  // ヘッダは先頭のものだけ残して連結する
+  const head = frames[0].slice(0, frames[0].indexOf("FRAME\n"));
+  const bodies = frames.map((f) => f.slice(f.indexOf("FRAME\n")));
+  return Buffer.concat([Buffer.from(head), ...bodies]);
+}
+
 // 白い紙のかわりに「明るいが色づいた面」（木の机・ベージュの壁など）が写っている映像。
 // 明るさは足りるが色かぶり33%で白紙は未検出。頬は正しい肌色なので、
 // 「顔の位置」を ○ズレ と出してはいけない（位置は合っているため）状態を再現する。
@@ -775,6 +801,31 @@ try {
     check("白紙が取れないときは「白い紙を顎の下に持ってください」が出る", /白い紙を顎の下に持ってください/.test(t));
     await pg.screenshot({ path: join(SHOTS, "32_photo_live_paper_first.png") });
     log("  SS: 32_photo_live_paper_first.png");
+  } finally { await lb.close(); }
+
+  // (d) 境界付近で揺れる映像でも、表示がチラつかないこと（v1.15.0 の平滑化＋ヒステリシス）
+  const flickerY4m = join(tmpdir(), "colorlab_live_flicker.y4m");
+  wfs(flickerY4m, y4mFlicker(480, 640));
+  lb = await liveBrowser(flickerY4m);
+  try {
+    const c = await lb.newContext({ viewport: { width: 375, height: 812 }, deviceScaleFactor: 2, permissions: ["camera"] });
+    const pg = await c.newPage();
+    pg.on("request", (r) => { if (/anthropic\.com/.test(r.url())) aiCalls.push(r.url()); });
+    await openPhotoGuide(pg);
+    // 4秒ぶん（400ms×10回）の表示を追い、「顔の位置」が何回切り替わるかを数える
+    const seen = [];
+    for (let i = 0; i < 10; i++) {
+      const t = await pg.locator("body").innerText();
+      const m = t.match(/顔の位置\s*([✓○—])/);
+      seen.push(m ? m[1] : "?");
+      await pg.waitForTimeout(400);
+    }
+    let switches = 0;
+    for (let i = 1; i < seen.length; i++) if (seen[i] !== seen[i - 1]) switches++;
+    log(`  [チラつき] 「顔の位置」の表示推移: ${seen.join("")}`);
+    check(`静止姿勢でも表示がチラつかない（4秒間の切り替わり ${switches} 回）`, switches <= 1);
+    await pg.screenshot({ path: join(SHOTS, "39_photo_live_stable.png") });
+    log("  SS: 39_photo_live_stable.png");
   } finally { await lb.close(); }
 
   // ── 6d. コーデ提案（シーン別記事のデータ参照方式・外部通信なし）──

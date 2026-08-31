@@ -201,10 +201,17 @@ ngpolice / mens は従来どおり本文にスニペットを貼る方式のま�
 
 | アプリ | 参照タグ | jsDelivr |
 |---|---|---|
-| colorlab | `@v1.14.0` | `https://cdn.jsdelivr.net/gh/thecompany20220901-cpu/colorlab-embed@v1.14.0/dist/colorlab.iife.js` |
+| colorlab | `@v1.15.0` | `https://cdn.jsdelivr.net/gh/thecompany20220901-cpu/colorlab-embed@v1.15.0/dist/colorlab.iife.js` |
 | ngpolice | `@v1.3.0` | `https://cdn.jsdelivr.net/gh/thecompany20220901-cpu/colorlab-embed@v1.3.0/dist/ngpolice.iife.js` |
 | mens | `@v1.6.1` | `https://cdn.jsdelivr.net/gh/thecompany20220901-cpu/colorlab-embed@v1.6.1/dist/mens.iife.js` |
 
+- v1.15.0 の内容: 撮影中の**ライブ判定の表示だけ**を安定化（ヒステリシス＋平滑化）。静止していても
+  「顔の位置」が✓と○を往復していた原因は姿勢の揺れではなく、**カメラのAWBがわずかに動くだけで
+  a* が±1.8〜3.5振れ、a*上限26に対する余裕が1.6〜3.5しかない**ため境界をまたいでいたこと（2026-08-31 実測）。
+  一度✓になった項目は各軸+3（`PH_LIVE_SLACK`）の余裕つき範囲も外れるまで○に戻さず、さらに
+  直近3回（400ms×3≒1.2秒）の多数決を取る。**撮影後の本判定（品質ゲート `aiPhotoDiagnose`）は一切変更していない**
+  ＝ライブ判定の閾値そのもの（a*上限26 等）も変えていない。閾値の見直しは追加サンプル待ちで保留。
+  検証に「境界をまたいで揺れる映像」を追加し、4秒間の表示切り替わりが0回になることを確認（`39_photo_live_stable.png`）。
 - v1.14.0 の内容: 頬の位置 `cheekX` を 0.80 → **0.60 へ差し戻し**（0.80 は1枚の実写への
   過剰適合で、顔がやや遠いと枠が顔から外れて背景を拾っていた）。ライブ判定に**状況別の
   改善アクション文言**を追加し、パネルを**映像の外・シャッターの上**へ移動（撮影時に指で

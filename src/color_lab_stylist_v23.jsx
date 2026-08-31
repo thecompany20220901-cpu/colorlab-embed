@@ -1254,7 +1254,15 @@ function livePhotoCheck(video, canvas) {
   //   表示側で「白い紙が先」とグレー表示にする。白紙が取れたあとは本判定と同じ基準で判定する。
   const face = paper ? (skinOk(lL) && skinOk(lR)) : null;     // 本判定の「肌の生理的範囲」に対応
   const balance = deltaE(lL, lR) <= 14;                       // 本判定の左右頬差ΔEに対応
-  return { bright, paper, face, balance };
+  // ここから下は「表示を安定させるため」だけの情報。本判定は上の face / balance をそのまま使う。
+  // 一度✓になった項目を、境界のわずかな揺れで○に戻さないための「明確に外れたか」の判定。
+  // カメラのAWBが±2%揺れるだけで a* は±1.8ほど振れるため（2026-08-31 実測）、
+  // 各軸に PH_LIVE_SLACK の余裕を持たせた広い範囲を出たときだけ「明確に外れた」とみなす。
+  const K = PH_LIVE_SLACK;
+  const skinLoose = (l) => l.L >= 40 - K && l.L <= 88 + K && l.a >= 2 - K && l.a <= 26 + K && l.b >= 4 - K && l.b <= 32 + K;
+  const faceLoose = paper ? (skinLoose(lL) && skinLoose(lR)) : null;
+  const balanceLoose = deltaE(lL, lR) <= 14 + K;
+  return { bright, paper, face, balance, loose: { bright, paper, face: faceLoose, balance: balanceLoose } };
 }
 
 /* ライブ判定の表示項目。ok=満たしている / まだのときは下の文言を出す。 */
@@ -1276,6 +1284,34 @@ const PH_LIVE_HINT = {
   balance: "窓に正面から向いてください",
 };
 const PH_LIVE_OK_NOTE = "下の4項目は撮影前の目安です。すべて✓でも、撮影後の判定で撮り直しをお願いすることがあります。";
+
+/* 表示を安定させるための余裕（各軸の単位は CIELab）。
+   AWB の揺れ（実測で a* が±1.8〜3.5振れる）を吸収できる幅にしてある。 */
+const PH_LIVE_SLACK = 3;
+/* 直近何回ぶんの判定で多数決を取るか。400ms × 3 ≒ 1.2秒。 */
+const PH_LIVE_WINDOW = 3;
+
+/* ライブ判定の履歴から、表示に使う安定した値を作る。
+   ★これは表示専用。撮影後の本判定（品質ゲート）はこの関数を通らない。
+     - 平滑化 : 直近 PH_LIVE_WINDOW 回の多数決。1回きりの外れ値で表示が飛ばない
+     - ヒステリシス : 一度✓になった項目は、余裕つきの範囲(loose)も外れるまで○に戻さない
+   null（＝まだ測れない）は多数決の対象にせず、そのまま null を返す。 */
+function photoLiveStable(history, prev) {
+  const last = history[history.length - 1];
+  if (!last) return null;
+  const out = {};
+  for (const it of PH_LIVE_ITEMS) {
+    const k = it.key;
+    if (last[k] === null || last[k] === undefined) { out[k] = last[k]; continue; }
+    const votes = history.map((h) => h && h[k]).filter((v) => v === true || v === false);
+    const yes = votes.filter((v) => v === true).length;
+    const major = votes.length ? yes * 2 > votes.length : last[k];
+    // 直前が✓なら、余裕つきの範囲も外れたときだけ○に落とす
+    if (prev && prev[k] === true && last.loose && last.loose[k] === true) out[k] = true;
+    else out[k] = major;
+  }
+  return out;
+}
 
 /* ライブ判定の結果から、いま出すべき1行を返す。 */
 function photoLiveHint(live) {
@@ -1865,7 +1901,8 @@ export default function App() {
   const phStreamRef = useRef(null);
   const phCanvasRef = useRef(null);
   const phLiveCanvasRef = useRef(null); // ライブ判定用（撮影用の phCanvasRef とは別に持つ）
-  const [phLive, setPhLive] = useState(null);
+  const phLiveHist = useRef([]);        // 直近の生判定（平滑化用）
+  const [phLive, setPhLive] = useState(null); // 表示用に安定化した値
   const phAreaRef = useRef(null);       // 全画面時に映像を収める領域
   const [phBox, setPhBox] = useState(null); // 映像の表示サイズ {w,h}（縦横比は必ず映像のまま）
   const phAllChecked = PHOTO_CONDITIONS.every((c) => phChecked[c.id]);
@@ -1960,13 +1997,19 @@ export default function App() {
 
   // 撮影中のライブ判定。毎フレームではなく 400ms 間隔で間引く（120px に縮小して測るので軽い）
   useEffect(() => {
-    if (phStep !== "guide" || !phCamReady) { setPhLive(null); return; }
+    if (phStep !== "guide" || !phCamReady) { setPhLive(null); phLiveHist.current = []; return; }
     let alive = true;
+    phLiveHist.current = [];
     const tick = () => {
       if (!alive) return;
       try {
         const r = livePhotoCheck(phVideoRef.current, phLiveCanvasRef.current);
-        if (r) setPhLive(r);
+        if (r) {
+          // 生の判定は履歴に積み、表示には平滑化＋ヒステリシスをかけた値を使う
+          const hist = [...phLiveHist.current, r].slice(-PH_LIVE_WINDOW);
+          phLiveHist.current = hist;
+          setPhLive((prev) => photoLiveStable(hist, prev));
+        }
       } catch (e) { /* 測れないフレームは黙って見送る */ }
     };
     tick();
