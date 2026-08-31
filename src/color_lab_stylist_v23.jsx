@@ -1084,13 +1084,73 @@ function sampleRegion(data, W, H, x0, y0, x1, y1) {
   return { r: med(rs), g: med(gs), b: med(bs), n: rs.length };
 }
 
-/* サンプリング領域(相対座標)。撮影ガイドの枠と必ず一致させること。 */
-const PH_REGION = {
-  white:  [0.34, 0.76, 0.66, 0.92], // 顎下の白い紙
-  cheekL: [0.24, 0.46, 0.36, 0.58],
-  cheekR: [0.64, 0.46, 0.76, 0.58],
-  hair:   [0.40, 0.06, 0.60, 0.16],
+/* ════════════════════════════════════════════
+   撮影ガイドの図形と、サンプリング領域を「1つの計算」から作る。
+
+   ★以前は viewBox="0 0 300 400"(3:4)固定でガイドを描き、サンプリングは実フレームの
+     相対座標で行っていた。ところが iOS Safari は width/height が ideal 指定だと
+     4:3 の横長映像を返す。すると 3:4 のガイドは 4:3 の映像の中にレターボックスされて
+     中央に縮小描画され、**画面に見えるマーカーと実際に測る場所が最大36pxズレていた**
+     （2026-08-30 実機で実測。頬の測定範囲が顔の外＝髪・耳・背景に乗っていた）。
+
+   そこで、映像のアスペクト比 ar(=幅/高さ) を受け取り、
+     ・SVG の viewBox（ar と一致させるのでレターボックスが起きない）
+     ・顔ガイド楕円（対応する測定範囲を持たない、位置合わせ用の枠）
+     ・頬 / 髪 / 白紙のマーカー図形
+     ・sampleRegion に渡す相対座標
+   をすべてここで作る。図形と座標が同じ式から出るので、定義上ズレようがない。
+
+   顔の各部の比率は 2026-08-30 の実機写真（4:3・顔を楕円に収めた状態）から実測して決めた。
+   ════════════════════════════════════════════ */
+const PH_FACE = {
+  cyRel: 0.46,   // 顔ガイド楕円の中心（フレーム高さ比）。頭頂が画面外に切れないよう少し下げてある
+  ryRel: 0.27,   // 楕円の縦半径（フレーム高さ比）＝顔の高さはフレームの54%
+  wh: 0.76,      // 楕円の 横/縦 比（画面上の見た目。人の顔の輪郭比）
+  cheekY: 0.30,  // 頬の縦位置（楕円中心から下へ ry の何倍か）
+  // 頬の横位置（楕円のその高さでの半幅の何割か）。2026-08-30 の実機写真で、実際の顔は
+  // ガイド楕円より 1.19 倍 広かった（頬骨の張り）。0.80 で「実際の顔の半幅の58%」に当たり、
+  // 頬の中央(55〜65%)に入りつつ、小鼻にも輪郭にもかからない。
+  cheekX: 0.80,
+  cheekR: 0.18,  // 頬ボックスの半径（rx の何倍か）。小鼻との余裕を取るため 0.20 から少し縮小
+  hairY: 0.15,   // 髪の縦位置（楕円の上端から上へ ry の何倍か）
+  hairR: 0.10,   // 髪ボックスの縦半径（ry の何倍か）
+  hairW: 0.35,   // 髪ボックスの横半径（rx の何倍か）
+  paperY0: 0.76, // 白い紙（フレーム高さ比）。顎の下に来る
+  paperY1: 0.92,
+  paperW: 0.90,  // 白い紙の横半径（rx の何倍か）
 };
+
+function photoGeometry(ar) {
+  const A = ar && isFinite(ar) && ar > 0 ? ar : 0.75;
+  const VBW = 1000, VBH = Math.round(1000 / A);   // viewBox。ar と一致させる＝レターボックスなし
+  const F = PH_FACE;
+  const cx = VBW / 2;
+  const ry = F.ryRel * VBH;
+  const rx = F.wh * ry;                            // 画面上の見た目で顔の比率を保つ
+  const cy = F.cyRel * VBH;
+  // 頬: 楕円のその高さでの半幅の cheekX 倍だけ外側
+  const cyCheek = cy + F.cheekY * ry;
+  const halfAt = rx * Math.sqrt(1 - F.cheekY * F.cheekY);
+  const dxCheek = F.cheekX * halfAt;
+  const rCheek = F.cheekR * rx;
+  // 髪: 楕円の上端より上
+  const cyHair = cy - ry - F.hairY * ry;
+  // 白い紙
+  const yP0 = F.paperY0 * VBH, yP1 = F.paperY1 * VBH;
+  const rect = (x0, y0, x1, y1) => [x0 / VBW, y0 / VBH, x1 / VBW, y1 / VBH];
+  const box = (bx, by, hw, hh) => ({
+    cx: bx, cy: by, rx: hw, ry: hh,
+    region: rect(bx - hw, by - hh, bx + hw, by + hh),
+  });
+  return {
+    VBW, VBH,
+    face: { cx, cy, rx, ry },
+    cheekL: box(cx - dxCheek, cyCheek, rCheek, rCheek),
+    cheekR: box(cx + dxCheek, cyCheek, rCheek, rCheek),
+    hair: box(cx, cyHair, F.hairW * rx, F.hairR * ry),
+    paper: box(cx, (yP0 + yP1) / 2, F.paperW * rx, (yP1 - yP0) / 2),
+  };
+}
 
 /* 撮影条件(すべてチェックするまで撮影へ進めない) */
 const PHOTO_CONDITIONS = [
@@ -1155,7 +1215,7 @@ function gateError(title, body) {
                 手ブレ・オートホワイトバランスの追従中などで値が揺れる。
      ★ライブ判定が4項目すべて✓でも、本判定で却下されることはあり得る。
        ライブ判定は撮影の目安であって、最終判定を保証するものではない。
-     サンプリング領域(PH_REGION)と閾値だけは本判定と揃えてあるので、
+     サンプリング領域(photoGeometry)と閾値だけは本判定と揃えてあるので、
      どちらかを変えるときは両方を必ず見直すこと。
    ════════════════════════════════════════════ */
 function livePhotoCheck(video, canvas) {
@@ -1167,8 +1227,10 @@ function livePhotoCheck(video, canvas) {
   const ctx = cv.getContext("2d", { willReadFrequently: true });
   ctx.drawImage(video, 0, 0, W, H);
   const { data } = ctx.getImageData(0, 0, W, H);
-  const pick = (k) => sampleRegion(data, W, H, PH_REGION[k][0], PH_REGION[k][1], PH_REGION[k][2], PH_REGION[k][3]);
-  const white = pick("white"), cheekL = pick("cheekL"), cheekR = pick("cheekR");
+  // ★測る場所は、画面に描いているガイドと同じ計算（photoGeometry）から取る
+  const geo = photoGeometry(W / H);
+  const pick = (k) => { const r = geo[k].region; return sampleRegion(data, W, H, r[0], r[1], r[2], r[3]); };
+  const white = pick("paper"), cheekL = pick("cheekL"), cheekR = pick("cheekR");
   if (!white || !cheekL || !cheekR) return null;
 
   const wMax = Math.max(white.r, white.g, white.b), wMin = Math.min(white.r, white.g, white.b);
@@ -1204,7 +1266,9 @@ async function startCameraInto(videoRef, streamRef, setReady, setError) {
   try {
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) throw new Error("unavailable");
     const stream = await navigator.mediaDevices.getUserMedia({
-      video: { facingMode: "user", width: { ideal: 720 }, height: { ideal: 960 } },
+      // aspectRatio も希望として渡す（ideal なので保証はされない。3:4 が返らない端末でも
+      // photoGeometry が実アスペクトに合わせるので、ガイドと測定範囲はズレない）
+      video: { facingMode: "user", width: { ideal: 720 }, height: { ideal: 960 }, aspectRatio: { ideal: 0.75 } },
       audio: false,
     });
     streamRef.current = stream;
@@ -1519,10 +1583,9 @@ async function aiPhotoDiagnose(base64, mediaType) {
   const { data } = ctx.getImageData(0, 0, W, H);
 
   // 2. ガイド枠に対応した固定領域をサンプリング
-  const whiteRef = sampleRegion(data, W, H, PH_REGION.white[0], PH_REGION.white[1], PH_REGION.white[2], PH_REGION.white[3]);
-  const cheekL = sampleRegion(data, W, H, PH_REGION.cheekL[0], PH_REGION.cheekL[1], PH_REGION.cheekL[2], PH_REGION.cheekL[3]);
-  const cheekR = sampleRegion(data, W, H, PH_REGION.cheekR[0], PH_REGION.cheekR[1], PH_REGION.cheekR[2], PH_REGION.cheekR[3]);
-  const hairS = sampleRegion(data, W, H, PH_REGION.hair[0], PH_REGION.hair[1], PH_REGION.hair[2], PH_REGION.hair[3]);
+  const geo = photoGeometry(W / H);
+  const take = (k) => { const r = geo[k].region; return sampleRegion(data, W, H, r[0], r[1], r[2], r[3]); };
+  const whiteRef = take("paper"), cheekL = take("cheekL"), cheekR = take("cheekR"), hairS = take("hair");
   if (!whiteRef || !cheekL || !cheekR || !hairS) {
     throw gateError("写真を読み取れませんでした", "もう一度撮影してください。");
   }
@@ -2751,8 +2814,13 @@ export default function App() {
                     onPickFile={() => { stopPhCamera(); fileRef.current?.click(); }}
                     pickLabel="かわりに写真を選ぶ"
                     closeLabel="条件を見直す"
-                    guide={(
-                    <svg viewBox="0 0 300 400" style={{ position: "absolute", inset: 0, width: "100%", height: "100%", pointerEvents: "none" }}>
+                    guide={(() => {
+                      // ガイドは photoGeometry から描く。sampleRegion に渡す座標と同じ計算なので、
+                      // 映像が 3:4 でも 4:3 でも「見えている枠＝測っている場所」になる。
+                      // viewBox のアスペクトを映像に合わせているのでレターボックスも起きない。
+                      const g = photoGeometry(phBox ? phBox.w / phBox.h : 0.75);
+                      return (
+                    <svg viewBox={`0 0 ${g.VBW} ${g.VBH}`} style={{ position: "absolute", inset: 0, width: "100%", height: "100%", pointerEvents: "none" }}>
                       <defs>
                         <linearGradient id="gFace" x1="0%" y1="0%" x2="100%" y2="100%">
                           <stop offset="0%" stopColor="#F5F0FF" stopOpacity="0.95" />
@@ -2771,21 +2839,20 @@ export default function App() {
                           <stop offset="100%" stopColor="#4ADE80" />
                         </linearGradient>
                       </defs>
-                      {/* 顔: 淡紫〜ピンクの点線楕円 */}
-                      <ellipse cx="150" cy="175" rx="82" ry="108" fill="none" stroke="url(#gFace)" strokeWidth="3" strokeDasharray="2 10" strokeLinecap="round" opacity="0.95" />
-                      {/* 頬: オレンジ〜コーラルの円（0.24-0.36 / 0.64-0.76, 0.46-0.58 の中心） */}
-                      <circle cx="93" cy="209" r="21" fill="none" stroke="url(#gCheek)" strokeWidth="3" strokeLinecap="round" />
-                      <circle cx="207" cy="209" r="21" fill="none" stroke="url(#gCheek)" strokeWidth="3" strokeLinecap="round" />
-                      <text x="93" y="248" fontSize="10" fill="#FF9569" textAnchor="middle" fontWeight="bold" style={{ filter: "drop-shadow(0 1px 2px rgba(0,0,0,.5))" }}>頬</text>
-                      <text x="207" y="248" fontSize="10" fill="#FF9569" textAnchor="middle" fontWeight="bold" style={{ filter: "drop-shadow(0 1px 2px rgba(0,0,0,.5))" }}>頬</text>
-                      {/* 髪: 水色〜青の円（0.40-0.60, 0.06-0.16 の中心） */}
-                      <circle cx="150" cy="51" r="26" fill="none" stroke="url(#gHair)" strokeWidth="3" strokeLinecap="round" />
-                      <text x="150" y="20" fontSize="10" fill="#6FA8F5" textAnchor="middle" fontWeight="bold" style={{ filter: "drop-shadow(0 1px 2px rgba(0,0,0,.5))" }}>髪</text>
-                      {/* 白紙: 黄緑〜緑の角丸楕円（0.34-0.66, 0.76-0.92 を包む） */}
-                      <ellipse cx="150" cy="339" rx="52" ry="33" fill="none" stroke="url(#gPaper)" strokeWidth="3" strokeLinecap="round" />
-                      <text x="150" y="387" fontSize="10" fill="#5EE897" textAnchor="middle" fontWeight="bold" style={{ filter: "drop-shadow(0 1px 2px rgba(0,0,0,.5))" }}>白い紙をここに</text>
+                      {/* 顔: 位置合わせ用の枠（対応する測定範囲は持たない） */}
+                      <ellipse cx={g.face.cx} cy={g.face.cy} rx={g.face.rx} ry={g.face.ry} fill="none" stroke="url(#gFace)" strokeWidth={g.VBW / 100} strokeDasharray={`${g.VBW / 150} ${g.VBW / 30}`} strokeLinecap="round" opacity="0.95" />
+                      {/* 頬・髪・白紙: 図形の輪郭がそのまま測定範囲 */}
+                      <ellipse cx={g.cheekL.cx} cy={g.cheekL.cy} rx={g.cheekL.rx} ry={g.cheekL.ry} fill="none" stroke="url(#gCheek)" strokeWidth={g.VBW / 100} />
+                      <ellipse cx={g.cheekR.cx} cy={g.cheekR.cy} rx={g.cheekR.rx} ry={g.cheekR.ry} fill="none" stroke="url(#gCheek)" strokeWidth={g.VBW / 100} />
+                      <text x={g.cheekL.cx} y={g.cheekL.cy + g.cheekL.ry + g.VBW / 28} fontSize={g.VBW / 30} fill="#FF9569" textAnchor="middle" fontWeight="bold" style={{ filter: "drop-shadow(0 1px 2px rgba(0,0,0,.5))" }}>頬</text>
+                      <text x={g.cheekR.cx} y={g.cheekR.cy + g.cheekR.ry + g.VBW / 28} fontSize={g.VBW / 30} fill="#FF9569" textAnchor="middle" fontWeight="bold" style={{ filter: "drop-shadow(0 1px 2px rgba(0,0,0,.5))" }}>頬</text>
+                      <ellipse cx={g.hair.cx} cy={g.hair.cy} rx={g.hair.rx} ry={g.hair.ry} fill="none" stroke="url(#gHair)" strokeWidth={g.VBW / 100} />
+                      <text x={g.hair.cx} y={g.hair.cy - g.hair.ry - g.VBW / 60} fontSize={g.VBW / 30} fill="#6FA8F5" textAnchor="middle" fontWeight="bold" style={{ filter: "drop-shadow(0 1px 2px rgba(0,0,0,.5))" }}>髪</text>
+                      <ellipse cx={g.paper.cx} cy={g.paper.cy} rx={g.paper.rx} ry={g.paper.ry} fill="none" stroke="url(#gPaper)" strokeWidth={g.VBW / 100} />
+                      <text x={g.paper.cx} y={g.paper.cy + g.paper.ry + g.VBW / 28} fontSize={g.VBW / 30} fill="#5EE897" textAnchor="middle" fontWeight="bold" style={{ filter: "drop-shadow(0 1px 2px rgba(0,0,0,.5))" }}>白い紙をここに</text>
                     </svg>
-                    )}
+                      );
+                    })()}
                     pills={(
                       <div style={{ position: "absolute", left: 0, right: 0, bottom: 0, height: 96, display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0 10px", pointerEvents: "none" }}>
                         {[PH_LIVE_ITEMS.slice(0, 2), PH_LIVE_ITEMS.slice(2)].map((col, ci) => (
@@ -3253,8 +3320,15 @@ export default function App() {
                         onPickFile={() => { stopScCamera(); scFileRef.current?.click(); }}
                         pickLabel="かわりに写真を選ぶ"
                         closeLabel="戻る"
-                        guide={(
-                          <svg viewBox="0 0 300 400" style={{ position: "absolute", inset: 0, width: "100%", height: "100%", pointerEvents: "none" }}>
+                        guide={(() => {
+                            // 顔写真診断と同じ理由で、viewBox を映像の実アスペクトに合わせ、
+                            // 枠は SC_REGION からそのまま描く（見えている枠＝測っている場所）。
+                            const ar = scBox ? scBox.w / scBox.h : 0.75;
+                            const VBW = 1000, VBH = Math.round(1000 / ar);
+                            const r = (k) => ({ x: SC_REGION[k][0] * VBW, y: SC_REGION[k][1] * VBH, w: (SC_REGION[k][2] - SC_REGION[k][0]) * VBW, h: (SC_REGION[k][3] - SC_REGION[k][1]) * VBH });
+                            const t = r("tops"), b = r("bottoms");
+                            return (
+                          <svg viewBox={`0 0 ${VBW} ${VBH}`} style={{ position: "absolute", inset: 0, width: "100%", height: "100%", pointerEvents: "none" }}>
                             <defs>
                               <linearGradient id="gTops" x1="0%" y1="0%" x2="100%" y2="100%">
                                 <stop offset="0%" stopColor="#FFB88C" />
@@ -3265,14 +3339,13 @@ export default function App() {
                                 <stop offset="100%" stopColor="#4F8FE8" />
                               </linearGradient>
                             </defs>
-                            {/* トップス: 相対 0.34-0.66 / 0.30-0.50 */}
-                            <rect x="102" y="120" width="96" height="80" rx="14" fill="none" stroke="url(#gTops)" strokeWidth="3" strokeLinejoin="round" />
-                            <text x="150" y="112" fontSize="10" fill="#FF9569" textAnchor="middle" fontWeight="bold" style={{ filter: "drop-shadow(0 1px 2px rgba(0,0,0,.5))" }}>トップス</text>
-                            {/* ボトムス: 相対 0.36-0.64 / 0.60-0.80 */}
-                            <rect x="108" y="240" width="84" height="80" rx="14" fill="none" stroke="url(#gBottoms)" strokeWidth="3" strokeLinejoin="round" />
-                            <text x="150" y="336" fontSize="10" fill="#6FA8F5" textAnchor="middle" fontWeight="bold" style={{ filter: "drop-shadow(0 1px 2px rgba(0,0,0,.5))" }}>ボトムス</text>
+                            <rect x={t.x} y={t.y} width={t.w} height={t.h} rx={VBW / 21} fill="none" stroke="url(#gTops)" strokeWidth={VBW / 100} strokeLinejoin="round" />
+                            <text x={t.x + t.w / 2} y={t.y - VBW / 60} fontSize={VBW / 30} fill="#FF9569" textAnchor="middle" fontWeight="bold" style={{ filter: "drop-shadow(0 1px 2px rgba(0,0,0,.5))" }}>トップス</text>
+                            <rect x={b.x} y={b.y} width={b.w} height={b.h} rx={VBW / 21} fill="none" stroke="url(#gBottoms)" strokeWidth={VBW / 100} strokeLinejoin="round" />
+                            <text x={b.x + b.w / 2} y={b.y + b.h + VBW / 28} fontSize={VBW / 30} fill="#6FA8F5" textAnchor="middle" fontWeight="bold" style={{ filter: "drop-shadow(0 1px 2px rgba(0,0,0,.5))" }}>ボトムス</text>
                           </svg>
-                        )}
+                            );
+                          })()}
                       />
                       <input ref={scFileRef} type="file" accept="image/*" className="hidden" onChange={onScorePhoto} />
                       {!scCamReady && (

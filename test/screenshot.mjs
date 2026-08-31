@@ -17,8 +17,11 @@
 import { chromium } from "playwright";
 import { fileURLToPath } from "url";
 import { dirname, join } from "path";
-import { writeFileSync, mkdirSync } from "fs";
+import { writeFileSync, mkdirSync, readFileSync } from "fs";
 import zlib from "zlib";
+// 動的 import だと後段で宣言されるため、先に使う節（アスペクト比の検証）で TDZ になる。静的 import にする。
+import { tmpdir } from "os";
+const wfs = writeFileSync;
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const SHOTS = join(__dirname, "screenshots");
@@ -149,6 +152,16 @@ function y4mFromRegions(W, H, base, rects, frames = 2) {
   for (let f = 0; f < frames; f++) parts.push(Buffer.from("FRAME\n", "ascii"), Y, U, V);
   return Buffer.concat(parts);
 }
+
+// 撮影ガイドの比率定数(PH_FACE)は src から読む。テスト側に数値を写経しないことで、
+// 「アプリだけ直してテストが古い値のまま」という食い違いを構造的に防ぐ。
+const PH_FACE = (() => {
+  const src = readFileSync(join(__dirname, "..", "src", "color_lab_stylist_v23.jsx"), "utf8");
+  const body = src.slice(src.indexOf("const PH_FACE = {"), src.indexOf("};", src.indexOf("const PH_FACE = {")));
+  const o = {};
+  for (const [, k, v] of body.matchAll(/(\w+):\s*([0-9.]+)/g)) o[k] = parseFloat(v);
+  return o;
+})();
 
 const results = [];
 const log = (m) => { console.log(m); results.push(m); };
@@ -407,9 +420,10 @@ try {
     check("撮影オーバーレイが body 直下（ポータル）に描画されている", portalOk === "body 直下");
     const grads = await camPage.locator("svg linearGradient").count();
     check("ガイドのグラデーション定義が4本（顔/頬/髪/白紙）", grads === 4);
-    const cheeks = await camPage.locator('svg circle[stroke="url(#gCheek)"]').count();
-    const hairC = await camPage.locator('svg circle[stroke="url(#gHair)"]').count();
-    check("頬ガイドが丸型で2個・髪ガイドが丸型で1個", cheeks === 2 && hairC === 1);
+    // v1.13.0〜: マーカーは測定範囲そのものを描くため ellipse（映像が4:3だと横長になる）
+    const cheeks = await camPage.locator('svg ellipse[stroke="url(#gCheek)"]').count();
+    const hairC = await camPage.locator('svg ellipse[stroke="url(#gHair)"]').count();
+    check("頬ガイドが2個・髪ガイドが1個ある", cheeks === 2 && hairC === 1);
     const paperE = await camPage.locator('svg ellipse[stroke="url(#gPaper)"]').count();
     const faceE = await camPage.locator('svg ellipse[stroke="url(#gFace)"]').count();
     check("白紙ガイド(角丸楕円)と顔ガイド(点線楕円)がある", paperE === 1 && faceE === 1);
@@ -557,10 +571,95 @@ try {
     } finally { await tb.close(); }
   }
 
+  // 撮影画面を開く共通手順と、フェイクカメラ付きブラウザの起動。
+  // 6c-3 以降の複数の節で使うので、最初に使う節より前で宣言しておく（巻き上げされないため）。
+  const openPhotoGuide = async (pg) => {
+    await pg.goto(ART, { waitUntil: "networkidle" });
+    await pg.waitForSelector("#colorlab-root button", { timeout: 15000 });
+    await pg.locator("#colorlab-root").getByRole("button", { name: /顔写真で診断/ }).click();
+    await pg.waitForSelector("#colorlab-root >> text=撮影条件（すべて必要です）", { timeout: 5000 });
+    const cb = pg.locator("#colorlab-root input[type=checkbox]");
+    for (let i = 0; i < (await cb.count()); i++) await cb.nth(i).check();
+    await pg.locator("#colorlab-root").getByRole("button", { name: /^地毛に近い$/ }).click();
+    await pg.locator("#colorlab-root").getByRole("button", { name: /撮影にすすむ/ }).click();
+    await pg.locator("#colorlab-root").getByRole("button", { name: /カメラを起動する/ }).click();
+    await pg.waitForSelector("video", { state: "visible", timeout: 15000 });
+    await pg.waitForTimeout(1400); // 400ms間隔のライブ判定が数回まわるのを待つ
+  };
+  const liveBrowser = async (y4m) => chromium.launch({
+    args: ["--use-fake-ui-for-media-stream", "--use-fake-device-for-media-stream", "--use-file-for-fake-video-capture=" + y4m],
+  });
+
+  // ── 6c-3. 映像のアスペクト比が変わっても「ガイド＝測定範囲」であること ──
+  // iOS Safari は width/height が ideal 指定だと 4:3 の横長映像を返す。
+  // 以前は viewBox="0 0 300 400"(3:4) 固定でガイドを描いていたため、4:3 の映像では
+  // ガイドがレターボックスされて中央に縮小描画され、画面に見える枠と実際に測る場所が
+  // 最大36pxズレていた（2026-08-30 実機で実測。頬の測定範囲が顔の外に乗っていた）。
+  // テストが 3:4 の映像だけだったので見逃した。ここは両アスペクトの回帰ゲート。
+  for (const [label, W, H] of [["3:4 縦長", 480, 640], ["4:3 横長", 640, 480]]) {
+    const y4m = join(tmpdir(), `colorlab_aspect_${W}x${H}.y4m`);
+    wfs(y4m, y4mFromRegions(W, H, [190, 190, 195], [[0.4, 0.4, 0.6, 0.6, [120, 120, 120]]]));
+    const ab = await chromium.launch({
+      args: ["--use-fake-ui-for-media-stream", "--use-fake-device-for-media-stream", "--use-file-for-fake-video-capture=" + y4m],
+    });
+    try {
+      const c = await ab.newContext({ viewport: { width: 375, height: 812 }, deviceScaleFactor: 2, permissions: ["camera"] });
+      const pg = await c.newPage();
+      await openPhotoGuide(pg);
+      const m = await pg.evaluate(() => {
+        const v = document.querySelector("video");
+        const vb = v.getBoundingClientRect();
+        const svg = v.parentElement.querySelector("svg");
+        const sb = svg.getBoundingClientRect();
+        // 実際に描かれているガイド図形の位置を、映像ボックスに対する相対座標で返す
+        const rel = (el) => {
+          const b = el.getBoundingClientRect();
+          return [(b.x - vb.x) / vb.width, (b.y - vb.y) / vb.height, (b.right - vb.x) / vb.width, (b.bottom - vb.y) / vb.height];
+        };
+        const els = [...svg.querySelectorAll("ellipse")];
+        const byStroke = (u) => els.find((e) => e.getAttribute("stroke") === `url(#${u})`);
+        const cheeks = els.filter((e) => e.getAttribute("stroke") === "url(#gCheek)");
+        return {
+          videoAR: +(vb.width / vb.height).toFixed(3),
+          intrinsicAR: +(v.videoWidth / v.videoHeight).toFixed(3),
+          svgCoversVideo: Math.abs(sb.width - vb.width) < 1.5 && Math.abs(sb.height - vb.height) < 1.5,
+          cheekL: rel(cheeks[0]), hair: rel(byStroke("gHair")), paper: rel(byStroke("gPaper")),
+        };
+      });
+      // アプリ側が実際に使う測定範囲（photoGeometry）を、同じ計算で求めて突き合わせる
+      // アプリ側が実際に使う測定範囲を、同じ比率定数から独立に計算して突き合わせる。
+      // 定数はソース(PH_FACE)から読むので、テスト側に数値を二重管理しない。
+      const want = await pg.evaluate(({ ar, F }) => {
+        const VBW = 1000, VBH = Math.round(1000 / ar);
+        const cx = VBW / 2, ry = F.ryRel * VBH, rx = F.wh * ry, cy = F.cyRel * VBH;
+        const cyCheek = cy + F.cheekY * ry, halfAt = rx * Math.sqrt(1 - F.cheekY ** 2);
+        const dx = F.cheekX * halfAt, rC = F.cheekR * rx;
+        const cyHair = cy - ry - F.hairY * ry;
+        const yP0 = F.paperY0 * VBH, yP1 = F.paperY1 * VBH;
+        const rect = (bx, by, hw, hh) => [(bx - hw) / VBW, (by - hh) / VBH, (bx + hw) / VBW, (by + hh) / VBH];
+        return {
+          cheekL: rect(cx - dx, cyCheek, rC, rC),
+          hair: rect(cx, cyHair, F.hairW * rx, F.hairR * ry),
+          paper: rect(cx, (yP0 + yP1) / 2, F.paperW * rx, (yP1 - yP0) / 2),
+        };
+      }, { ar: m.intrinsicAR, F: PH_FACE });
+      check(`${label}: 映像の縦横比が想定どおり (実測 ${m.intrinsicAR})`, Math.abs(m.intrinsicAR - W / H) < 0.01);
+      check(`${label}: ガイドSVGが映像と同じ大きさ（レターボックスしていない）`, m.svgCoversVideo);
+      let worst = 0, worstName = "";
+      for (const k of ["cheekL", "hair", "paper"]) {
+        for (let i = 0; i < 4; i++) {
+          const d = Math.abs(m[k][i] - want[k][i]);
+          if (d > worst) { worst = d; worstName = k; }
+        }
+      }
+      check(`${label}: 描かれたガイド = 測定範囲（最大ズレ ${(worst * 100).toFixed(2)}% / ${worstName}）`, worst < 0.01);
+      await pg.screenshot({ path: join(SHOTS, `35_aspect_${W}x${H}.png`) });
+      log(`  SS: 35_aspect_${W}x${H}.png`);
+    } finally { await ab.close(); }
+  }
+
   // ── 6c-2. 撮影中のライブ条件チェック表示 ──
   // フェイクカメラに Y4M を流し込み、「条件を満たす映像」と「暗い映像」で表示が変わることを見る
-  const { writeFileSync: wfs } = await import("fs");
-  const { tmpdir } = await import("os");
   const okY4m = join(tmpdir(), "colorlab_live_ok.y4m");
   const darkY4m = join(tmpdir(), "colorlab_live_dark.y4m");
   // 顔写真診断のサンプリング領域(PH_REGION)に合わせた「条件を満たす映像」
@@ -578,22 +677,6 @@ try {
     [0.34, 0.76, 0.66, 0.92, [70, 69, 68]],
   ]));
 
-  const openPhotoGuide = async (pg) => {
-    await pg.goto(ART, { waitUntil: "networkidle" });
-    await pg.waitForSelector("#colorlab-root button", { timeout: 15000 });
-    await pg.locator("#colorlab-root").getByRole("button", { name: /顔写真で診断/ }).click();
-    await pg.waitForSelector("#colorlab-root >> text=撮影条件（すべて必要です）", { timeout: 5000 });
-    const cb = pg.locator("#colorlab-root input[type=checkbox]");
-    for (let i = 0; i < (await cb.count()); i++) await cb.nth(i).check();
-    await pg.locator("#colorlab-root").getByRole("button", { name: /^地毛に近い$/ }).click();
-    await pg.locator("#colorlab-root").getByRole("button", { name: /撮影にすすむ/ }).click();
-    await pg.locator("#colorlab-root").getByRole("button", { name: /カメラを起動する/ }).click();
-    await pg.waitForSelector("video", { state: "visible", timeout: 15000 });
-    await pg.waitForTimeout(1400); // 400ms間隔のライブ判定が数回まわるのを待つ
-  };
-  const liveBrowser = async (y4m) => chromium.launch({
-    args: ["--use-fake-ui-for-media-stream", "--use-fake-device-for-media-stream", "--use-file-for-fake-video-capture=" + y4m],
-  });
 
   // (a) 条件を満たす映像 → 4項目すべて ✓
   let lb = await liveBrowser(okY4m);

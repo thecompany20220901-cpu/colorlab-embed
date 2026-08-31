@@ -68,6 +68,15 @@ AIに写真を見せて判断させる方式をやめ、**白い紙を基準に�
 - **本判定（`aiPhotoDiagnose()` の品質ゲート）とは別ロジックの軽量版。**120px の縮小フレームを見る
   だけの粗い近似で、4項目すべて✓でも本判定で却下されることはあり得る。画面にもその旨を明記している。
 - サンプリング領域（`PH_REGION`）と閾値は本判定と揃えてあるので、**どちらかを変えるときは両方**を見直す。
+- **ガイドの図形と測定範囲は `photoGeometry(ar)` が両方まとめて作る。**別々に書かないこと。
+  以前は viewBox="0 0 300 400"(3:4) 固定でガイドを描き、サンプリングは実フレームの相対座標で
+  行っていた。iOS Safari は width/height が ideal 指定だと 4:3 の横長映像を返すため、3:4 の
+  ガイドがレターボックスされて中央に縮小描画され、**画面に見える枠と実際に測る場所が最大36px
+  ズレていた**（2026-08-30 実機で実測。頬の測定範囲が顔の外＝髪・耳・背景に乗っていた）。
+  比率定数は `PH_FACE` に集約してあり、`npm run verify` は **3:4 と 4:3 の両方**で
+  「描かれたガイド＝測定範囲」を実測する。テストは `PH_FACE` をソースから読むので、
+  数値をテストへ写経しないこと（アプリだけ直してテストが古いまま、を防ぐため）。
+  - コーデ採点側も同じ理由で viewBox を実アスペクトに合わせ、枠は `SC_REGION` から直接描く。
 - **撮影中は全画面オーバーレイ**（`position:fixed; inset:0; z-index:99999`）。記事の他要素の上に重なる。
   顔写真診断とコーデ採点で共通の `FullscreenCamera` を使い、**`createPortal` で `document.body` 直下**
   に描画する。`#colorlab-root` の中に置くと、埋め込み先の祖先に transform / filter / perspective /
@@ -180,10 +189,18 @@ ngpolice / mens は従来どおり本文にスニペットを貼る方式のま�
 
 | アプリ | 参照タグ | jsDelivr |
 |---|---|---|
-| colorlab | `@v1.11.0` | `https://cdn.jsdelivr.net/gh/thecompany20220901-cpu/colorlab-embed@v1.11.0/dist/colorlab.iife.js` |
+| colorlab | `@v1.13.0` | `https://cdn.jsdelivr.net/gh/thecompany20220901-cpu/colorlab-embed@v1.13.0/dist/colorlab.iife.js` |
 | ngpolice | `@v1.3.0` | `https://cdn.jsdelivr.net/gh/thecompany20220901-cpu/colorlab-embed@v1.3.0/dist/ngpolice.iife.js` |
 | mens | `@v1.6.1` | `https://cdn.jsdelivr.net/gh/thecompany20220901-cpu/colorlab-embed@v1.6.1/dist/mens.iife.js` |
 
+- v1.13.0 の内容: 撮影ガイドを**映像の実アスペクト比から動的に生成**する方式へ。iOS Safari が
+  4:3 の横長映像を返すため、3:4 固定の viewBox がレターボックスされ、**画面に見える枠と実際に
+  測る場所が最大36pxズレていた**（頬の測定範囲が顔の外＝髪や背景に乗っていた）。あわせて
+  頬マーカーの位置を実機写真から実測して調整。コーデ採点側の同一バグも修正。
+- v1.12.0 の内容: **貼り付け方を2箇所に分けた**（共通ヘッダーに script / 本文に div だけ）。
+  設置先が Next.js の SPA で、サイト内リンクから来ると本文の `<script>` が実行されず
+  「アプリを読み込み中…」で止まっていたため。あわせてライブ判定の「顔の位置」を
+  3状態にし、白紙未検出時に「— 白い紙が先」と正しく出るようにした。
 - v1.11.0 の内容: 撮影オーバーレイを **createPortal で body 直下**へ描画。埋め込み先の祖先に
   transform 等があっても全画面が壊れないようにした。コーデ採点の撮影画面も全画面に横展開。
 - v1.10.0 の内容: 顔写真診断の撮影ステップを**ビューポート全体を覆う全画面オーバーレイ**に変更。
