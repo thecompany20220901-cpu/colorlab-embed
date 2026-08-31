@@ -690,7 +690,7 @@ try {
     check("ライブ判定: 白い紙 ✓検出", /白い紙\s*✓検出/.test(t));
     check("ライブ判定: 顔の位置 ✓枠内（白紙が取れたら本判定と同じ基準で判定される）", /顔の位置\s*✓枠内/.test(t));
     check("ライブ判定: 左右 ✓良好", /左右\s*✓良好/.test(t));
-    check("「あくまで目安」であることが画面に書かれている", /撮影前の目安です/.test(t) && /撮り直しをお願いすることがあります/.test(t));
+    check("全項目✓のときは「あくまで目安」の文言が出る", /撮影前の目安です/.test(t) && /撮り直しをお願いすることがあります/.test(t));
 
     // シャッター・ガイド枠と重なっていないこと（案Cの構造を崩していない）
     const rectOf = async (sel) => pg.locator(sel).first().evaluate((el) => { const b = el.getBoundingClientRect(); return { x: b.x, y: b.y, right: b.right, bottom: b.bottom }; });
@@ -704,6 +704,12 @@ try {
     const vpw = pg.viewportSize().width;
     const over = pills.filter((p) => p.x < 0 || p.right > vpw);
     check(`ライブ表示が画面内に収まっている（はみ出し${over.length}件）`, over.length === 0);
+    // v1.14.0: パネルは「映像の外・シャッターの上」。撮影時に指で隠れないことの実測ゲート。
+    const vbox = await pg.locator("video").evaluate((v) => { const b = v.getBoundingClientRect(); return { x: b.x, y: b.y, right: b.right, bottom: b.bottom }; });
+    const lowest = Math.max(...pills.map((p) => p.bottom));
+    check(`ライブ表示がシャッターより上にある（指の可動域外・最下端とシャッター上端の差 ${Math.round(sh.y - lowest)}px）`, lowest <= sh.y);
+    check("ライブ表示が映像に重なっていない（ガイドを隠さない）", pills.every((p) => !hit(p, vbox)));
+    check(`ライブ表示が4項目とも同じ帯にある（2×2グリッド）`, new Set(pills.map((p) => Math.round(p.y))).size === 2);
     check("ライブ表示が白紙ガイド(映像側)に重なっていない", pills.every((p) => !hit(p, paper)));
     // ライブ判定を回したまま3秒間の描画間隔と映像のフレーム落ちを実測する
     const perf = await pg.evaluate(() => new Promise((res) => {
@@ -740,6 +746,8 @@ try {
     const t = await pg.locator("body").innerText();
     check("ライブ判定: 暗い映像で 明るさ が✓にならない", /明るさ\s*○不足/.test(t) && !/明るさ\s*✓/.test(t));
     check("ライブ判定: 暗い映像で 白い紙 も未検出になる", /白い紙\s*○未検出/.test(t));
+    check("暗い映像では「窓の近くへ移動してください」が出る", /窓の近くへ移動してください/.test(t));
+    check("そのとき「撮影前の目安です」は出ない（改善アクションに置き換わる）", !/撮影前の目安です/.test(t));
     await pg.screenshot({ path: join(SHOTS, "24_photo_live_dark.png") }); // 全画面なのでビューポートを撮る
     log("  SS: 24_photo_live_dark.png");
   } finally { await lb.close(); }
@@ -764,6 +772,7 @@ try {
     check("ライブ判定: そのとき 明るさ は ✓十分（keisukeの実機と同じ状態）", /明るさ\s*✓十分/.test(t));
     check("ライブ判定: 顔の位置が「— 白い紙が先」になる（○ズレ と誤表示しない）",
       /顔の位置\s*—白い紙が先/.test(t) && !/顔の位置\s*○ズレ/.test(t));
+    check("白紙が取れないときは「白い紙を顎の下に持ってください」が出る", /白い紙を顎の下に持ってください/.test(t));
     await pg.screenshot({ path: join(SHOTS, "32_photo_live_paper_first.png") });
     log("  SS: 32_photo_live_paper_first.png");
   } finally { await lb.close(); }

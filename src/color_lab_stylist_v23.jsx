@@ -1107,10 +1107,16 @@ const PH_FACE = {
   ryRel: 0.27,   // 楕円の縦半径（フレーム高さ比）＝顔の高さはフレームの54%
   wh: 0.76,      // 楕円の 横/縦 比（画面上の見た目。人の顔の輪郭比）
   cheekY: 0.30,  // 頬の縦位置（楕円中心から下へ ry の何倍か）
-  // 頬の横位置（楕円のその高さでの半幅の何割か）。2026-08-30 の実機写真で、実際の顔は
-  // ガイド楕円より 1.19 倍 広かった（頬骨の張り）。0.80 で「実際の顔の半幅の58%」に当たり、
-  // 頬の中央(55〜65%)に入りつつ、小鼻にも輪郭にもかからない。
-  cheekX: 0.80,
+  // 頬の横位置（楕円のその高さでの半幅の何割か）。
+  // ★1枚の写真だけで決めないこと。2026-08-30 に「顔が近い1枚」だけを見て 0.60→0.80 にしたが、
+  //   8/31 の「顔がやや遠い1枚」では枠が顔からはみ出して背景を拾い、左右頬の色差で却下された。
+  //   同じ人でも撮影ごとに顔とガイド楕円の大小関係が変わるため、複数条件で検証すること。
+  //   実写2枚での ΔE 実測（しきい値14）:
+  //     cheekX  8/31(やや遠い)  8/30(近い)
+  //      0.50      6.8 通る      16.0 却下   ← 近いと鼻の影に寄る
+  //      0.60     10.8 通る      10.6 通る   ← 両方通る唯一の値
+  //      0.80     20.8 却下       1.7 通る   ← 遠いと顔から外れる
+  cheekX: 0.60,
   cheekR: 0.18,  // 頬ボックスの半径（rx の何倍か）。小鼻との余裕を取るため 0.20 から少し縮小
   hairY: 0.15,   // 髪の縦位置（楕円の上端から上へ ry の何倍か）
   hairR: 0.10,   // 髪ボックスの縦半径（ry の何倍か）
@@ -1259,6 +1265,24 @@ const PH_LIVE_ITEMS = [
   { key: "face", icon: "👤", label: "顔の位置", ok: "枠内", ng: "ズレ", pending: "白い紙が先" },
   { key: "balance", icon: "⚖️", label: "左右", ok: "良好", ng: "偏り" },
 ];
+
+/* 満たしていない項目があるとき、何をすれば直るかを1行で出す。
+   「○偏り」とだけ出してもユーザーは何をすればよいか分からないため（2026-08-31 実機の指摘）。
+   PH_LIVE_ITEMS と同じ並び順で、最初に見つかった未達の項目の文言を使う。 */
+const PH_LIVE_HINT = {
+  bright: "窓の近くへ移動してください",
+  paper: "白い紙を顎の下に持ってください",
+  face: "顔を点線の楕円に合わせてください",
+  balance: "窓に正面から向いてください",
+};
+const PH_LIVE_OK_NOTE = "下の4項目は撮影前の目安です。すべて✓でも、撮影後の判定で撮り直しをお願いすることがあります。";
+
+/* ライブ判定の結果から、いま出すべき1行を返す。 */
+function photoLiveHint(live) {
+  if (!live) return PH_LIVE_OK_NOTE;
+  const bad = PH_LIVE_ITEMS.find((it) => live[it.key] === false);
+  return bad ? PH_LIVE_HINT[bad.key] : PH_LIVE_OK_NOTE;
+}
 
 /* インカメラの起動/停止。顔写真診断とコーデ採点で共用する。 */
 async function startCameraInto(videoRef, streamRef, setReady, setError) {
@@ -1756,12 +1780,17 @@ function FullscreenCamera({ open, title, hint, note, videoRef, areaRef, box, gui
           <div style={{ position: "absolute", top: 10, left: 0, right: 0, textAlign: "center", fontSize: 11, color: "#fff", textShadow: "0 1px 3px rgba(0,0,0,.8)" }}>{hint}</div>
         </div>
       </div>
+      {/* ライブ判定は「映像の外・シャッターの上」に置く。
+          シャッターを押す親指は画面下端から入るので、黒帯より上の要素には物理的に届かない。
+          映像の外に出しているので、ガイド座標とサンプリング範囲の対応にも影響しない。 */}
+      {pills && (
+        <div style={{ flex: "0 0 auto", padding: "2px 10px 4px" }}>{pills}</div>
+      )}
       {note && (
         <p style={{ flex: "0 0 auto", margin: 0, padding: "0 16px 6px", textAlign: "center", fontSize: 10.5, lineHeight: 1.6, color: "rgba(255,255,255,0.55)" }}>{note}</p>
       )}
-      {/* 黒帯: ライブ判定とシャッター。画面幅いっぱいに置く（案Cの配置思想のまま） */}
+      {/* 黒帯: シャッターだけを置く（案Cの構造は維持。ここに指が来る） */}
       <div style={{ flex: "0 0 auto", position: "relative", height: 96 }}>
-        {pills}
         <button onClick={onCapture} aria-label="撮影する"
           style={{ position: "absolute", bottom: 18, left: "50%", transform: "translateX(-50%)",
             width: 68, height: 68, borderRadius: "50%", border: "4px solid #fff",
@@ -2805,7 +2834,7 @@ export default function App() {
                     open={phCamReady}
                     title="顔写真で診断"
                     hint="枠に合わせて、正面から自然光の方を向いてください"
-                    note="下の4項目は撮影前の目安です。すべて✓でも、撮影後の判定で撮り直しをお願いすることがあります。"
+                    note={photoLiveHint(phLive)}
                     videoRef={phVideoRef}
                     areaRef={phAreaRef}
                     box={phBox}
@@ -2854,27 +2883,23 @@ export default function App() {
                       );
                     })()}
                     pills={(
-                      <div style={{ position: "absolute", left: 0, right: 0, bottom: 0, height: 96, display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0 10px", pointerEvents: "none" }}>
-                        {[PH_LIVE_ITEMS.slice(0, 2), PH_LIVE_ITEMS.slice(2)].map((col, ci) => (
-                          <div key={ci} style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                            {col.map((it) => {
-                              // 3状態: ✓(緑)=満たしている / ○(オレンジ)=まだ / —(グレー)=まだ測れない
-                              const v = phLive ? phLive[it.key] : undefined;
-                              const pending = v === null || v === undefined;
-                              const ok = v === true;
-                              const col2 = ok ? "#5EE897" : pending ? "#B9B4BE" : "#FF9569";
-                              const mark = ok ? "✓" : pending ? "—" : "○";
-                              const text = ok ? it.ok : pending ? (it.pending || "測定中") : it.ng;
-                              return (
-                                <span key={it.key} style={{ display: "flex", alignItems: "center", gap: 4, padding: "4px 8px", borderRadius: 999, background: "rgba(255,255,255,0.10)", border: `1px solid ${col2}55`, fontSize: 10, lineHeight: 1.2, color: "#fff", whiteSpace: "nowrap" }}>
-                                  <span style={{ fontSize: 10 }}>{it.icon}</span>
-                                  <span style={{ opacity: 0.85 }}>{it.label}</span>
-                                  <span style={{ color: col2, fontWeight: "bold" }}>{mark}{text}</span>
-                                </span>
-                              );
-                            })}
-                          </div>
-                        ))}
+                      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6 }}>
+                        {PH_LIVE_ITEMS.map((it) => {
+                          // 3状態: ✓(緑)=満たしている / ○(オレンジ)=まだ / —(グレー)=まだ測れない
+                          const v = phLive ? phLive[it.key] : undefined;
+                          const pending = v === null || v === undefined;
+                          const ok = v === true;
+                          const col2 = ok ? "#5EE897" : pending ? "#B9B4BE" : "#FF9569";
+                          const mark = ok ? "✓" : pending ? "—" : "○";
+                          const text = ok ? it.ok : pending ? (it.pending || "測定中") : it.ng;
+                          return (
+                            <span key={it.key} style={{ display: "flex", alignItems: "center", gap: 4, padding: "5px 8px", borderRadius: 999, background: "rgba(255,255,255,0.10)", border: `1px solid ${col2}55`, fontSize: 10.5, lineHeight: 1.2, color: "#fff", whiteSpace: "nowrap" }}>
+                              <span style={{ fontSize: 10.5 }}>{it.icon}</span>
+                              <span style={{ opacity: 0.85 }}>{it.label}</span>
+                              <span style={{ color: col2, fontWeight: "bold", marginLeft: "auto" }}>{mark}{text}</span>
+                            </span>
+                          );
+                        })}
                       </div>
                     )}
                   />
