@@ -8,7 +8,8 @@
 //   - 「今日のコーデ採点」は色照合方式(CIELabのΔE)で解禁済み → 近日公開にならない
 //   - v1.8.0 で3機能とも解禁されたため、ホームに「近日公開」バッジは1つも無い
 //   - 近日公開モーダルがグローバル化（ホーム/結果ページの両方から開く）
-//   - 12タイプ結果ページ: 苦手色ブロックが1箇所に統合 / 勝ち色10選 / コスメ
+//   - 12タイプ結果ページ: 苦手色ブロックが1箇所に統合 / 勝ち色を色相ファミリー別に体系化 / コスメ
+//   - 12タイプ結果ページ: タイプ別の顔イラスト + ベース/明度/彩度/清濁の専門表記（2026-09-02〜）
 //   - コスメ一覧ページ: 上部の「似合うカラー」パレット
 //   - 骨格結果ページ: 得意/注意が1行リスト（DesignIcon付き）
 //   - シェア画像PNG（canvas → download）が生成される
@@ -277,13 +278,19 @@ try {
   check("次の12タイプ診断のため保存タイプがクリアされている", cleared === null);
   await shotEl("#colorlab-root", "02_home_all_enabled.png");
 
-  // ── 3. 12タイプ診断 → 結果ページ（苦手色1箇所 + 勝ち色10選 + コスメ） ──
+  // ── 3. 12タイプ診断 → 結果ページ（苦手色1箇所 + 勝ち色の体系化 + 専門表記 + コスメ） ──
   await page.getByRole("button", { name: /パーソナルカラー診断（12タイプ）/ }).click();
   const myType = await runQuiz();
   check("12タイプ診断が完了し localStorage に保存された", !!myType);
   await page.waitForTimeout(400);
   const resText = await page.locator("#colorlab-root").innerText();
-  check("結果ページに「似合う色（勝ち色10選）」がある", /似合う色（勝ち色10選）/.test(resText));
+  check("結果ページに「似合う色（勝ち色 N色）」がある", /似合う色（勝ち色 \d+色）/.test(resText));
+  check("結果ページに色相ファミリーの8行がある",
+    ["ピンク系", "レッド系", "オレンジ・コーラル系", "イエロー系", "グリーン系", "ブルー系", "パープル系", "ベーシック"]
+      .every((k) => resText.includes(k)));
+  check("結果ページにプロ資料と同じ専門表記（ベース/明度/彩度/清濁）がある",
+    /(イエローベース|ブルーベース|ニュートラル)/.test(resText) && /(高|中|低)明度/.test(resText) &&
+    /(高|中|低)彩度/.test(resText) && /(清色|濁色)/.test(resText));
   check("苦手色ブロックが1箇所に統合されている（出現1回）", countOf(resText, "苦手な色") === 1);
   check("苦手色の見出しが「苦手な色（顔まわりでは注意）」", /苦手な色（顔まわりでは注意）/.test(resText));
   check("結果ページに「仕上げのコスメはコレ！」がある", /仕上げのコスメはコレ/.test(resText));
@@ -405,8 +412,8 @@ try {
   check("実測結果が localStorage に保存された (1st=" + prof.myType + " / 2nd=" + prof.mySecond + ")", prof.myType === "spring" && prof.mySecond === "summer");
   check("結果ページに 1st / 2nd が表示される", /【イエベ春】/.test(photoRes) && /2nd：ブルベ夏/.test(photoRes));
   check("注記が実測ベースの文言になっている", /実測して判定しました/.test(photoRes) && /信頼度：高/.test(photoRes));
-  check("結果ページに勝ち色10選 / コスメ / LINE導線が通常どおり出る",
-    /似合う色（勝ち色10選）/.test(photoRes) && /仕上げのコスメはコレ/.test(photoRes) && /LINEに結果を保存する/.test(photoRes));
+  check("結果ページに勝ち色の体系化 / コスメ / LINE導線が通常どおり出る",
+    /似合う色（勝ち色 \d+色）/.test(photoRes) && /仕上げのコスメはコレ/.test(photoRes) && /LINEに結果を保存する/.test(photoRes));
   const skuLinks = await page.locator('#colorlab-root a[href*="/items/"]').count();
   check("結果ページにSKUカードが3点以上ある (" + skuLinks + "件)", skuLinks >= 3);
   const detailHref = await page.locator("#colorlab-root a", { hasText: "あなたの詳しい診断結果ページへ" }).getAttribute("href");

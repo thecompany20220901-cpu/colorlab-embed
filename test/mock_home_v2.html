@@ -1,0 +1,142 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>ホーム改善案（対象4・提案のみ / 未実装）</title>
+<!--
+  対象4「ページ全体のリッチ感向上」の改善案モック。アプリ本体(src/)には未反映で、
+  この1枚は提案を見てもらうためだけのもの。色は TYPES[].accent と C.main のみを使い、
+  新しい配色は作っていない。素材は今回作った4タイプ顔イラストを流用する。
+-->
+<style>
+  :root{
+    --ink:#3a3340; --sub:#7d7580; --faint:#a99fa8; --line:#e7dfe6; --main:#7b6f83;
+    --spring:#E8927C; --summer:#9B8CB5; --autumn:#A65E3A; --winter:#3B5BA5;
+    --paper:#fffdfe;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:#efeaf0;font-family:"Hiragino Sans","Yu Gothic",sans-serif;color:var(--ink)}
+  .sheet{width:375px;margin:0 auto;background:var(--paper);min-height:100vh;
+         box-shadow:0 0 40px rgba(60,50,70,.10)}
+  .serif{font-family:"Hiragino Mincho ProN","Yu Mincho",serif}
+
+  /* ── ヒーロー: 4タイプの顔イラストを敷き、上に薄い色帯とタイトルを重ねる ── */
+  .hero{position:relative;overflow:hidden;padding:0 0 18px}
+  .hero .faces{display:grid;grid-template-columns:repeat(4,1fr);height:210px}
+  .hero .faces img{width:100%;height:100%;object-fit:cover;object-position:50% 18%;display:block}
+  .hero .veil{position:absolute;inset:0;height:210px;
+    background:linear-gradient(180deg, rgba(255,255,255,.10) 0%, rgba(255,253,254,.86) 62%, var(--paper) 100%)}
+  .hero .band{position:absolute;top:0;left:0;right:0;height:5px;
+    background:linear-gradient(90deg,var(--spring) 0 25%,var(--summer) 25% 50%,var(--autumn) 50% 75%,var(--winter) 75% 100%)}
+  .hero .copy{position:relative;margin-top:-92px;padding:0 22px}
+  .hero .eyebrow{font-size:10px;letter-spacing:.18em;color:var(--faint)}
+  .hero h1{font-size:27px;line-height:1.32;margin:6px 0 0;letter-spacing:.01em}
+  .hero h1 em{font-style:normal;color:var(--main)}
+  .hero .rule{width:44px;height:1px;background:var(--main);opacity:.5;margin:12px 0}
+  .hero p{font-size:12px;line-height:1.85;color:var(--sub);margin:0 0 16px;max-width:270px}
+  .cta{display:flex;align-items:center;justify-content:space-between;gap:10px;
+       padding:15px 20px;border-radius:999px;background:var(--main);color:#fff;font-size:14px;
+       box-shadow:0 8px 20px rgba(123,111,131,.28)}
+  .cta small{display:block;font-size:10px;opacity:.72;margin-top:2px}
+
+  /* ── 見出し: 細い罫線 + 小さいラベル ── */
+  .sec{display:flex;align-items:center;gap:10px;margin:26px 22px 12px}
+  .sec span{font-size:10.5px;letter-spacing:.14em;color:var(--faint);white-space:nowrap}
+  .sec i{flex:1;height:1px;background:var(--line)}
+
+  /* ── 主役カード: 非対称（左に色の帯・右にイラスト） ── */
+  .lead{display:flex;margin:0 22px;border:1px solid var(--line);border-radius:20px;overflow:hidden;
+        background:#fff;box-shadow:0 6px 18px rgba(60,50,70,.06)}
+  .lead .edge{width:5px;background:linear-gradient(180deg,var(--summer),var(--spring))}
+  .lead .txt{padding:16px 4px 16px 15px;flex:1}
+  .lead h3{font-size:15px;margin:0 0 6px;line-height:1.4}
+  .lead p{font-size:11px;line-height:1.75;color:var(--sub);margin:0 0 10px}
+  .lead .chips{display:flex;gap:3px}
+  .lead .chips span{height:9px;flex:1;border-radius:2px}
+  .lead img{width:104px;object-fit:cover;object-position:50% 12%;display:block}
+
+  /* ── タイル: 細罫 + 微かな影 + 色チップ ── */
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:0 22px}
+  .tile{border:1px solid var(--line);border-radius:16px;padding:13px 13px 11px;background:#fff;
+        box-shadow:0 3px 10px rgba(60,50,70,.05);position:relative}
+  .tile.wide{grid-column:1 / -1;display:flex;align-items:center;gap:12px}
+  .tile h4{font-size:12.5px;margin:0 0 4px;line-height:1.45;padding-right:22px}
+  .tile p{font-size:10px;line-height:1.6;color:var(--faint);margin:0}
+  .tile .sw{display:flex;gap:3px;margin-top:9px}
+  .tile .sw span{height:7px;flex:1;border-radius:2px}
+  .tile .num{position:absolute;right:12px;top:11px;font-size:9px;color:var(--faint);letter-spacing:.1em}
+  .tile.wide img{width:66px;border-radius:12px;object-fit:cover;object-position:50% 12%;display:block}
+
+  /* ── 今日の勝ち色（色の帯で余白を埋める） ── */
+  .strip{margin:22px;padding:15px 16px;border-radius:18px;border:1px solid var(--line);
+         background:linear-gradient(180deg,#faf7fa,#fff)}
+  .strip .t{font-size:11px;color:var(--sub);margin-bottom:9px}
+  .strip .row{display:flex;gap:5px}
+  .strip .row span{flex:1;height:34px;border-radius:6px;border:1px solid rgba(0,0,0,.05)}
+  .strip .cap{display:flex;justify-content:space-between;margin-top:7px;font-size:8.5px;color:var(--faint)}
+  .foot{text-align:center;font-size:10px;color:var(--faint);padding:6px 0 28px}
+</style>
+
+<div class="sheet">
+  <div class="hero">
+    <div class="band"></div>
+    <div class="faces">
+      <img src="../src/assets/cface_spring.webp" alt="">
+      <img src="../src/assets/cface_summer.webp" alt="">
+      <img src="../src/assets/cface_autumn.webp" alt="">
+      <img src="../src/assets/cface_winter.webp" alt="">
+    </div>
+    <div class="veil"></div>
+    <div class="copy">
+      <div class="eyebrow">ブルベ研究所・イエベ研究所 監修</div>
+      <h1 class="serif">似合う色は、<br><em>12タイプ</em>で決まる。</h1>
+      <div class="rule"></div>
+      <p>13の質問で 1st × 2nd を判定。勝ち色30色と、今日着る一枚まで。</p>
+      <div class="cta"><span>12タイプ診断をはじめる<small>所要2分・登録不要</small></span><span>→</span></div>
+    </div>
+  </div>
+
+  <div class="sec"><span>DIAGNOSIS</span><i></i></div>
+  <div class="lead">
+    <div class="edge"></div>
+    <div class="txt">
+      <h3>顔写真で診断</h3>
+      <p>白い紙で照明を補正して、肌と髪の色を実測。<br>結果は質問式と同じ勝ち色ページへ。</p>
+      <div class="chips"><span style="background:#C9B8D8"></span><span style="background:#E8A9C0"></span><span style="background:#A9C4DE"></span><span style="background:#B7BCC4"></span><span style="background:#F3EEF5"></span></div>
+    </div>
+    <img src="../src/assets/cface_summer.webp" alt="">
+  </div>
+
+  <div class="sec"><span>似合うを知る</span><i></i></div>
+  <div class="grid">
+    <div class="tile"><span class="num">01</span><h4>NGカラー診断</h4><p>顔まわりで避けたい色</p>
+      <div class="sw"><span style="background:#111418"></span><span style="background:#6B6B4A"></span><span style="background:#C9CDD6"></span></div></div>
+    <div class="tile"><span class="num">02</span><h4>この色、似合う？</h4><p>手持ち服を色で判定</p>
+      <div class="sw"><span style="background:#F4A582"></span><span style="background:#8FCB9B"></span><span style="background:#3B5BA5"></span></div></div>
+    <div class="tile wide"><img src="../src/assets/cface_autumn.webp" alt="">
+      <div><h4>今日のコーデ採点</h4><p>トップスとボトムスの色を実測して、置き換え色まで提案します</p>
+        <div class="sw" style="width:150px"><span style="background:#B5734A"></span><span style="background:#C89B3C"></span><span style="background:#7B8B45"></span><span style="background:#E8D6B8"></span></div></div></div>
+    <div class="tile"><span class="num">03</span><h4>リップ・髪色 試し塗り</h4><p>顔写真に色をのせる</p>
+      <div class="sw"><span style="background:#F0705A"></span><span style="background:#8E2A44"></span><span style="background:#B5824A"></span></div></div>
+    <div class="tile"><span class="num">04</span><h4>骨格診断</h4><p>形とシルエットの相性</p>
+      <div class="sw"><span style="background:#7b6f83"></span><span style="background:#c48ea8"></span><span style="background:#8a9a7b"></span></div></div>
+  </div>
+
+  <div class="strip">
+    <div class="t">あなたの勝ち色は、こんな見え方で届きます</div>
+    <div class="row">
+      <span style="background:#F3EEF5"></span><span style="background:#C9B8D8"></span><span style="background:#E8A9C0"></span>
+      <span style="background:#A9C4DE"></span><span style="background:#93A5B8"></span><span style="background:#A05A78"></span>
+      <span style="background:#7A86B8"></span><span style="background:#B45A72"></span>
+    </div>
+    <div class="cap"><span>色相ファミリー別・30色</span><span>日本語名／英名／HEXつき</span></div>
+  </div>
+
+  <div class="sec"><span>買い足す・楽しむ</span><i></i></div>
+  <div class="grid">
+    <div class="tile"><h4>おすすめコスメ</h4><p>タイプに合う色番だけ</p></div>
+    <div class="tile"><h4>おすすめ髪色</h4><p>肌が明るく見えるトーン</p></div>
+    <div class="tile"><h4>買い足しワードローブ</h4><p>季節ごとの主役1枚</p></div>
+    <div class="tile"><h4>ふたりの相性配色</h4><p>ペアで映える色</p></div>
+  </div>
+
+  <div class="foot">BLUBEL / IEBEL presents・登録不要</div>
+</div>

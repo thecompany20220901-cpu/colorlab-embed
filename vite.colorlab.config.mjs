@@ -19,6 +19,9 @@ export default defineConfig({
   build: {
     emptyOutDir: false,
     target: "es2018",
+    // 設問イラスト(WebP)を1ファイルのIIFEに内包する。埋め込み先に画像を置けないため、
+    // 外部ファイルとして切り出されると読み込めなくなる(mens ビルドと同じ理由)。
+    assetsInlineLimit: 1024 * 1024,
     lib: {
       entry: "src/colorlab-entry.jsx",
       name: "ColorLabApp",

@@ -3,6 +3,46 @@ import { createPortal } from "react-dom";
 import { Sparkles, ArrowRight, ArrowLeft, RotateCcw, Copy, Check, Camera, Heart, Palette, Shirt, Upload, ExternalLink, Brush, Scissors, Ban, Droplet, Paintbrush, ShoppingBag, Eraser } from "lucide-react";
 
 // ════════════════════════════════════════════
+// 設問イラスト / タイプ別イラスト（既存の顔イラスト素材の色差し替え）
+// ────────────────────────────────────────────
+// C:\Users\newfa\instagram\renderer\assets\faces\ の4タイプ顔イラストを土台に、
+// 肌・頬・髪・服・唇・瞳の「色だけ」を差し替えて作った素材。差し替えた色は
+// すべて下の Q12[].illust が持っている HEX そのもので、新しい色は作っていない。
+// 再生成: python test/build_face_art.py
+// ════════════════════════════════════════════
+import CQ01A from "./assets/cq01_a.webp";
+import CQ01B from "./assets/cq01_b.webp";
+import CQ02A from "./assets/cq02_a.webp";
+import CQ02B from "./assets/cq02_b.webp";
+import CQ03A from "./assets/cq03_a.webp";
+import CQ03B from "./assets/cq03_b.webp";
+import CQ04A from "./assets/cq04_a.webp";
+import CQ04B from "./assets/cq04_b.webp";
+import CQ06A from "./assets/cq06_a.webp";
+import CQ06B from "./assets/cq06_b.webp";
+import CQ07A from "./assets/cq07_a.webp";
+import CQ07B from "./assets/cq07_b.webp";
+import CQ08A from "./assets/cq08_a.webp";
+import CQ08B from "./assets/cq08_b.webp";
+import CQ09A from "./assets/cq09_a.webp";
+import CQ09B from "./assets/cq09_b.webp";
+import CQ10NECK from "./assets/cq10_neck.webp";
+import CQ11A from "./assets/cq11_a.webp";
+import CQ11B from "./assets/cq11_b.webp";
+import CQ12A from "./assets/cq12_a.webp";
+import CQ12B from "./assets/cq12_b.webp";
+import CQ13A from "./assets/cq13_a.webp";
+import CQ13B from "./assets/cq13_b.webp";
+import FACE_SPRING from "./assets/cface_spring.webp";
+import FACE_SUMMER from "./assets/cface_summer.webp";
+import FACE_AUTUMN from "./assets/cface_autumn.webp";
+import FACE_WINTER from "./assets/cface_winter.webp";
+// 勝ち色の体系化・英名・商品画像（test/build_color_data.py が既存データから生成）
+import { FAMILY_ORDER, COLOR_FAMILIES, COLOR_EN, CHIP_HEX, SKU_IMG } from "./color_data.js";
+
+const TYPE_FACE_IMG = { spring: FACE_SPRING, summer: FACE_SUMMER, autumn: FACE_AUTUMN, winter: FACE_WINTER };
+
+// ════════════════════════════════════════════
 // 実データ：自社SKU（在庫あり・直近2ヶ月売れ筋）
 // ════════════════════════════════════════════
 // 計測: アプリ経由の流入をGA4/Shoppalで判別するためのUTM
@@ -577,15 +617,94 @@ function IllustHalf({ kind, v }) {
   return null;
 }
 
-function QuizIllust({ illust, aLabel, bLabel, onPick }) {
+/* Q5(手首の血管)。既存素材に手首のカットが無いためここだけ描き起こしだが、
+   線色 #4D4946 / 肌 rgb(252,242,233) / 細線 は既存の顔イラストの実測値に合わせてある。
+   A/B で違うのは血管の色だけで、パスは完全に同一（Q12[4].illust の色をそのまま使う）。 */
+const wristDeep = (h) => "#" + [1, 3, 5].map((i) => ("0" + Math.round(parseInt(h.slice(i, i + 2), 16) * 0.82).toString(16)).slice(-2)).join("").toUpperCase();
+
+function WristIllust({ vein }) {
+  const LINE = "#4D4946", SKIN = "#FCF2E9";
+  const deep = wristDeep(vein);
+  const finger = (x, y) => `M${x} 96 L${x} ${y} Q${x} ${y - 9} ${x + 9} ${y - 9} Q${x + 18} ${y - 9} ${x + 18} ${y} L${x + 18} 96 Z`;
+  return (
+    <svg viewBox="0 0 200 250" className="w-full block rounded-xl" role="img" aria-label="手首の内側の血管">
+      <rect width="200" height="250" fill="#EDEDED" />
+      {[[66, 40], [86, 30], [106, 34], [126, 48]].map(([x, y], i) => (
+        <path key={i} d={finger(x, y)} fill={SKIN} stroke={LINE} strokeWidth="1.6" strokeLinejoin="round" />
+      ))}
+      <path d="M146 128 Q166 120 172 104 Q176 92 168 88 Q158 84 152 98 L146 112 Z" fill={SKIN} stroke={LINE} strokeWidth="1.6" strokeLinejoin="round" />
+      <path d="M62 92 L146 92 Q151 116 145 138 Q139 178 142 250 L70 250 Q73 178 74 138 Q63 116 62 92 Z" fill={SKIN} stroke={LINE} strokeWidth="1.6" strokeLinejoin="round" />
+      <g fill="none" strokeLinecap="round" opacity=".8">
+        <path d="M92 250 Q97 214 93 190 Q90 170 97 156" stroke={deep} strokeWidth="5.2" />
+        <path d="M126 250 Q120 216 123 192 Q126 172 119 158" stroke={vein} strokeWidth="4.6" />
+        <path d="M93 190 Q108 182 123 192" stroke={vein} strokeWidth="3.4" />
+        <path d="M95 216 Q108 210 121 216" stroke={vein} strokeWidth="2.6" />
+      </g>
+      <g fill="none" stroke={LINE} strokeWidth="1.2" opacity=".45">
+        <path d="M75 148 Q108 142 143 148" /><path d="M75 158 Q108 152 142 158" />
+      </g>
+      <g stroke={LINE} strokeWidth="1.4" fill="none" opacity=".75">
+        <path d="M186 204 L152 204" /><path d="M152 204 L160 199" /><path d="M152 204 L160 209" />
+      </g>
+      <text x="192" y="192" fontSize="11" fill={LINE} textAnchor="end" opacity=".85">ここを見る</text>
+    </svg>
+  );
+}
+
+/* Q10(金属)。首元の素材は1枚を共有し、ゴールド/シルバーのアクセだけを重ねる。
+   同じ肌・同じ構図の上で金属色だけが変わるので、比較したいものだけが変わる。 */
+function MetalIllust({ metal }) {
+  return (
+    <div className="relative">
+      <img src={CQ10NECK} alt="" className="w-full block rounded-xl" />
+      <svg viewBox="0 0 715 560" className="absolute inset-0 w-full h-full" aria-hidden="true">
+        <path d="M190 262 Q300 420 452 248" fill="none" stroke={metal} strokeWidth="9" strokeLinecap="round" />
+        <path d="M190 262 Q300 420 452 248" fill="none" stroke="#ffffff" strokeWidth="2.5" strokeLinecap="round" opacity=".35" />
+        <circle cx="314" cy="349" r="16" fill={metal} stroke="#00000022" strokeWidth="2" />
+        <circle cx="308" cy="343" r="5" fill="#ffffff" opacity=".45" />
+      </svg>
+    </div>
+  );
+}
+
+/* 設問イラストの素材表。色は Q12[].illust が持ち、ここは「どの絵を出すか」だけを持つ。
+   chips: 記事の色チップも下に並べる / svg:"wrist": Q5 / metal: Q10 */
+const QUIZ_ART = [
+  { a: CQ01A, b: CQ01B },                       // Q1 肌の色み
+  { a: CQ02A, b: CQ02B, chips: true },          // Q2 印象
+  { a: CQ03A, b: CQ03B },                       // Q3 瞳
+  { a: CQ04A, b: CQ04B },                       // Q4 すっぴんの唇
+  { svg: "wrist" },                             // Q5 手首の血管
+  { a: CQ06A, b: CQ06B },                       // Q6 日焼け
+  { a: CQ07A, b: CQ07B, chips: true },          // Q7 似合う色の傾向
+  { a: CQ08A, b: CQ08B },                       // Q8 黒を着たとき
+  { a: CQ09A, b: CQ09B },                       // Q9 白の比較
+  { metal: true },                              // Q10 ゴールド/シルバー
+  { a: CQ11A, b: CQ11B },                       // Q11 頬の赤み
+  { a: CQ12A, b: CQ12B },                       // Q12 リップ
+  { a: CQ13A, b: CQ13B },                       // Q13 ヘアカラー
+];
+
+function QuizIllust({ illust, art, aLabel, bLabel, onPick }) {
   if (!illust) return null;
+  const half = (v, img) => {
+    if (art && art.svg === "wrist") return <WristIllust vein={v.vein} />;
+    if (art && art.metal) return <MetalIllust metal={v.metal} />;
+    if (img) return <img src={img} alt="" className="w-full block rounded-xl" />;
+    return <IllustHalf kind={illust.kind} v={v} />;   // 素材が無い設問のための保険
+  };
   return (
     <div className="flex gap-3 mb-5">
-      {[["A", illust.left, aLabel], ["B", illust.right, bLabel]].map(([tag, v, label]) => (
-        <button key={tag} onClick={() => onPick && onPick(tag)} className="flex-1 rounded-2xl p-3 text-center transition-all hover:shadow-md active:scale-95" style={{ border: "1px solid " + C.line, background: "#fdfcfd", cursor: onPick ? "pointer" : "default" }}>
-          <span className="block text-sm font-bold mb-1" style={{ color: C.main }}>{tag}</span>
-          <IllustHalf kind={illust.kind} v={v} />
-          <span className="block text-[10px] mt-1 leading-tight" style={{ color: C.sub }}>{label}</span>
+      {[["A", illust.left, art && art.a, aLabel], ["B", illust.right, art && art.b, bLabel]].map(([tag, v, img, label]) => (
+        <button key={tag} onClick={() => onPick && onPick(tag)} className="flex-1 rounded-2xl p-2.5 text-center transition-all hover:shadow-md active:scale-95" style={{ border: "1px solid " + C.line, background: "#fdfcfd", cursor: onPick ? "pointer" : "default" }}>
+          <span className="block text-sm font-bold mb-1.5" style={{ color: C.main }}>{tag}</span>
+          {half(v, img)}
+          {art && art.chips && v.colors && (
+            <div className="flex gap-1 mt-1.5">
+              {v.colors.map((c, i) => <span key={i} className="flex-1 h-3 rounded-sm" style={{ background: c, border: "1px solid #00000010" }} />)}
+            </div>
+          )}
+          <span className="block text-[10px] mt-1.5 leading-tight" style={{ color: C.sub }}>{label}</span>
         </button>
       ))}
     </div>
@@ -958,6 +1077,12 @@ const STYLIST_MOOD_RULES = [
   [/雨/, "weather", 2],
   [/曇/, "weather", 1],
   [/猛暑|日差し|真夏|炎天/, "weather", 3],
+  // ↓ 2026-09-02 追記。partner / hair / age の3テーマは記事データはあるのに、
+  //   どの入力からも選ばれない状態だった（既存ルールはこの3つを指していない）。
+  //   既存ルールの後ろに置いてあるので、これまで当たっていた入力の行き先は変わらない。
+  [/彼氏|旦那|夫の|相手の好み|好みに合わせ/, "partner", 0],
+  [/髪色|ヘアカラー|アッシュ|ミルクティー|ブリーチ/, "hair", 0],
+  [/\d0代|世代|年相応|若見え/, "age", 0],
 ];
 // 「今日会う相手」→ シーン
 const STYLIST_MEET_RULES = {
@@ -1434,7 +1559,8 @@ const SC_BG = 8;      // 背景と区別がつかないと見なすΔE
 /* 実測Lab を、タイプの勝ち色10色 / NG色4色 と突き合わせて最も近い色を返す */
 function scoreMatchColor(lab, typeKey) {
   const win = (TYPES[typeKey].palette10 || []).map(([name, hex]) => ({ name, lab: hexToLab(hex) }));
-  const ng = (NG_COLORS[typeKey] || []).map((c) => ({ name: c.name, why: c.why, alt: c.alt, lab: hexToLab(c.hex) }));
+  // hex も持たせる（Before/After のイラストで苦手色そのものを塗るため）
+  const ng = (NG_COLORS[typeKey] || []).map((c) => ({ name: c.name, hex: c.hex, why: c.why, alt: c.alt, lab: hexToLab(c.hex) }));
   const near = (arr) => arr.reduce((best, c) => (c.lab && (!best || deltaE(lab, c.lab) < best.d) ? { c, d: deltaE(lab, c.lab) } : best), null);
   return { win: near(win), ng: near(ng) };
 }
@@ -1518,6 +1644,12 @@ async function aiStylist(type, secondKey, tpo, mood, sub, worries, hair, frame, 
     sku_ids,
     styling: clip(parts.join(""), 180),
     makeup_hint,
+    // ── 以下は結果画面のイラスト用に足したもの（既存の戻り値は変えていない）──
+    // 色名は記事のまま。HEX は CHIP_HEX（既存HEX優先・無いものは規則で機械解決）から引く。
+    theme: hit.theme,
+    scene_name: scene.n,
+    colors: win.map(([n, e]) => ({ name: n, effect: e, hex: CHIP_HEX[n] || null })).filter((c) => c.hex),
+    ng_color: ng.length ? { name: ng[0][0], effect: ng[0][1], hex: CHIP_HEX[ng[0][0]] || null } : null,
   };
 }
 
@@ -1615,6 +1747,15 @@ async function aiScoreOutfit(base64, mediaType, type) {
     good: clip(good, 60),
     improve: clip(improve, 70),
     one_item: clip(one_item, 30),
+    // ── 以下は Before/After のイラスト用に足したもの（既存の戻り値は変えていない）──
+    tops_hex: hex(tops.r, tops.g, tops.b),
+    bottoms_hex: hex(bottoms.r, bottoms.g, bottoms.b),
+    swap: worst ? {
+      where: worst.where,
+      why: worst.c.why,
+      from: { name: worst.c.name, hex: worst.c.hex },
+      to: { name: worst.c.alt.name, hex: worst.c.alt.hex },
+    } : null,
   };
 }
 
@@ -1751,15 +1892,288 @@ function CosmeCard({ item }) {
 }
 
 function SkuCard({ sku, site, accent }) {
+  // 商品画像は商品マスタ(item_blubel/iebel.csv)の images1。全カード同じ比率・同じ大きさで出す。
+  const img = (SKU_IMG[site] || {})[String(sku.id)];
   return (
-    <a href={ITEM_URL(site, sku.id)} target="_blank" rel="noreferrer" className="block rounded-2xl p-4 mb-3 transition-shadow hover:shadow-md" style={{ border: "1px solid " + C.line }}>
-      <div className="text-[10px]" style={{ color: C.faint }}>{sku.cat}</div>
-      <div className="text-sm font-medium mt-0.5" style={{ color: C.ink }}>{sku.name}</div>
-      <div className="flex items-center justify-between mt-1.5">
-        <span className="text-sm" style={{ color: accent }}>¥{sku.price.toLocaleString()}</span>
-        <span className="text-xs inline-flex items-center gap-1" style={{ color: C.sub }}>商品を見る <ArrowRight size={12} /></span>
+    <a href={ITEM_URL(site, sku.id)} target="_blank" rel="noreferrer" className="flex gap-3 rounded-2xl p-3 mb-3 transition-shadow hover:shadow-md" style={{ border: "1px solid " + C.line }}>
+      {img && <img src={img} alt="" loading="lazy" className="rounded-xl" style={{ width: 78, aspectRatio: "3 / 4", objectFit: "cover", background: "#f4f0f4", flex: "none" }} />}
+      <div className="min-w-0 flex-1">
+        <div className="text-[10px]" style={{ color: C.faint }}>{sku.cat}</div>
+        <div className="text-sm font-medium mt-0.5 leading-snug" style={{ color: C.ink }}>{sku.name}</div>
+        <div className="flex items-center justify-between mt-1.5">
+          <span className="text-sm" style={{ color: accent }}>¥{sku.price.toLocaleString()}</span>
+          <span className="text-xs inline-flex items-center gap-1" style={{ color: C.sub }}>商品を見る <ArrowRight size={12} /></span>
+        </div>
       </div>
     </a>
+  );
+}
+
+// ════════════════════════════════════════════
+// 結果画面：タイプ別イラスト・専門表記・勝ち色の体系化（対象2）
+// ────────────────────────────────────────────
+// 表記はプロ資料「120 personal color LIST」の分類語に合わせる。
+// ベースは 1st と 2nd の組み合わせから決める（イエベ×ブルベ＝ニュートラル）。
+// ════════════════════════════════════════════
+const TYPE_SPEC = {
+  spring: { value: "高明度", chroma: "高彩度", clarity: "清色", hue: "Warm（黄み）" },
+  summer: { value: "高明度", chroma: "低彩度", clarity: "濁色", hue: "Cool（青み）" },
+  autumn: { value: "低明度", chroma: "中彩度", clarity: "濁色", hue: "Warm（黄み）" },
+  winter: { value: "中明度", chroma: "高彩度", clarity: "清色", hue: "Cool（青み）" },
+};
+const WARM_TYPES = ["spring", "autumn"];
+const baseLabel = (first, second) => {
+  const a = WARM_TYPES.includes(first), b = WARM_TYPES.includes(second);
+  if (a && b) return "イエローベース";
+  if (!a && !b) return "ブルーベース";
+  return `ニュートラル（${a ? "イエロー" : "ブルー"}寄り）`;
+};
+
+function TypeFaceHero({ first, second, accent }) {
+  return (
+    <div className="flex items-center gap-3 rounded-2xl p-3 mb-4" style={{ background: "#faf7f9", border: "1px solid #f0e9ef" }}>
+      <img src={TYPE_FACE_IMG[first]} alt="" className="rounded-xl block" style={{ width: 118, flex: "none" }} />
+      <div className="min-w-0">
+        <div className="text-[9px] tracking-widest" style={{ color: C.faint }}>1st</div>
+        <div className="text-lg font-bold leading-tight" style={{ color: accent }}>{TYPES[first].name}</div>
+        <div className="text-[10px] mt-0.5" style={{ color: C.sub }}>{TYPES[first].en}</div>
+        {second && (
+          <>
+            <img src={TYPE_FACE_IMG[second]} alt="" className="rounded-lg block mt-2" style={{ width: 62 }} />
+            <div className="text-[10px] mt-1" style={{ color: C.sub }}>2nd {TYPES[second].name}</div>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function SpecBadges({ first, second, accent }) {
+  const s = TYPE_SPEC[first];
+  const badge = (t) => (
+    <span key={t} className="inline-block text-[10px] px-2.5 py-1 rounded-full mr-1.5 mb-1.5" style={{ background: accent + "12", border: `1px solid ${accent}44`, color: accent }}>{t}</span>
+  );
+  return (
+    <div className="mb-4">
+      {[baseLabel(first, second), s.value, s.chroma, s.clarity].map(badge)}
+      <div className="text-[11px] leading-relaxed" style={{ color: C.sub }}>
+        ① 色相 <b style={{ color: C.ink }}>{s.hue}</b>　② 明度 <b style={{ color: C.ink }}>{s.value}</b>　③ 彩度 <b style={{ color: C.ink }}>{s.chroma}・{s.clarity}</b>
+      </div>
+    </div>
+  );
+}
+
+/* 勝ち色を8つの色相ファミリー行で見せる。色・名前・✓ の出所は既存データだけ
+   （TYPES.palette10 / COLOR_CHECK / NG_COLORS.alt / STYLING_DATA）。
+   0色の行も消さずに「この色相はありません」と出す（空であること自体が情報）。 */
+function ColorFamilies({ typeKey, accent }) {
+  const fam = COLOR_FAMILIES[typeKey] || {};
+  const total = FAMILY_ORDER.reduce((n, k) => n + (fam[k] || []).length, 0);
+  return (
+    <div className="mb-6">
+      <div className="flex items-baseline justify-between mb-1">
+        <span className="text-xs font-medium" style={{ color: C.ink }}>似合う色（勝ち色 {total}色）</span>
+        <span className="text-[10px]" style={{ color: C.faint }}><span style={{ color: accent }}>✓</span>＝いちばん得意な色</span>
+      </div>
+      <p className="text-[10px] leading-relaxed mb-2.5" style={{ color: C.faint }}>
+        プロ資料と同じ色相ファミリー別。日本語名／英名／HEXつきなので、そのまま買い物に持っていけます。
+      </p>
+      {FAMILY_ORDER.map((k) => {
+        const items = fam[k] || [];
+        return (
+          <div key={k} className="mb-3">
+            <div className="flex items-baseline justify-between pb-1 mb-1.5" style={{ borderBottom: "1px solid " + C.line }}>
+              <span className="text-[11px]" style={{ color: C.sub }}>{k}</span>
+              <span className="text-[10px]" style={{ color: C.faint }}>{items.length}色</span>
+            </div>
+            {items.length === 0 ? (
+              <div className="text-[10px] py-1" style={{ color: C.faint }}>この色相はこのタイプの勝ち色にありません</div>
+            ) : (
+              <div className="grid grid-cols-4 gap-1.5">
+                {items.map(([name, hex, mark]) => (
+                  <div key={name} className="text-center">
+                    <div className="w-full rounded-md relative" style={{ height: 30, background: hex, border: "1px solid #e3dce3" }}>
+                      {mark === "✓" && <span className="absolute right-1 top-0 text-[11px]" style={{ color: "#fff", textShadow: "0 0 3px rgba(0,0,0,.45)" }}>✓</span>}
+                    </div>
+                    <span className="block text-[9px] mt-0.5 leading-tight" style={{ color: C.sub }}>{name}</span>
+                    <span className="block text-[7.5px] leading-tight" style={{ color: C.faint }}>{COLOR_EN[name] || ""}</span>
+                    <span className="block text-[7px] leading-tight" style={{ color: "#c9c2cb", fontFamily: "ui-monospace, monospace" }}>{hex.toUpperCase()}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+// ════════════════════════════════════════════
+// コーデ提案・採点：勝ち色を「実際に着た姿」で見せる人物SVG（対象3）
+// ────────────────────────────────────────────
+// 服の塗り領域（トップス／ボトムス／小物）を別レイヤーに分けてあり、色は
+// STYLING_DATA の勝ち色（名前）を CHIP_HEX で HEX に解決したものを流し込む。
+// 線色 #4D4946 / 肌 rgb(252,242,233) は既存の顔イラストの実測値。
+// シーンは STYLING_DATA の10テーマぶん、シルエットと小物だけを変えて用意する。
+// ════════════════════════════════════════════
+const PS = { line: "#4D4946", skin: "#FCF2E9", hair: "#3A2F2C", bg: "#F7F4F6" };
+const psStroke = { stroke: PS.line, strokeWidth: 1.5, strokeLinejoin: "round" };
+
+const PS_TOP = {
+  blouse: (c) => <path d="M58 92 Q75 84 92 92 L104 100 Q110 128 108 160 L96 162 L95 154 L55 154 L54 162 L42 160 Q40 128 46 100 Z" fill={c} {...psStroke} />,
+  knit: (c) => (
+    <g>
+      <path d="M56 92 Q75 82 94 92 L107 101 Q112 132 109 166 L96 168 L95 158 L55 158 L54 168 L41 166 Q38 132 43 101 Z" fill={c} {...psStroke} />
+      <path d="M60 108 h30 M60 122 h30 M60 136 h30" stroke={PS.line} strokeWidth="0.7" fill="none" opacity=".35" />
+    </g>
+  ),
+  jacket: (c) => (
+    <g>
+      <path d="M58 92 Q75 84 92 92 L104 100 Q110 130 108 164 L96 166 L95 156 L55 156 L54 166 L42 164 Q40 130 46 100 Z" fill={c} {...psStroke} />
+      <path d="M68 92 L75 122 L82 92" fill="#ffffff" opacity=".22" stroke={PS.line} strokeWidth="1.1" />
+      <path d="M75 122 L75 156" stroke={PS.line} strokeWidth="1" opacity=".5" />
+    </g>
+  ),
+  coat: (c) => (
+    <g>
+      <path d="M56 92 Q75 82 94 92 L108 101 Q114 140 111 196 L39 196 Q36 140 42 101 Z" fill={c} {...psStroke} />
+      <path d="M67 92 L75 124 L83 92" fill="#ffffff" opacity=".2" stroke={PS.line} strokeWidth="1.1" />
+      <rect x="44" y="140" width="62" height="7" fill="#00000022" stroke={PS.line} strokeWidth="1" />
+    </g>
+  ),
+  dress: (c) => (
+    <g>
+      <path d="M58 92 Q75 84 92 92 L104 100 Q112 150 110 214 L40 214 Q38 150 46 100 Z" fill={c} {...psStroke} />
+      <path d="M55 146 Q75 152 95 146" stroke={PS.line} strokeWidth="1" fill="none" opacity=".45" />
+    </g>
+  ),
+  cardigan: (c) => (
+    <g>
+      <path d="M58 92 Q75 84 92 92 L104 100 Q110 128 108 162 L96 164 L95 154 L55 154 L54 164 L42 162 Q40 128 46 100 Z" fill="#F3EFF3" {...psStroke} />
+      <path d="M58 92 L66 94 L70 154 L55 154 L54 164 L42 162 Q40 128 46 100 Z" fill={c} {...psStroke} />
+      <path d="M92 92 L84 94 L80 154 L95 154 L96 164 L108 162 Q110 128 104 100 Z" fill={c} {...psStroke} />
+    </g>
+  ),
+};
+
+const PS_BOTTOM = {
+  pencil: (c) => <path d="M57 148 L93 148 L95 206 L55 206 Z" fill={c} {...psStroke} />,
+  flare: (c) => <path d="M56 148 L94 148 L106 216 L44 216 Z" fill={c} {...psStroke} />,
+  wide: (c) => <path d="M55 148 L95 148 L99 226 L79 226 L75 188 L71 226 L51 226 Z" fill={c} {...psStroke} />,
+  straight: (c) => <path d="M55 148 L95 148 L93 220 L77 220 L75 188 L73 220 L57 220 Z" fill={c} {...psStroke} />,
+  // ワンピースのシーンでは「羽織り」がボトムスの代わりの第2レイヤーになる
+  bolero: (c) => (
+    <g>
+      <path d="M58 92 L68 95 L64 140 L48 140 Q44 116 46 100 Z" fill={c} {...psStroke} />
+      <path d="M92 92 L82 95 L86 140 L102 140 Q106 116 104 100 Z" fill={c} {...psStroke} />
+    </g>
+  ),
+};
+
+const PS_ACC = {
+  tote: (c) => (
+    <g>
+      <path d="M100 176 L124 176 L127 208 L97 208 Z" fill={c} {...psStroke} />
+      <path d="M105 176 Q112 160 119 176" fill="none" stroke={PS.line} strokeWidth="1.4" />
+    </g>
+  ),
+  shoulder: (c) => (
+    <g>
+      <path d="M100 182 L122 182 L124 204 Q112 210 98 204 Z" fill={c} {...psStroke} />
+      <path d="M101 182 Q104 140 92 116" fill="none" stroke={c} strokeWidth="2.4" />
+    </g>
+  ),
+  clutch: (c) => (
+    <g>
+      <rect x="97" y="182" width="28" height="15" rx="3" fill={c} {...psStroke} />
+      <path d="M97 189 h28" stroke={PS.line} strokeWidth="0.9" opacity=".5" />
+    </g>
+  ),
+  handbag: (c) => (
+    <g>
+      <path d="M99 180 L123 180 L125 204 L97 204 Z" fill={c} {...psStroke} />
+      <path d="M104 180 Q111 166 118 180" fill="none" stroke={PS.line} strokeWidth="1.4" />
+      <path d="M99 190 h24" stroke={PS.line} strokeWidth="0.8" opacity=".4" />
+    </g>
+  ),
+  umbrella: (c) => (
+    <g>
+      <path d="M104 168 Q112 150 120 168 Q112 164 104 168 Z" fill={c} {...psStroke} />
+      <path d="M112 166 L112 208 Q112 214 106 214" fill="none" stroke={PS.line} strokeWidth="1.6" />
+    </g>
+  ),
+  pearl: (c) => (
+    <g>
+      {[[66, 92], [71, 96], [75, 97], [79, 96], [84, 92]].map(([x, y], i) => (
+        <circle key={i} cx={x} cy={y} r="2.6" fill={c} stroke={PS.line} strokeWidth="0.6" />
+      ))}
+    </g>
+  ),
+  earring: (c) => (
+    <g>
+      <circle cx="57" cy="66" r="3.4" fill="none" stroke={c} strokeWidth="2.2" />
+      <circle cx="93" cy="66" r="3.4" fill="none" stroke={c} strokeWidth="2.2" />
+    </g>
+  ),
+  heels: (c) => (
+    <g>
+      <path d="M60 292 L77 292 L77 299 L58 299 Z" fill={c} stroke={PS.line} strokeWidth="1" />
+      <path d="M74 292 L91 292 L93 299 L74 299 Z" fill={c} stroke={PS.line} strokeWidth="1" />
+    </g>
+  ),
+};
+
+// STYLING_DATA の10テーマ ＝ シーンカテゴリ。シルエットと小物だけを変える。
+const SCENE_LOOK = {
+  jobhunt: { label: "就活", top: "jacket", bottom: "pencil", acc: "tote" },
+  business: { label: "商談・仕事", top: "jacket", bottom: "wide", acc: "tote" },
+  konkatsu: { label: "婚活", top: "dress", bottom: "bolero", acc: "shoulder" },
+  date: { label: "デート", top: "blouse", bottom: "flare", acc: "shoulder" },
+  partner: { label: "相手のタイプ別", top: "knit", bottom: "wide", acc: "handbag" },
+  hair: { label: "髪色", top: "knit", bottom: "straight", acc: "earring" },
+  weather: { label: "天気", top: "coat", bottom: "straight", acc: "umbrella" },
+  ceremony: { label: "冠婚葬祭", top: "dress", bottom: "bolero", acc: "clutch" },
+  shoubu: { label: "勝負日", top: "jacket", bottom: "pencil", acc: "heels" },
+  age: { label: "年代別", top: "cardigan", bottom: "flare", acc: "handbag" },
+};
+
+/* 勝ち色を着た人物。theme でシルエットが決まり、top/bottom/acc に色が入る。
+   髪色のシーンも「その髪色に合う服の色」を扱う記事なので、色は服に入れる。 */
+function ScenePerson({ theme, top, bottom, acc, shoes }) {
+  const look = SCENE_LOOK[theme] || SCENE_LOOK.date;
+  const hair = PS.hair;
+  const topColor = top;
+  const bottomColor = bottom;
+  const accColor = acc || top;
+  return (
+    <svg viewBox="0 0 150 300" className="w-full block rounded-xl" role="img" aria-label={`${look.label}の勝ち色を着た姿`}>
+      <rect width="150" height="300" fill={PS.bg} />
+      <path d="M63 292 L62 214 L75 214 L74 292 Z" fill={PS.skin} stroke={PS.line} strokeWidth="1.4" strokeLinejoin="round" />
+      <path d="M76 292 L75 214 L88 214 L87 292 Z" fill={PS.skin} stroke={PS.line} strokeWidth="1.4" strokeLinejoin="round" />
+      {look.acc === "heels" ? PS_ACC.heels(accColor) : (
+        <g>
+          <path d="M60 292 L77 292 L77 299 L58 299 Z" fill={shoes || PS.line} />
+          <path d="M74 292 L91 292 L93 299 L74 299 Z" fill={shoes || PS.line} />
+        </g>
+      )}
+      {look.top !== "dress" && PS_BOTTOM[look.bottom] && PS_BOTTOM[look.bottom](bottomColor)}
+      {PS_TOP[look.top](topColor)}
+      {look.top === "dress" && PS_BOTTOM[look.bottom] && PS_BOTTOM[look.bottom](bottomColor)}
+      <ellipse cx="49" cy="168" rx="6.5" ry="7.5" fill={PS.skin} stroke={PS.line} strokeWidth="1.3" />
+      <ellipse cx="101" cy="170" rx="6.5" ry="7.5" fill={PS.skin} stroke={PS.line} strokeWidth="1.3" />
+      <path d="M70 76 L80 76 L80 94 L70 94 Z" fill={PS.skin} stroke={PS.line} strokeWidth="1.3" />
+      <ellipse cx="75" cy="54" rx="21" ry="25" fill={PS.skin} stroke={PS.line} strokeWidth="1.5" />
+      <path d="M54 54 Q53 25 75 25 Q97 25 96 54 Q95 42 87 38 Q75 46 62 40 Q55 44 54 54 Z" fill={hair} />
+      <path d="M54 52 Q47 82 51 100 L59 96 Q55 74 57 56 Z" fill={hair} />
+      <path d="M96 52 Q103 82 99 100 L91 96 Q95 74 93 56 Z" fill={hair} />
+      <g stroke={PS.line} fill="none" strokeLinecap="round">
+        <path d="M65 56 Q68 53 71 56" strokeWidth="1.6" />
+        <path d="M79 56 Q82 53 85 56" strokeWidth="1.6" />
+        <path d="M72 66 Q75 69 78 66" strokeWidth="1.3" />
+      </g>
+      {look.acc !== "heels" && PS_ACC[look.acc] && PS_ACC[look.acc](accColor)}
+    </svg>
   );
 }
 
@@ -2373,7 +2787,7 @@ export default function App() {
                     <div className="h-1 rounded-full transition-all duration-300" style={{ width: `${(qi / Q12.length) * 100}%`, background: C.main }} />
                   </div>
                   <h2 className="text-base font-medium leading-relaxed mb-4 whitespace-pre-line" style={{ color: C.ink }}>{Q12[qi].q}</h2>
-                  <QuizIllust illust={Q12[qi].illust} aLabel={Q12[qi].a} bLabel={Q12[qi].b} onPick={(k) => answerQ(k)} />
+                  <QuizIllust illust={Q12[qi].illust} art={QUIZ_ART[qi]} aLabel={Q12[qi].a} bLabel={Q12[qi].b} onPick={(k) => answerQ(k)} />
                   <div className="flex gap-3">
                     {["A", "B"].map((k) => (
                       <button key={k} onClick={() => answerQ(k)} className="flex-1 py-4 px-3 rounded-2xl transition-all hover:shadow-md" style={{ border: "1px solid " + C.line, color: C.ink }}>
@@ -2388,13 +2802,18 @@ export default function App() {
                   <div className="text-xs tracking-widest mb-4" style={{ color: C.faint }}>最終質問</div>
                   <h2 className="text-base font-medium leading-relaxed mb-4" style={{ color: C.ink }}>{TIE_Q.q}</h2>
                   
+                  {/* 選択肢はそのまま4タイプに対応するので、タイプ別の顔イラスト（既存素材）を出す */}
                   <div className="grid grid-cols-2 gap-3">
-                    {["A", "B", "C", "D"].map((k) => (
-                      <button key={k} onClick={() => answerQ(k)} className="py-4 px-3 rounded-2xl transition-all hover:shadow-md" style={{ border: "1px solid " + C.line, color: C.ink }}>
-                        <span className="block text-2xl font-bold mb-1">{k}</span>
-                        <span className="block text-xs" style={{ color: C.sub }}>{TIE_Q.labels[k]}</span>
-                      </button>
-                    ))}
+                    {["A", "B", "C", "D"].map((k) => {
+                      const tKey = NUM2KEY[TIE_Q.opts[k]];
+                      return (
+                        <button key={k} onClick={() => answerQ(k)} className="p-2.5 rounded-2xl transition-all hover:shadow-md active:scale-95" style={{ border: "1px solid " + C.line, color: C.ink }}>
+                          <span className="block text-sm font-bold mb-1.5" style={{ color: C.main }}>{k}</span>
+                          <img src={TYPE_FACE_IMG[tKey]} alt="" className="w-full block rounded-xl" />
+                          <span className="block text-xs mt-1.5" style={{ color: C.sub }}>{TIE_Q.labels[k]}</span>
+                        </button>
+                      );
+                    })}
                   </div>
                 </>
               )}
@@ -2416,9 +2835,12 @@ export default function App() {
               <h2 className="font-serif text-2xl leading-snug mb-1" style={{ color: C.ink }}>
                 あなたは<span className="text-3xl mx-0.5" style={{ color: RT.accent }}>【{RT.name}】</span>タイプです！
               </h2>
-              <div className="inline-flex items-center gap-2 text-xl font-bold mt-3 mb-6 px-5 py-2.5 rounded-full" style={{ background: TYPES[quizResult.second].accent + "14", color: TYPES[quizResult.second].accent, border: `2px solid ${TYPES[quizResult.second].accent}44` }}>
+              <div className="inline-flex items-center gap-2 text-xl font-bold mt-3 mb-4 px-5 py-2.5 rounded-full" style={{ background: TYPES[quizResult.second].accent + "14", color: TYPES[quizResult.second].accent, border: `2px solid ${TYPES[quizResult.second].accent}44` }}>
                 2nd：{TYPES[quizResult.second].name}
               </div>
+              {/* タイプ別イラスト（既存素材）＋プロ資料と同じ専門表記 */}
+              <TypeFaceHero first={RT.key} second={quizResult.second} accent={RT.accent} />
+              <SpecBadges first={RT.key} second={quizResult.second} accent={RT.accent} />
               {quizResult.note && <p className="text-xs leading-relaxed mb-4" style={{ color: C.faint }}>{quizResult.note}</p>}
 
               {/* 3軸バー（回答から算出したあなただけの数値） */}
@@ -2446,30 +2868,18 @@ export default function App() {
               </div>
 
               <p className="text-sm mb-6" style={{ color: "#8a828d" }}>{RT.catch}。2ndの{TYPES[quizResult.second].name}らしさも少し持っているタイプです。</p>
-              <div className="grid grid-cols-2 gap-4 mb-7">
-                <div>
-                  <div className="text-xs mb-2" style={{ color: C.faint }}>似合う色（勝ち色10選）</div>
-                  <div className="grid grid-cols-5 gap-2 mb-4">
-                    {(RT.palette10 || RT.palette.map((c) => ["", c])).map(([label, c], i) => (
-                      <div key={i} className="text-center">
-                        <div className="w-full aspect-square rounded-xl" style={{ background: c, border: "1px solid #e8e2e8" }} />
-                        <span className="block text-[9px] mt-1 leading-tight" style={{ color: C.sub }}>{label}</span>
-                      </div>
-                    ))}
+              {/* 勝ち色は8つの色相ファミリーで体系化して見せる（プロ資料の見せ方に合わせた） */}
+              <ColorFamilies typeKey={RT.key} accent={RT.accent} />
+              <div className="text-xs mb-2" style={{ color: C.faint }}>苦手な色（顔まわりでは注意）</div>
+              <div className="grid grid-cols-4 gap-2 mb-7">
+                {(NG_COLORS[RT.key] || []).map((ngc, i) => (
+                  <div key={i} className="text-center">
+                    <div className="w-full aspect-square rounded-xl relative" style={{ background: ngc.hex, border: "1px solid #e8e2e8" }}>
+                      <span className="absolute inset-0 flex items-center justify-center text-lg" style={{ color: "#fff", textShadow: "0 0 4px rgba(0,0,0,.45)" }}>✕</span>
+                    </div>
+                    <span className="block text-[9px] mt-1 leading-tight" style={{ color: C.sub }}>{ngc.name}</span>
                   </div>
-                  <div className="text-xs mb-2" style={{ color: C.faint }}>苦手な色（顔まわりでは注意）</div>
-                  <div className="grid grid-cols-4 gap-2">
-                    {(NG_COLORS[RT.key] || []).map((ngc, i) => (
-                      <div key={i} className="text-center">
-                        <div className="w-full aspect-square rounded-xl relative" style={{ background: ngc.hex, border: "1px solid #e8e2e8" }}>
-                          <span className="absolute inset-0 flex items-center justify-center text-lg" style={{ color: "#fff", textShadow: "0 0 4px rgba(0,0,0,.45)" }}>✕</span>
-                        </div>
-                        <span className="block text-[9px] mt-1 leading-tight" style={{ color: C.sub }}>{ngc.name}</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-                
+                ))}
               </div>
               {/* 公式フォーマット：似合う服セクション */}
               <h3 className="font-serif text-xl leading-snug mb-2" style={{ color: C.ink }}>
@@ -2585,6 +2995,39 @@ export default function App() {
                     <div className="mt-8">
                       <div className="text-xs tracking-widest uppercase mb-1" style={{ color: TYPES[myType].accent }}>Today's Styling</div>
                       <h3 className="font-serif text-2xl mb-4" style={{ color: C.ink }}>{stResult.title}</h3>
+                      {/* 提案された勝ち色を、そのままイラストの服に流し込んで見せる */}
+                      {stResult.colors && stResult.colors.length > 0 && (
+                        <div className="flex gap-3 mb-5">
+                          <div style={{ flex: "0 0 118px" }}>
+                            <ScenePerson
+                              theme={stResult.theme}
+                              top={stResult.colors[0] && stResult.colors[0].hex}
+                              bottom={(stResult.colors[3] || stResult.colors[1] || stResult.colors[0]).hex}
+                              acc={(stResult.colors[2] || stResult.colors[1] || stResult.colors[0]).hex}
+                            />
+                            <div className="text-[10px] text-center mt-1" style={{ color: C.faint }}>{stResult.scene_name}の勝ち色</div>
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            {stResult.colors.slice(0, 5).map((c) => (
+                              <div key={c.name} className="flex items-center gap-2 py-1.5" style={{ borderBottom: "1px solid " + C.line }}>
+                                <span className="rounded-md" style={{ width: 22, height: 22, background: c.hex, border: "1px solid #e3dce3", flex: "none" }} />
+                                <span className="min-w-0 flex-1">
+                                  <span className="block text-[11px] font-medium leading-tight" style={{ color: C.ink }}>{c.name}</span>
+                                  <span className="block text-[9.5px] leading-tight" style={{ color: C.sub }}>{c.effect}</span>
+                                </span>
+                                <span className="text-[8px]" style={{ color: "#c9c2cb", fontFamily: "ui-monospace, monospace" }}>{c.hex.toUpperCase()}</span>
+                              </div>
+                            ))}
+                            {stResult.ng_color && (
+                              <div className="flex items-center gap-2 pt-2">
+                                {/* 「淡いパステル全般」のような抽象的な括りは HEX が無い。色を作らず文字だけ出す */}
+                                {stResult.ng_color.hex && <span className="rounded-md" style={{ width: 18, height: 18, background: stResult.ng_color.hex, border: "1px solid #e3dce3", flex: "none" }} />}
+                                <span className="text-[10px] leading-tight" style={{ color: C.sub }}>避けたい色：{stResult.ng_color.name}（{stResult.ng_color.effect}）</span>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      )}
                       <div className="rounded-2xl p-5 mb-5" style={{ background: "#faf7f9", border: "1px solid #f0e9ef" }}>
                         <div className="flex items-center gap-1.5 text-xs font-medium mb-2" style={{ color: TYPES[myType].accent }}><Sparkles size={13} /> {LAB(TYPES[myType].site)}のスタイリストより</div>
                         <p className="text-sm leading-relaxed" style={{ color: "#4a434f" }}>{stResult.styling}</p>
@@ -3473,6 +3916,33 @@ export default function App() {
                         <div className="text-xs font-medium mb-1" style={{ color: TYPES[myType].accent }}>↗ もっと良くするなら</div>
                         <p className="text-xs leading-relaxed" style={{ color: "#4a434f" }}>{scResult.improve}</p>
                       </div>
+                      {/* 苦手色を検出したときは、置き換え色（NG_COLORS[].alt）を着た姿を並べて見せる */}
+                      {scResult.swap && (
+                        <div className="rounded-2xl p-4 mb-3" style={{ border: "1px solid " + C.line }}>
+                          <div className="text-xs font-medium mb-2" style={{ color: TYPES[myType].accent }}>色を置き換えると、こう変わります</div>
+                          <div className="flex gap-3">
+                            {[
+                              ["Before", scResult.swap.from, false],
+                              ["After", scResult.swap.to, true],
+                            ].map(([cap, col, after]) => {
+                              const isTops = scResult.swap.where === "トップス";
+                              const top = isTops ? col.hex : scResult.tops_hex;
+                              const bottom = isTops ? scResult.bottoms_hex : col.hex;
+                              return (
+                                <div key={cap} className="flex-1 text-center">
+                                  {/* 変わるのは置き換える1か所だけ。小物は Before/After で同じ色にして比較を邪魔しない */}
+                                  <ScenePerson theme="partner" top={top} bottom={bottom} acc={isTops ? scResult.bottoms_hex : scResult.tops_hex} />
+                                  <div className="text-[10px] mt-1" style={{ color: after ? TYPES[myType].accent : C.faint }}>{cap}　{col.name}</div>
+                                  <div className="text-[8px]" style={{ color: "#c9c2cb", fontFamily: "ui-monospace, monospace" }}>{col.hex.toUpperCase()}</div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                          <p className="text-[10px] leading-relaxed mt-2" style={{ color: C.sub }}>
+                            {scResult.swap.where}の{scResult.swap.from.name}は{scResult.swap.why}ため、{scResult.swap.to.name}に置き換えると顔映りが変わります。
+                          </p>
+                        </div>
+                      )}
                       {scResult.one_item && (
                         <div className="rounded-2xl p-4 mb-4" style={{ background: TYPES[myType].accent + "0d" }}>
                           <div className="text-xs font-medium mb-1" style={{ color: TYPES[myType].accent }}>🛍 買い足すなら</div>
