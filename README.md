@@ -222,9 +222,17 @@ ngpolice / mens は従来どおり本文にスニペットを貼る方式のま�
 
 | アプリ | 参照タグ | jsDelivr |
 |---|---|---|
-| colorlab | `@v1.15.0` | `https://cdn.jsdelivr.net/gh/thecompany20220901-cpu/colorlab-embed@v1.15.0/dist/colorlab.iife.js` |
+| colorlab | `@v1.16.0` | `https://cdn.jsdelivr.net/gh/thecompany20220901-cpu/colorlab-embed@v1.16.0/dist/colorlab.iife.js` |
 | ngpolice | `@v1.3.0` | `https://cdn.jsdelivr.net/gh/thecompany20220901-cpu/colorlab-embed@v1.3.0/dist/ngpolice.iife.js` |
 | mens | `@v1.6.1` | `https://cdn.jsdelivr.net/gh/thecompany20220901-cpu/colorlab-embed@v1.6.1/dist/mens.iife.js` |
+
+- v1.16.0 の内容: **診断イラストを既存素材（`assets/faces/` の4タイプ顔イラスト）の色差し替えへ全面置換**し、
+  結果画面に**タイプ別イラスト・プロ資料と同じ専門表記・勝ち色30色の色相ファミリー別一覧・商品画像**を追加。
+  コーデ提案／採点には**勝ち色を着た人物SVG**（10シーン）と**置き換え色の Before/After** を追加。
+  色は1つも新規に作っておらず、出所は `Q12[].illust` / `TYPES[].palette10` / `COLOR_CHECK` /
+  `NG_COLORS[].alt` / `STYLING_DATA` だけ（詳細は「診断イラスト・勝ち色データ」の節）。
+  WebP 27点（238KB）を IIFE に内包するため `assetsInlineLimit` を追加し、**425KB → 698KB（gzip 367KB）**。
+  ngpolice / mens は v1.16.0 でも中身に変更なし（タグを揃えていないので注意）。
 
 - v1.15.0 の内容: 撮影中の**ライブ判定の表示だけ**を安定化（ヒステリシス＋平滑化）。静止していても
   「顔の位置」が✓と○を往復していた原因は姿勢の揺れではなく、**カメラのAWBがわずかに動くだけで
