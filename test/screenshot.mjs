@@ -147,6 +147,23 @@ const PHOTO_DARK = regionPng(600, 800, [30, 28, 26], [
   [0.24, 0.46, 0.36, 0.58, [70, 58, 50]],
   [0.34, 0.76, 0.66, 0.92, [64, 63, 62]],
 ]);
+/* 白基準の枠に「白い紙」ではないものが入っている2パターン。どちらも 2026-09-02 の実機で
+   実際に起きたもので、数値は そのスクショの実測値をそのまま使っている。
+   (1) 顎の影に入った白いTシャツ … 肌より明るい(比1.31)ので明るさでは弾けない。
+       周りより青い(青寄り度+0.099)ことで初めて「顔と違う光の面」と分かる。
+   (2) 首や顎の肌 … 青くはないが、白い紙より暗い(比0.89)。 */
+const PHOTO_SHIRT = regionPng(600, 800, [190, 180, 170], [
+  [0.40, 0.06, 0.60, 0.16, [62, 46, 38]],
+  [0.24, 0.46, 0.36, 0.58, [161, 112, 104]],
+  [0.64, 0.46, 0.76, 0.58, [161, 112, 104]],
+  [0.34, 0.76, 0.66, 0.92, [152, 171, 169]],   // 顎の影の白いTシャツ（実測値）
+]);
+const PHOTO_NECK = regionPng(600, 800, [190, 180, 170], [
+  [0.40, 0.06, 0.60, 0.16, [62, 46, 38]],
+  [0.24, 0.46, 0.36, 0.58, [157, 115, 103]],
+  [0.64, 0.46, 0.76, 0.58, [157, 115, 103]],
+  [0.34, 0.76, 0.66, 0.92, [135, 104, 92]],    // 紙を持たず首の肌を拾った（実測値）
+]);
 
 // 領域を塗り分けた映像を Y4M(I420) で作る。Chromium の
 // --use-file-for-fake-video-capture に渡すと、その映像がカメラとして流れる。
@@ -400,6 +417,25 @@ try {
   check("品質ゲート: 暗すぎる写真が却下される", /白い紙が写っていないか、暗すぎます/.test(rejText));
   check("却下画面に撮り直し導線（撮り直す / 条件を見直す）がある", /撮り直す/.test(rejText) && /条件を見直す/.test(rejText));
   await shotEl("#colorlab-root", "10_photo_rejected_dark.png");
+
+  // (a-2) 白基準の枠が「白い紙」でない写真は却下する（2026-09-02 実機・白基準の誤爆）
+  //       ここを通すと、歪んだモノサシで肌を測って a* が +10.5 も持ち上がり、
+  //       「頬の位置で肌以外を測ってしまいました」という見当違いの理由で落ちる。
+  for (const [name, buf, why] of [
+    ["shirt.png", PHOTO_SHIRT, "顎の影の白いTシャツ（肌より明るいので明るさでは弾けない）"],
+    ["neck.png", PHOTO_NECK, "紙を持たず首の肌を拾った（青くないので青寄り度では弾けない）"],
+  ]) {
+    await page.getByRole("button", { name: /撮り直す/ }).click();
+    await page.waitForSelector("#colorlab-root >> text=写真を選ぶ", { timeout: 10000 });
+    await page.locator("#colorlab-root input[type=file]").setInputFiles({ name, mimeType: "image/png", buffer: buf });
+    await page.waitForSelector("#colorlab-root >> text=白い紙が見つかりません", { timeout: 10000 });
+    const t2 = await page.locator("#colorlab-root").innerText();
+    check(`品質ゲート: ${why} は「白い紙が見つかりません」で却下される`, /白い紙が見つかりません/.test(t2));
+    check(`${name}: 「頬の位置で肌以外を測ってしまいました」と誤った理由を出さない`,
+      !/頬の位置で肌以外/.test(t2));
+    check(`${name}: 判定結果（1st/2nd タイプ）を出していない`, !/1st/.test(t2));
+  }
+  await shotEl("#colorlab-root", "40_photo_rejected_white_ref.png");
   await page.getByRole("button", { name: /^撮り直す$/ }).click();
 
   // (b) 条件を満たす写真 → 実測 → 12タイプ結果ページへ合流
@@ -823,6 +859,31 @@ try {
       /白い紙が映ると、「顔の位置」も判定できるようになります/.test(t));
     await pg.screenshot({ path: join(SHOTS, "32_photo_live_paper_first.png") });
     log("  SS: 32_photo_live_paper_first.png");
+  } finally { await lb.close(); }
+
+  // (e) 顎の影の白いTシャツを白基準にしてしまう映像 → 「白い紙 ✓検出」と出してはいけない
+  //     2026-09-02 の実機では ✓検出 と出たまま歪んだモノサシで肌を測り、
+  //     「顔の位置 ○ズレ」という嘘の表示になっていた。
+  const shirtY4m = join(tmpdir(), "colorlab_live_shirt.y4m");
+  wfs(shirtY4m, y4mFromRegions(480, 640, [190, 180, 170], [
+    [0.40, 0.06, 0.60, 0.16, [62, 46, 38]],
+    [0.24, 0.46, 0.36, 0.58, [161, 112, 104]],
+    [0.64, 0.46, 0.76, 0.58, [161, 112, 104]],
+    [0.34, 0.76, 0.66, 0.92, [152, 171, 169]],   // 顎の影の白いTシャツ（実測値）
+  ]));
+  lb = await liveBrowser(shirtY4m);
+  try {
+    const c = await lb.newContext({ viewport: { width: 375, height: 812 }, deviceScaleFactor: 2, permissions: ["camera"] });
+    const pg = await c.newPage();
+    pg.on("request", (r) => { if (/anthropic\.com/.test(r.url())) aiCalls.push(r.url()); });
+    await openPhotoGuide(pg);
+    const t = await pg.locator("body").innerText();
+    check("ライブ判定: 白いTシャツを 白い紙 ✓検出 と誤表示しない", /白い紙\s*○未検出/.test(t) && !/白い紙\s*✓/.test(t));
+    check("ライブ判定: そのとき 明るさ は ✓十分（暗さで弾けているのではない）", /明るさ\s*✓十分/.test(t));
+    check("ライブ判定: 顔の位置は「—判定待ち」（○ズレ と嘘を伝えない）",
+      /顔の位置\s*—判定待ち/.test(t) && !/顔の位置\s*○ズレ/.test(t));
+    await pg.screenshot({ path: join(SHOTS, "41_photo_live_shirt_as_paper.png") });
+    log("  SS: 41_photo_live_shirt_as_paper.png");
   } finally { await lb.close(); }
 
   // (d) 境界付近で揺れる映像でも、表示がチラつかないこと（v1.15.0 の平滑化＋ヒステリシス）

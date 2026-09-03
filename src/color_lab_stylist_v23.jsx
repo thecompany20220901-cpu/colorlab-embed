@@ -1251,6 +1251,69 @@ const PH_FACE = {
   paperW: 0.90,  // 白い紙の横半径（rx の何倍か）
 };
 
+/* ════ 白基準（顎の下の白い紙）が本当に「白い紙」かを見るための閾値 ════
+   白基準は、肌の色を測る前に照明の偏りを打ち消すためのモノサシ。ここが白でないと、
+   モノサシ自体が歪んだまま肌を測ることになる。
+
+   ★スマホのAWBは、白い面をおおむね無彩色へ寄せてくれる。だから「照明が暖色だから
+     紙も暖色に写るはず」ではなく、**正しく紙を持っていれば白基準はほぼ無彩色になる**。
+     実写4枚の実測（2026-09-03）:
+       彩度 (max-min)/max     白基準の中身
+        0.014                 白い紙 (8/30)   ← 正しい
+        0.069                 白い紙 (8/31)   ← 正しい
+        0.110                 白いTシャツ     ← 紙を持っておらず服を拾った
+        0.319                 首の肌          ← 同上
+     従来の上限 0.28 では Tシャツ(0.110)が素通りし、「白い紙 ✓検出」と出したまま
+     歪んだモノサシで肌を測っていた。その結果 a* が 23.7 → 34.2 へ +10.5 も持ち上がり、
+     肌の生理的範囲(a*≤26)を超えて「頬の位置で肌以外を測ってしまいました」と
+     見当違いの理由で却下されていた（2026-09-02 実機）。
+   ★明るさ比（紙 vs 肌）では分離できないので使わないこと。実測では
+     正しい紙が 1.24 / 1.37、誤爆したTシャツが 1.33 で、良い方の値の間に入ってしまう。 */
+/* 白基準が「肌より明るい」「青くない」「色が薄い」の3つを満たすことを求める。
+   ★1つの指標で分けようとしないこと。実測（2026-09-03・4枚）:
+       白基準の中身          明るさ比  青寄り度  彩度
+       白い紙 (8/30)          1.24     0.000    0.014   ← 正しい
+       白い紙 (8/31)          1.37    -0.042    0.069   ← 正しい
+       白いTシャツ(顎の影)    1.31    +0.099    0.111   ← 誤爆
+       首の肌                 0.89    -0.319    0.319   ← 誤爆
+     明るさ比だけでは Tシャツ(1.31)が正しい紙(1.24/1.37)の間に入って分離できない。
+     彩度だけでは Tシャツ(0.111)と正しい紙(0.069)の差が薄く、しかも
+     ライブ判定(120px)と本判定(600px)でリサンプリング誤差だけで 0.099 / 0.111 と
+     0.10 をまたいでしまう（＝1枚に張り付いた閾値になる）。
+     青寄り度なら 0.000 / -0.042 と +0.099 で、どちらにも 0.05 の余裕がある。 */
+const PH_WHITE_SAT_MAX = 0.15;   // 色が濃い＝白い紙ではない（正しい紙の実測は 0.069 まで）
+/* 青寄り度 (B-R)/max。スマホのAWBを通ると、白い面は中立〜わずかに暖色に写る。
+   顎の影に入った服のように「周りより青い」面は、顔と違う光で照らされているので
+   白基準に使えない。しかもこの向きの誤りは赤のゲインを持ち上げるため、
+   全員をイエベ寄りに倒す系統誤差になる（2026-09-02 実機で a* が +10.5 された）。 */
+const PH_WHITE_BLUE_MAX = 0.05;
+/* 白基準が肌より明るいこと。白い紙の反射率(約0.85)は肌(約0.35)よりずっと高いので、
+   同じ光の下なら紙は必ず肌より明るく写る。紙を持たずに首や顎の肌を拾うと、この比が1を割る。
+   実測（2026-09-03）: 白い紙 1.24 / 1.37、白いTシャツ 1.33、首の肌 0.89。
+   ★彩度だけでは首の肌(彩度0.319)に「照明の色が強く偏っています」と見当違いの指示を出して
+     しまうため、明るさ比で「紙が無い」と言い当てる。逆にTシャツ(1.33)は明るさ比では
+     分離できないので、彩度と明るさ比の両方が要る（どちらか片方では足りない）。 */
+const PH_WHITE_MIN_LUMA_RATIO = 1.05;
+const PH_WHITE_SAT_SLACK = 0.03; // ライブ表示のヒステリシス用（一度✓になったら少し粘る）
+const PH_WHITE_CAST_MAX = 0.28;  // これを超えたら「照明の色が強く偏っている」（従来からの値）
+/* 白基準の彩度。0 に近いほど無彩色＝白い紙らしい。 */
+function whiteSat(w) {
+  const mx = Math.max(w.r, w.g, w.b), mn = Math.min(w.r, w.g, w.b);
+  return mx > 0 ? (mx - mn) / mx : 1;
+}
+/* 青寄り度。プラスなら「赤より青が強い」＝周りより冷たい面を白基準にしている。 */
+function whiteBlueness(w) {
+  const mx = Math.max(w.r, w.g, w.b);
+  return mx > 0 ? (w.b - w.r) / mx : 1;
+}
+/* 見た目の明るさ（輝度）。白基準と肌の明るさを比べるためだけに使う。 */
+const lumaOf = (c) => 0.299 * c.r + 0.587 * c.g + 0.114 * c.b;
+/* 白基準が「肌より十分明るいか」。紙を持たずに首や顎の肌を拾うと false になる。 */
+function whiteBrighterThanSkin(w, cheekL, cheekR) {
+  const skin = (lumaOf(cheekL) + lumaOf(cheekR)) / 2;
+  return skin > 0 ? lumaOf(w) >= skin * PH_WHITE_MIN_LUMA_RATIO : true;
+}
+
 function photoGeometry(ar) {
   const A = ar && isFinite(ar) && ar > 0 ? ar : 0.75;
   const VBW = 1000, VBH = Math.round(1000 / A);   // viewBox。ar と一致させる＝レターボックスなし
@@ -1366,7 +1429,16 @@ function livePhotoCheck(video, canvas) {
 
   const wMax = Math.max(white.r, white.g, white.b), wMin = Math.min(white.r, white.g, white.b);
   const bright = wMax >= 120 && !(wMax > 252 && wMin > 250);   // 本判定の暗すぎ/白飛びに対応
-  const paper = bright && (wMax - wMin) / wMax <= 0.28;        // 本判定の色かぶりに対応
+  // 白基準が無彩色か。ここを 0.28 のままにすると、白いTシャツ(実測0.110)を
+  // 「白い紙 ✓検出」と出してしまい、歪んだモノサシで肌を測ることになる（2026-09-02 実機）。
+  const wSat = whiteSat(white), wBlue = whiteBlueness(white);
+  const wBright = whiteBrighterThanSkin(white, cheekL, cheekR);
+  // 本判定の白基準ゲート（明るさ比・青寄り度・彩度）とそろえる。
+  // ここを従来の「色かぶり0.28だけ」にしておくと、白いTシャツを ✓検出 と出したまま
+  // 歪んだモノサシで肌を測ることになる（2026-09-02 実機）。
+  const paper = bright && wBright && wBlue <= PH_WHITE_BLUE_MAX && wSat <= PH_WHITE_SAT_MAX;
+  const paperLoose = bright && wBright && wBlue <= PH_WHITE_BLUE_MAX + PH_WHITE_SAT_SLACK
+    && wSat <= PH_WHITE_SAT_MAX + PH_WHITE_SAT_SLACK;
 
   // 白い紙が取れているときだけ、本判定と同じ考え方でホワイトバランスを当ててから肌を見る
   const g = paper ? { r: 235 / white.r, g: 235 / white.g, b: 235 / white.b } : { r: 1, g: 1, b: 1 };
@@ -1387,7 +1459,7 @@ function livePhotoCheck(video, canvas) {
   const skinLoose = (l) => l.L >= 40 - K && l.L <= 88 + K && l.a >= 2 - K && l.a <= 26 + K && l.b >= 4 - K && l.b <= 32 + K;
   const faceLoose = paper ? (skinLoose(lL) && skinLoose(lR)) : null;
   const balanceLoose = deltaE(lL, lR) <= 14 + K;
-  return { bright, paper, face, balance, loose: { bright, paper, face: faceLoose, balance: balanceLoose } };
+  return { bright, paper, face, balance, loose: { bright, paper: paperLoose, face: faceLoose, balance: balanceLoose } };
 }
 
 /* ライブ判定の表示項目。ok=満たしている / まだのときは下の文言を出す。 */
@@ -1821,10 +1893,25 @@ async function aiPhotoDiagnose(base64, mediaType) {
     throw gateError("光が強すぎて白が飛んでいます",
       "直射日光を避け、窓から少し離れて撮り直してください。");
   }
+  // 白基準が肌より明るくない = 紙を持たずに首や顎の肌を拾っている。
+  // これを色かぶりゲートより先に見るのは、肌は彩度も高い（実測0.319）ため、
+  // 後回しにすると「照明の色が強く偏っています」＝室内照明を消せ、という
+  // 見当違いの指示になってしまうため（2026-09-02 実機の1枚目がこれ）。
+  if (!whiteBrighterThanSkin(whiteRef, cheekL, cheekR)) {
+    throw gateError("白い紙が見つかりません",
+      "顎の下に白い紙かハンカチを持って撮り直してください。白い紙は肌よりはっきり明るく写る必要があります。");
+  }
   const castRatio = (wMax - wMin) / wMax;
-  if (castRatio > 0.28) {
+  if (castRatio > PH_WHITE_CAST_MAX) {
     throw gateError("照明の色が強く偏っています",
       "室内照明を消し、日中の自然光だけで撮り直してください。オレンジや青の光が混ざると測れません。");
+  }
+  // 白基準が無彩色でない = そもそも白い紙を持っていない（服や肌を拾っている）。
+  // ここを通してしまうと、歪んだモノサシで肌を測って a* が大きく持ち上がり、
+  // 「頬の位置で肌以外を測ってしまいました」という見当違いの理由で却下される（2026-09-02 実機）。
+  if (whiteBlueness(whiteRef) > PH_WHITE_BLUE_MAX || castRatio > PH_WHITE_SAT_MAX) {
+    throw gateError("白い紙が見つかりません",
+      "顎の下に白い紙かハンカチを持って撮り直してください。白い服や肌は白の代わりになりません（顔と違う光が当たるぶん、肌の色がずれて測れなくなります）。");
   }
 
   // 4. ホワイトバランス補正 + 露出正規化
