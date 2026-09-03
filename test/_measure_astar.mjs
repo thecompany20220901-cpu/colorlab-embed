@@ -199,8 +199,11 @@ if (ok.length) {
   const mx = Math.max(...ok.map((t) => t.a)), mn = Math.min(...ok.map((t) => t.a));
   console.log(`\n=== a* の分布（通過した ${ok.length}/${table.length} 枚）===`);
   console.log(`   最小 ${mn.toFixed(1)} / 最大 ${mx.toFixed(1)} / 現行上限 26 / 余裕 ${(26 - mx).toFixed(1)}`);
-  console.log(`   ※AWB の揺れで a* は ±1.8〜3.5 振れる（2026-08-31 実測）。`);
-  console.log(`     上限は「全データの最大値 + 揺れぶん」を下回らない値にすること。1枚に合わせない。`);
+  console.log(`   ※ここの値は実機より 3〜5 低い。RGB→I420→RGB の往復で赤みが落ちるため`);
+  console.log(`     （2026-09-03 に test/_probe_calib.mjs で再測: −3.0〜−5.1・平均 −4.2）。`);
+  console.log(`     補正後の実機相当 = 最大 ${(mx + 4.2).toFixed(1)}（最小 ${(mn + 4.2).toFixed(1)}）。`);
+  console.log(`   ※さらに AWB の揺れで a* は ±1.8〜3.5 振れる（2026-08-31 実測）。`);
+  console.log(`     上限は「補正後の最大値 + 揺れぶん」を下回らない値にすること。1枚に合わせない。`);
 }
 if (table.some((t) => t.a === null)) {
   console.log(`\n   却下された写真は a* 以外のゲート（左右差ΔE・白紙・露出）で先に落ちている可能性がある。`);
