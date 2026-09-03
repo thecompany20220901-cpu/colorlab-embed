@@ -1395,7 +1395,10 @@ const PH_LIVE_ITEMS = [
   { key: "bright", icon: "💡", label: "明るさ", ok: "十分", ng: "不足" },
   { key: "paper", icon: "📄", label: "白い紙", ok: "検出", ng: "未検出" },
   // pending は「まだ測れない」。顔の位置は白い紙でWB補正できて初めて測れる。
-  { key: "face", icon: "👤", label: "顔の位置", ok: "枠内", ng: "ズレ", pending: "白い紙が先" },
+  // ★ラベルは状態だけを short に出す。「なぜ判定待ちなのか」「次に何をすればよいか」は
+  //   下の補足行（photoLiveHint）で文章として伝える。以前ここに「白い紙が先」と出していたが、
+  //   初見のユーザーには意味が伝わらなかった（2026-09-02 実機の指摘）。
+  { key: "face", icon: "👤", label: "顔の位置", ok: "枠内", ng: "ズレ", pending: "判定待ち" },
   { key: "balance", icon: "⚖️", label: "左右", ok: "良好", ng: "偏り" },
 ];
 
@@ -1408,6 +1411,11 @@ const PH_LIVE_HINT = {
   face: "顔を点線の楕円に合わせてください",
   balance: "窓に正面から向いてください",
 };
+/* 白い紙が取れていないあいだ、「顔の位置」欄が「—判定待ち」で止まる理由の説明。
+   顔の位置は白い紙でホワイトバランスを合わせてから測るので、紙が先に必要になる。
+   その事情をラベル側に短く書いても伝わらなかったため（「白い紙が先」＝意味不明との
+   指摘 2026-09-02）、理由はこの補足行に文章で出し、上の行動文言とつなげて1行にする。 */
+const PH_LIVE_PAPER_NOTE = "白い紙が映ると、「顔の位置」も判定できるようになります";
 const PH_LIVE_OK_NOTE = "下の4項目は撮影前の目安です。すべて✓でも、撮影後の判定で撮り直しをお願いすることがあります。";
 
 /* 表示を安定させるための余裕（各軸の単位は CIELab）。
@@ -1441,6 +1449,17 @@ function photoLiveStable(history, prev) {
 /* ライブ判定の結果から、いま出すべき1行を返す。 */
 function photoLiveHint(live) {
   if (!live) return PH_LIVE_OK_NOTE;
+  // ★「顔の位置」が判定待ち（＝白い紙が取れていない）ときを最優先で扱う。
+  //   ここだけ PH_LIVE_ITEMS の並び順より先に見るのは、「顔の位置 —判定待ち」を
+  //   放置したまま別の項目の文言を出すと、判定待ちの理由がどこにも出ないため。
+  //   暗すぎて紙が取れない場合は、紙を持たせるより先に明るさを直してもらう。
+  const paperMissing = live.paper !== true;
+  const facePending = live.face === null || live.face === undefined;
+  if (paperMissing || facePending) {
+    if (!paperMissing) return PH_LIVE_PAPER_NOTE;   // 紙は取れているが顔の値がまだ来ていない一瞬
+    const action = live.bright === false ? PH_LIVE_HINT.bright : PH_LIVE_HINT.paper;
+    return `${action}。${PH_LIVE_PAPER_NOTE}`;
+  }
   const bad = PH_LIVE_ITEMS.find((it) => live[it.key] === false);
   return bad ? PH_LIVE_HINT[bad.key] : PH_LIVE_OK_NOTE;
 }
