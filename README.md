@@ -291,6 +291,44 @@ ngpolice / mens は従来どおり本文にスニペットを貼る方式のま�
 | 本家（カラー診断アプリ） | https://www.blubel.jp/pages/personalcolor |
 | NG色警察 | https://www.blubel.jp/pages/police |
 
+## 本番への反映手順（2026-09-03 時点の実物に合わせて記載）
+
+**★本番は `snippet_colorlab.html` の2分割方式では入っていない。**実物は Shoppal 記事の
+HTMLブロックに div とローダーを直書きする**インラインローダー方式**で、しかも
+blubel と iebel で形が違う。差し替えるときは必ず現物を見てから触ること。
+
+| ページ | 参照タグ（2026-09-03 実測） | ローダーの形 |
+|---|---|---|
+| https://www.blubel.jp/pages/personalcolor | `@v1.16.0` | `<script src>` 直書き + `onerror` + 再試行mount |
+| https://www.iebel.jp/pages/personalcolor | **`@v1.4.0`** | JSで `<script>` を動的生成して `body` へ append |
+| https://www.blubel.jp/pages/police | `@v1.4.0`（ngpolice） | — |
+
+反映は**バージョン文字列1箇所を書き換えるだけ**。blubel 側の現物は次の形になっている
+（`ColorLabApp.mount` は v1.12.0 以降の自動マウントと二重にはならないので、そのまま残してよい）。
+
+```html
+<div id="colorlab-root">アプリを読み込み中…</div>
+<script src="https://cdn.jsdelivr.net/gh/thecompany20220901-cpu/colorlab-embed@v1.17.0/dist/colorlab.iife.js"
+  onerror="var e=document.getElementById('colorlab-root'); if(e) e.textContent='アプリの読み込みに失敗しました。ページを再読み込みしてください。';"></script>
+<script>
+(function () {
+  var tries = 0;
+  function mount() {
+    var el = document.getElementById('colorlab-root');
+    if (el && window.ColorLabApp && window.ColorLabApp.mount) { window.ColorLabApp.mount('#colorlab-root'); return; }
+    if (++tries < 40) setTimeout(mount, 100);
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', mount);
+  else mount();
+})();
+</script>
+```
+
+- jsDelivr のタグ付きURLは `immutable`（`max-age=31536000`）でキャッシュされる。**同じタグに push し直しても反映されない**ので、
+  変更したら必ず新しいタグを切ること。逆に、タグを変えれば purge 不要で即時反映される。
+- **iebel 側は v1.4.0 のまま**＝v1.5.0〜v1.17.0 の改善（顔写真診断の実測方式・全画面撮影・
+  ライブ判定・白基準の検証など）がすべて入っていない。揃えるかどうかは要判断。
+
 ## 現在の運用タグ
 
 | アプリ | 参照タグ | jsDelivr |
