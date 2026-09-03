@@ -300,7 +300,7 @@ blubel と iebel で形が違う。差し替えるときは必ず現物を見て
 | ページ | 参照タグ（2026-09-03 実測） | ローダーの形 |
 |---|---|---|
 | https://www.blubel.jp/pages/personalcolor | `@v1.16.0` | `<script src>` 直書き + `onerror` + 再試行mount |
-| https://www.iebel.jp/pages/personalcolor | **`@v1.4.0`** | JSで `<script>` を動的生成して `body` へ append |
+| https://www.iebel.jp/pages/personalcolor | **`@v1.4.0`** → v1.17.0 へ移行（2026-09-03 決定） | 旧: JSで `<script>` を動的生成して `body` へ append |
 | https://www.blubel.jp/pages/police | `@v1.4.0`（ngpolice） | — |
 
 反映は**バージョン文字列1箇所を書き換えるだけ**。blubel 側の現物は次の形になっている
@@ -326,8 +326,15 @@ blubel と iebel で形が違う。差し替えるときは必ず現物を見て
 
 - jsDelivr のタグ付きURLは `immutable`（`max-age=31536000`）でキャッシュされる。**同じタグに push し直しても反映されない**ので、
   変更したら必ず新しいタグを切ること。逆に、タグを変えれば purge 不要で即時反映される。
-- **iebel 側は v1.4.0 のまま**＝v1.5.0〜v1.17.0 の改善（顔写真診断の実測方式・全画面撮影・
-  ライブ判定・白基準の検証など）がすべて入っていない。揃えるかどうかは要判断。
+- **iebel 側は長らく v1.4.0 のままだった**＝v1.5.0〜v1.17.0 の改善（顔写真診断の実測方式・全画面撮影・
+  ライブ判定・白基準の検証など）がすべて入っていなかった。2026-09-03 に**更新漏れと判断し、
+  blubel と同じ上記の形へ揃える**方針とした（ローダーも動的生成方式から上のインライン方式へ）。
+- **サイトごとの出し分けは無い。**BLUBEL / IEBEL のリンクや名前は `TYPES[].site` が持っており、
+  診断タイプ（spring・autumn → IEBEL / summer・winter → BLUBEL）で決まる。ホスト名は一切見ていないので、
+  **両サイトにまったく同じコードを貼ってよい。**
+- v1.4.0 時代の `colorlab-profile`（localStorage）が残っていても壊れない。復元は try-catch で囲み、
+  `TYPES` に無いタイプ名は捨てる作りになっている（旧形式・未知のタイプ名・壊れたJSON・空文字の
+  4パターンで起動を実測確認、2026-09-03）。
 
 ## 現在の運用タグ
 
