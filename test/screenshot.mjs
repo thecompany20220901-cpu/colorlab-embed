@@ -499,9 +499,11 @@ try {
   await page.waitForSelector("#colorlab-root button", { timeout: 10000 });
 
   const homeTiles = await page.locator("#colorlab-root").innerText();
-  check("ホーム上部に 写真で診断 / 質問で診断 / 骨格診断 / 写真＋質問で診断 が揃っている",
-    /写真で診断/.test(homeTiles) && /質問で診断/.test(homeTiles) && /骨格診断/.test(homeTiles) && /写真＋質問で診断/.test(homeTiles));
-  check("下段タイルに「精度最強」バッジがある", /精度最強/.test(homeTiles));
+  check("ホーム上部に 写真で診断 / 質問で診断 / 骨格診断 / 写真＋質問 が揃っている",
+    /写真で診断/.test(homeTiles) && /質問で診断/.test(homeTiles) && /骨格診断/.test(homeTiles) && /写真＋質問で12タイプ診断！/.test(homeTiles));
+  // 金のバッジは廃止し、文言をサブコピーへ寄せた（2026-09-04）。バッジの残骸が出ていないことも見る。
+  check("写真＋質問タイルのサブコピーが「業界トップクラスの精度最強診断」", /業界トップクラスの精度最強診断/.test(homeTiles));
+  check("「精度最強」の単独バッジが残っていない", !/精度最強！/.test(homeTiles));
   check("旧「パーソナルカラー診断（12タイプ）」タイルは残っていない", !/パーソナルカラー診断（12タイプ）/.test(homeTiles));
   check("旧「顔写真で診断」タイルは残っていない（写真で診断へ改称）", !/顔写真で診断/.test(homeTiles));
 
@@ -511,17 +513,25 @@ try {
     return b ? { x: Math.round(b.x), y: Math.round(b.y), w: Math.round(b.width) } : null;
   };
   const tPhoto = await tileBox(/^写真で診断/), tQuiz = await tileBox(/^質問で診断/);
-  const tFrame = await tileBox(/^骨格診断/), tCombo = await tileBox(/写真＋質問で診断/);
+  const tCombo = await tileBox(/^写真＋質問で12タイプ診断！/), tStylist = await tileBox(/^パーソナルカラー別コーデ提案/);
+  const tFrame = await tileBox(/^骨格診断/);
+  const fullW = tPhoto && tQuiz ? tQuiz.x + tQuiz.w - tPhoto.x : 0;
   check(`上段2タイルが横並び1行 (y=${tPhoto && tPhoto.y} / ${tQuiz && tQuiz.y})`,
     !!tPhoto && !!tQuiz && Math.abs(tPhoto.y - tQuiz.y) <= 1 && tQuiz.x > tPhoto.x);
-  check(`骨格診断が上段の下の行で幅いっぱい (${tFrame && tFrame.w}px)`,
-    !!tFrame && !!tPhoto && !!tQuiz && tFrame.y > tPhoto.y && Math.abs(tFrame.w - (tQuiz.x + tQuiz.w - tPhoto.x)) <= 2);
-  check(`写真＋質問タイルが幅いっぱい (${tCombo && tCombo.w}px)`,
-    !!tCombo && !!tPhoto && !!tQuiz && Math.abs(tCombo.w - (tQuiz.x + tQuiz.w - tPhoto.x)) <= 2);
+  // 並び順（2026-09-04 デザイン改修）: 写真/質問 → 写真＋質問 → コーデ提案 → 骨格診断
+  check(`並び順が 写真＋質問 → コーデ提案 → 骨格診断 (y=${tCombo && tCombo.y} → ${tStylist && tStylist.y} → ${tFrame && tFrame.y})`,
+    !!tCombo && !!tStylist && !!tFrame && !!tPhoto &&
+    tCombo.y > tPhoto.y && tStylist.y > tCombo.y && tFrame.y > tStylist.y);
+  check(`写真＋質問タイルが幅いっぱい (${tCombo && tCombo.w}px / 満幅${fullW}px)`,
+    !!tCombo && Math.abs(tCombo.w - fullW) <= 2);
+  check(`コーデ提案タイルが幅いっぱい (${tStylist && tStylist.w}px / 満幅${fullW}px)`,
+    !!tStylist && Math.abs(tStylist.w - fullW) <= 2);
+  check(`骨格診断が最下部で幅いっぱい (${tFrame && tFrame.w}px / 満幅${fullW}px)`,
+    !!tFrame && Math.abs(tFrame.w - fullW) <= 2);
   await shotEl("#colorlab-root", "44_home_tiles.png");
 
   // STEP 1/2: 写真
-  await page.getByRole("button", { name: /写真＋質問で診断/ }).click();
+  await page.getByRole("button", { name: /^写真＋質問で12タイプ診断！/ }).click();
   await page.waitForSelector("#colorlab-root >> text=撮影条件（すべて必要です）", { timeout: 5000 });
   check("写真＋質問: 1/2（写真）の見出しに切り替わる",
     /写真＋質問で診断（1\/2 写真）/.test(await page.locator("#colorlab-root").innerText()));

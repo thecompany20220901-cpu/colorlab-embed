@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from "react";
 import { createPortal } from "react-dom";
-import { Sparkles, ArrowRight, ArrowLeft, RotateCcw, Copy, Check, Camera, Heart, Palette, Shirt, Upload, ExternalLink, Brush, Scissors, Ban, Droplet, Paintbrush, ShoppingBag, Eraser, HelpCircle, Star } from "lucide-react";
+import { Sparkles, ArrowRight, ArrowLeft, RotateCcw, Copy, Check, Camera, Heart, Palette, Shirt, Upload, ExternalLink, Brush, Scissors, Ban, Droplet, Paintbrush, ShoppingBag, Eraser, Star, ListChecks, PersonStanding } from "lucide-react";
 
 // ════════════════════════════════════════════
 // 設問イラスト / タイプ別イラスト（既存の顔イラスト素材の色差し替え）
@@ -2037,6 +2037,98 @@ async function aiPhotoDiagnose(base64, mediaType) {
 // UI 部品
 // ════════════════════════════════════════════
 const C = { ink: "#3a3340", sub: "#7d7580", faint: "#a99fa8", line: "#e7dfe6", main: "#7b6f83" };
+
+// ════════════════════════════
+// ホーム主要タイルの配色（2026-09-04 デザイン改修）
+// 淡いパステルの面 + セリフ体 + 細い線のアイコン。IEBEL のベージュ・ウォーム系に寄せる。
+// bg は指定値そのまま。accent は「線のアイコンと囲み罫」に使う同系の濃色。
+// ════════════════════════════
+const TILE = {
+  photo:   { bg: "#FDE8D8", accent: "#C97B54" },  // 淡いサーモンピンク
+  quiz:    { bg: "#E8F0E8", accent: "#6E8C6E" },  // 淡いセージグリーン
+  // 写真＋質問だけは「いちばん効く導線」として色を強くする（2026-09-04）。
+  // line/lineW/title/titleSize はこのタイル専用の上書きで、他タイルは持たない。
+  combo:   { bg: "#FFD6E0", accent: "#C9A84C", line: "#E8829A", lineW: 2, title: "#7D2E46", titleSize: 17 },  // ピンク（見出しは濃いローズ）
+  stylist: { bg: "#EDE0F0", accent: "#8E6E9B" },  // 淡いラベンダー
+  frame:   { bg: "#F0EDE8", accent: "#8A7F72" },  // 淡いグレージュ
+};
+const GOLD = "#C9A84C";                       // 「精度最強」バッジの金
+const CARD_SHADOW = "0 2px 8px rgba(0,0,0,0.08)";
+const TILE_OFF = { bg: "#f5f4f3", line: "#e2e0de", ink: "#9a9a9a", sub: "#ababab", icon: "#a5a5a5" }; // 近日公開のとき
+
+/* コーデのハンガー。lucide にハンガーが無いので、同じ線幅・角丸で描き起こす。 */
+function HangerIcon({ size = 26, color = "currentColor", strokeWidth = 1.4 }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={strokeWidth}
+      strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M12 9V7.2A2.1 2.1 0 1 1 14.1 5.1" />
+      <path d="M12 9 3.7 15.3a1.2 1.2 0 0 0 .73 2.15h15.14a1.2 1.2 0 0 0 .73-2.15L12 9Z" />
+    </svg>
+  );
+}
+
+/* 「写真＋質問」は両方を1つで表すため、カメラの肩に星を重ねた複合アイコンにする。 */
+function StarCameraIcon({ size = 26, color = "currentColor" }) {
+  return (
+    <span className="relative inline-block align-middle" style={{ width: size, height: size }}>
+      <Camera size={size} strokeWidth={1.4} color={color} />
+      <Star size={Math.round(size * 0.5)} strokeWidth={1.4} color={color} fill={color}
+        style={{ position: "absolute", right: -4, top: -4 }} />
+    </span>
+  );
+}
+
+/* ホームの主要タイル。2列ぶんの幅を使うときは wide、アイコンを左に置く。 */
+function HomeTile({ t, icon, label, sub, badge, soon, wide, onClick }) {
+  const line = soon ? TILE_OFF.line : (t.line || t.accent + "40");
+  const lineW = t.lineW || 1;
+  return (
+    <button onClick={onClick}
+      className={"rounded-2xl p-4 text-left transition-shadow hover:shadow-md" + (wide ? " w-full flex items-center gap-4" : "")}
+      style={{ background: soon ? TILE_OFF.bg : t.bg, border: `${lineW}px solid ${line}` }}>
+      <span className={"shrink-0" + (wide ? "" : " block mb-2.5")} style={{ color: soon ? TILE_OFF.icon : t.accent }}>{icon}</span>
+      <span className={wide ? "min-w-0 flex-1" : "block"}>
+        {badge && !soon && (
+          <span className="inline-block text-[9px] px-2 py-0.5 rounded-full font-bold mb-1"
+            style={{ background: GOLD, color: "#fff", letterSpacing: ".06em" }}>{badge}</span>
+        )}
+        <span className="block font-serif leading-snug"
+          style={{ color: soon ? TILE_OFF.ink : (t.title || C.ink), fontSize: (t.titleSize || 15) }}>
+          {label}
+          {soon && <span className="ml-2 align-middle text-[10px] px-2 py-0.5 rounded-full font-sans" style={{ background: "#e4e4e4", color: "#8a8a8a" }}>近日公開</span>}
+        </span>
+        <span className="block text-[11px] mt-1 leading-tight" style={{ color: soon ? TILE_OFF.sub : C.sub }}>{sub}</span>
+      </span>
+      {wide && <ArrowRight size={16} className="shrink-0" style={{ color: soon ? TILE_OFF.icon : t.accent }} />}
+    </button>
+  );
+}
+
+/* セクション見出し。左に3pxのアクセントラインを立て、文字はセリフ体で16px。 */
+function HomeSectionTitle({ label, accent }) {
+  return (
+    <div className="flex items-center gap-2.5 mt-7 mb-3">
+      <span className="rounded-full shrink-0" style={{ width: 3, height: 18, background: accent }} />
+      <span className="font-serif text-base tracking-widest shrink-0" style={{ color: C.ink }}>{label}</span>
+      <span className="h-px flex-1" style={{ background: C.line }} />
+    </div>
+  );
+}
+
+/* セクション内のボタン。フラットな枠線から、白いカード（角丸12px + 影）へ。 */
+function HomeCardButton({ icon, label, accent, soon, onClick }) {
+  return (
+    <button onClick={onClick} className="flex items-center gap-2.5 px-3.5 py-4 text-left transition-shadow hover:shadow-lg"
+      style={{ borderRadius: 12, background: soon ? "#f7f7f7" : "#ffffff", boxShadow: CARD_SHADOW }}>
+      <span className="w-8 h-8 rounded-full flex items-center justify-center shrink-0"
+        style={{ background: soon ? "#e8e8e8" : accent + "1f", color: soon ? TILE_OFF.icon : accent }}>{icon}</span>
+      <span className="text-xs font-medium leading-tight" style={{ color: soon ? TILE_OFF.ink : C.ink }}>
+        {label}
+        {soon && <span className="block mt-0.5 text-[9px] px-1.5 py-0.5 rounded-full w-fit" style={{ background: "#e4e4e4", color: "#8a8a8a" }}>近日公開</span>}
+      </span>
+    </button>
+  );
+}
 const LAB = (site) => (site === "iebel" ? "イエベ研究所" : "ブルベ研究所");
 
 function CosmeCard({ item }) {
@@ -2887,76 +2979,50 @@ export default function App() {
                   </div>
                 )}
               </div>
-            {/* ── 12タイプ診断の入口：写真 / 質問 / 両方（2026-09-04 再設計）── */}
-            <div className="space-y-3">
+            {/* ── ホームの主要導線（2026-09-04 デザイン改修）──
+                並び: 写真 / 質問 → 写真＋質問 → コーデ提案 → 骨格診断。
+                面の色は指定値、アイコンは細い線、見出しはセリフ体。 */}
+            <div className="space-y-2.5">
               <div className="grid grid-cols-2 gap-2.5">
-                {[
-                  { icon: <Camera size={20} />, label: "写真で診断", sub: "12タイプ診断から「今日に着る？」まで", soon: !PHOTO_DIAGNOSE_ENABLED, onClick: () => { if (!PHOTO_DIAGNOSE_ENABLED) { setSoonOpen(true); return; } openPhoto(); } },
-                  { icon: <HelpCircle size={20} />, label: "質問で診断", sub: "12タイプ診断から「今日に着る？」まで", onClick: startQuiz },
-                  // 「診断する」欄から移設（遷移先 startFrame は変更なし）。下の行を丸ごと使う
-                  { icon: <Sparkles size={20} />, label: "骨格診断", sub: "8問のセルフチェックで、似合う形を判定", onClick: startFrame, wide: true },
-                ].map((it, i) => (
-                  <button key={i} onClick={it.onClick} className={"rounded-2xl p-4 text-left transition-shadow hover:shadow-md" + (it.wide ? " col-span-2 flex items-center gap-4" : "")} style={{ border: it.soon ? "2px solid #dedede" : `2px solid ${C.main}`, background: it.soon ? "#f7f7f7" : "#fdfbfd" }}>
-                    <span className={"w-11 h-11 rounded-full flex items-center justify-center text-white shrink-0" + (it.wide ? "" : " mb-2.5")} style={{ background: it.soon ? "#bdbdbd" : C.main }}>{it.icon}</span>
-                    <span className={it.wide ? "min-w-0 flex-1" : "block"}>
-                      <span className="block text-sm font-medium" style={{ color: it.soon ? "#9a9a9a" : C.ink }}>{it.label}</span>
-                      <span className="block text-[11px] mt-0.5 leading-tight" style={{ color: it.soon ? "#ababab" : C.sub }}>{it.sub}</span>
-                    </span>
-                  </button>
-                ))}
+                <HomeTile t={TILE.photo} icon={<Camera size={26} strokeWidth={1.4} />}
+                  label="写真で診断" sub="12タイプ診断から「今日に着る？」まで"
+                  soon={!PHOTO_DIAGNOSE_ENABLED}
+                  onClick={() => { if (!PHOTO_DIAGNOSE_ENABLED) { setSoonOpen(true); return; } openPhoto(); }} />
+                <HomeTile t={TILE.quiz} icon={<ListChecks size={26} strokeWidth={1.4} />}
+                  label="質問で診断" sub="12タイプ診断から「今日に着る？」まで" onClick={startQuiz} />
               </div>
-              <button onClick={() => { if (!PHOTO_DIAGNOSE_ENABLED) { setSoonOpen(true); return; } startCombo(); }} className="w-full flex items-center gap-4 rounded-2xl p-5 text-left transition-shadow hover:shadow-md" style={{ border: `2px solid ${C.main}`, background: C.main + "0f" }}>
-                <span className="w-11 h-11 rounded-full flex items-center justify-center shrink-0 text-white" style={{ background: C.main }}><Star size={20} /></span>
-                <span className="min-w-0 flex-1">
-                  <span className="inline-block text-[9px] px-2 py-0.5 rounded-full font-bold mb-1" style={{ background: C.main, color: "#fff" }}>精度最強</span>
-                  <span className="block text-sm font-medium whitespace-nowrap" style={{ color: C.ink }}>写真＋質問で診断</span>
-                  <span className="block text-xs mt-0.5" style={{ color: C.sub }}>精度最強！12タイプ診断！</span>
-                </span>
-                <ArrowRight size={16} style={{ color: C.main }} />
-              </button>
-              <button onClick={() => { if (!STYLIST_ENABLED) { setSoonOpen(true); return; } setStResult(null); setMode("stylist"); }} className="w-full flex items-center gap-4 rounded-2xl p-5 text-left transition-shadow hover:shadow-md" style={{ border: STYLIST_ENABLED ? `2px solid ${C.main}` : "2px solid #dedede", background: STYLIST_ENABLED ? "#fdfbfd" : "#f7f7f7" }}>
-                <span className="w-11 h-11 rounded-full flex items-center justify-center shrink-0 text-white" style={{ background: STYLIST_ENABLED ? C.main : "#bdbdbd" }}><Shirt size={20} /></span>
-                <span className="min-w-0 flex-1"><span className="block text-sm font-medium" style={{ color: STYLIST_ENABLED ? C.ink : "#9a9a9a" }}>パーソナルカラー別コーデ提案{!STYLIST_ENABLED && <span className="ml-2 align-middle text-[10px] px-2 py-0.5 rounded-full" style={{ background: "#e4e4e4", color: "#8a8a8a" }}>近日公開</span>}</span><span className="block text-xs mt-0.5" style={{ color: STYLIST_ENABLED ? C.sub : "#ababab" }}>シーン×気分から、服とメイクを提案</span></span>
-                <ArrowRight size={16} style={{ color: STYLIST_ENABLED ? C.main : "#bdbdbd" }} />
-              </button>
+              <HomeTile wide t={TILE.combo} icon={<StarCameraIcon size={26} />}
+                label="写真＋質問で12タイプ診断！" sub="業界トップクラスの精度最強診断"
+                soon={!PHOTO_DIAGNOSE_ENABLED}
+                onClick={() => { if (!PHOTO_DIAGNOSE_ENABLED) { setSoonOpen(true); return; } startCombo(); }} />
+              <HomeTile wide t={TILE.stylist} icon={<HangerIcon size={26} />}
+                label="パーソナルカラー別コーデ提案" sub="シーン×気分から、服とメイクを提案"
+                soon={!STYLIST_ENABLED}
+                onClick={() => { if (!STYLIST_ENABLED) { setSoonOpen(true); return; } setStResult(null); setMode("stylist"); }} />
+              <HomeTile wide t={TILE.frame} icon={<PersonStanding size={26} strokeWidth={1.4} />}
+                label="骨格診断" sub="8問のセルフチェックで、似合う形を判定" onClick={startFrame} />
             </div>
 
             {/* ── 似合うを知る ── */}
-            <div className="flex items-center gap-3 mt-6 mb-3">
-              <span className="text-xs tracking-widest shrink-0" style={{ color: C.faint }}>似合うを知る</span>
-              <span className="h-px flex-1" style={{ background: C.line }} />
-            </div>
+            <HomeSectionTitle label="似合うを知る" accent={TILE.photo.accent} />
             <div className="grid grid-cols-2 gap-2.5">
               {[
-                { icon: <Ban size={17} />, label: "NGカラー診断", onClick: () => setMode("ngcolor") },
-                { icon: <Droplet size={17} />, label: "この色、似合う？", onClick: () => { setCheckColor(null); setMode("checker"); } },
-                { icon: <Paintbrush size={17} />, label: "リップ・髪色 試し塗り", onClick: () => { setToPreview(null); setToColor(null); setToKind("lip"); setMode("tryon"); } },
-                { icon: <Check size={17} />, label: "今日のコーデ採点", soon: !SCORE_ENABLED, onClick: () => { if (!SCORE_ENABLED) { setSoonOpen(true); return; } openScore(); } },
-              ].map((it, i) => (
-                <button key={i} onClick={it.onClick} className="flex items-center gap-2.5 rounded-2xl px-3.5 py-4 text-left transition-shadow hover:shadow-md" style={{ border: it.soon ? "1px solid #dedede" : "1px solid " + C.line, background: it.soon ? "#f7f7f7" : "white" }}>
-                  <span className="w-8 h-8 rounded-full flex items-center justify-center shrink-0" style={{ background: it.soon ? "#e8e8e8" : "#f4eff3", color: it.soon ? "#a5a5a5" : C.main }}>{it.icon}</span>
-                  <span className="text-xs font-medium leading-tight" style={{ color: it.soon ? "#9a9a9a" : C.ink }}>{it.label}{it.soon && <span className="block mt-0.5 text-[9px] px-1.5 py-0.5 rounded-full w-fit" style={{ background: "#e4e4e4", color: "#8a8a8a" }}>近日公開</span>}</span>
-                </button>
-              ))}
+                { icon: <Ban size={17} />, label: "NGカラー診断", accent: TILE.photo.accent, onClick: () => setMode("ngcolor") },
+                { icon: <Droplet size={17} />, label: "この色、似合う？", accent: TILE.quiz.accent, onClick: () => { setCheckColor(null); setMode("checker"); } },
+                { icon: <Paintbrush size={17} />, label: "リップ・髪色 試し塗り", accent: TILE.stylist.accent, onClick: () => { setToPreview(null); setToColor(null); setToKind("lip"); setMode("tryon"); } },
+                { icon: <Check size={17} />, label: "今日のコーデ採点", accent: TILE.combo.accent, soon: !SCORE_ENABLED, onClick: () => { if (!SCORE_ENABLED) { setSoonOpen(true); return; } openScore(); } },
+              ].map((it, i) => <HomeCardButton key={i} {...it} />)}
             </div>
 
             {/* ── 買い足す・楽しむ ── */}
-            <div className="flex items-center gap-3 mt-6 mb-3">
-              <span className="text-xs tracking-widest shrink-0" style={{ color: C.faint }}>買い足す・楽しむ</span>
-              <span className="h-px flex-1" style={{ background: C.line }} />
-            </div>
+            <HomeSectionTitle label="買い足す・楽しむ" accent={TILE.combo.accent} />
             <div className="grid grid-cols-2 gap-2.5">
               {[
-                { icon: <Brush size={17} />, label: "おすすめコスメ", onClick: () => setMode("cosme") },
-                { icon: <Scissors size={17} />, label: "おすすめ髪色", onClick: () => setMode("hair") },
-                { icon: <ShoppingBag size={17} />, label: "買い足しワードローブ", onClick: () => { setWdStep(1); setWdScene(null); setWdOwned([]); setWdWorry(null); setMode("wardrobe"); } },
-                { icon: <Heart size={17} />, label: "ふたりの相性配色", onClick: () => { setPA(null); setPB(null); setMode("pair"); } },
-              ].map((it, i) => (
-                <button key={i} onClick={it.onClick} className="flex items-center gap-2.5 rounded-2xl px-3.5 py-4 text-left transition-shadow hover:shadow-md" style={{ border: it.soon ? "1px solid #dedede" : "1px solid " + C.line, background: it.soon ? "#f7f7f7" : "white" }}>
-                  <span className="w-8 h-8 rounded-full flex items-center justify-center shrink-0" style={{ background: it.soon ? "#e8e8e8" : "#f4eff3", color: it.soon ? "#a5a5a5" : C.main }}>{it.icon}</span>
-                  <span className="text-xs font-medium leading-tight" style={{ color: it.soon ? "#9a9a9a" : C.ink }}>{it.label}{it.soon && <span className="block mt-0.5 text-[9px] px-1.5 py-0.5 rounded-full w-fit" style={{ background: "#e4e4e4", color: "#8a8a8a" }}>近日公開</span>}</span>
-                </button>
-              ))}
+                { icon: <Brush size={17} />, label: "おすすめコスメ", accent: TILE.photo.accent, onClick: () => setMode("cosme") },
+                { icon: <Scissors size={17} />, label: "おすすめ髪色", accent: TILE.stylist.accent, onClick: () => setMode("hair") },
+                { icon: <ShoppingBag size={17} />, label: "買い足しワードローブ", accent: TILE.frame.accent, onClick: () => { setWdStep(1); setWdScene(null); setWdOwned([]); setWdWorry(null); setMode("wardrobe"); } },
+                { icon: <Heart size={17} />, label: "ふたりの相性配色", accent: TILE.combo.accent, onClick: () => { setPA(null); setPB(null); setMode("pair"); } },
+              ].map((it, i) => <HomeCardButton key={i} {...it} />)}
             </div>
               <p className="mt-8 text-center text-xs" style={{ color: "#b3aab2" }}>BLUBEL / IEBEL presents・登録不要</p>
             </div>
