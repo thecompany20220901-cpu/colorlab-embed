@@ -12,3 +12,4 @@ src/_backup/
 # card_smoke.mjs が実行時に作る一時ハーネスとスクリーンショット
 test/_card_harness.html
 test/_card_*.png
+test/_season_avatar.png

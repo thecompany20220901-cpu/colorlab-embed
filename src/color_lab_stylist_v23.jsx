@@ -829,6 +829,16 @@ const cardLpUrl = (site) => CARD_LP[site] + CARD_REF;
 // フッター帯の色だけサイトごとに出し分ける（面の色は既存アカウントのアクセントに準拠）。
 const CARD_FOOTER = { blubel: { bg: "#F5F2FA", ink: "#3a3340" }, iebel: { bg: "#FAF4EE", ink: "#3a3340" } };
 
+// 12タイプ結果画面に出す「シーズン代表アバター」。1位シーズンだけで決まるので、
+// 同じシーズンが1位の3タイプ(1位x2位の全組み合わせ)は同じ絵になる。
+// 個性4種を1回ずつ使い切る割り当てで、重複しない。
+const SEASON_AVATAR_PERSONA = {
+  spring: "sensibility",  // イエベ春 x 感性派
+  summer: "intellect",    // ブルベ夏 x 知性派
+  autumn: "action",       // イエベ秋 x 行動派
+  winter: "passion",      // ブルベ冬 x 情熱家
+};
+
 // Q3: 6ペアの回答から 1位/2位 を決める。
 // 加点式・重み一律+1・同点はタイプ番号昇順で、本番Q12(sortTypes)と完全に同じ規則。
 function scoreCardQ3(answers) {
@@ -2275,7 +2285,10 @@ const baseLabel = (first, second) => {
   return `ニュートラル（${a ? "イエロー" : "ブルー"}寄り）`;
 };
 
-function TypeFaceHero({ first, second, accent }) {
+// 2026-09-05: 12タイプ結果画面から外した（本文の一番上をシーズン代表アバターに置き換えたため）。
+// TYPE_FACE_IMG 自体は同点解消の設問で今も使っているので、素材は残る。
+// 戻すときは結果画面の <SeasonAvatar .../> の位置にこれを差し戻す。
+function TypeFaceHero({ first, second, accent }) {  // eslint-disable-line no-unused-vars
   return (
     <div className="flex items-center gap-3 rounded-2xl p-3 mb-4" style={{ background: "#faf7f9", border: "1px solid #f0e9ef" }}>
       <img src={TYPE_FACE_IMG[first]} alt="" className="rounded-xl block" style={{ width: 118, flex: "none" }} />
@@ -2290,6 +2303,23 @@ function TypeFaceHero({ first, second, accent }) {
           </>
         )}
       </div>
+    </div>
+  );
+}
+
+// 1位シーズンの代表アバター。文字は足さない(12タイプ側の文言を変えないため)。
+// 画像はカードと同じ jsDelivr 配信を使い、読めなければブロックごと消して
+// 既存の結果画面の見え方を壊さない。
+function SeasonAvatar({ typeKey, accent }) {
+  const persona = SEASON_AVATAR_PERSONA[typeKey];
+  if (!persona) return null;
+  return (
+    <div className="rounded-2xl overflow-hidden mb-4 mx-auto" 
+      style={{ maxWidth: 240, border: "1px solid " + accent + "33", background: accent + "0a" }}>
+      <img src={cardAvatarUrl(typeKey, persona)} alt=""
+        className="block w-full" loading="lazy"
+        style={{ aspectRatio: "2 / 3", objectFit: "contain" }}
+        onError={(e) => { const b = e.currentTarget.parentElement; if (b) b.style.display = "none"; }} />
     </div>
   );
 }
@@ -3374,6 +3404,9 @@ export default function App() {
               <div className="absolute inset-x-0 bottom-0 h-10" style={{ background: "linear-gradient(to top, rgba(255,255,255,0.9), transparent)" }} />
             </div>
             <div className="px-8 py-9">
+              {/* 1位シーズンの代表アバター（v1.20.2）。本文の一番上に置き、
+                  ここにあった TypeFaceHero（タイプ別の顔イラスト2枚組）は外した。 */}
+              <SeasonAvatar typeKey={RT.key} accent={RT.accent} />
               {/* 公式フォーマット：監修ヘッダー＋タイプ宣言 */}
               <div className="text-xs font-medium mb-3" style={{ color: C.sub }}>
                 {RT.site === "iebel" ? "イエベ研究所" : "ブルベ研究所"}監修の診断結果
@@ -3385,7 +3418,6 @@ export default function App() {
                 2nd：{TYPES[quizResult.second].name}
               </div>
               {/* タイプ別イラスト（既存素材）＋プロ資料と同じ専門表記 */}
-              <TypeFaceHero first={RT.key} second={quizResult.second} accent={RT.accent} />
               <SpecBadges first={RT.key} second={quizResult.second} accent={RT.accent} />
               {quizResult.note && <p className="text-xs leading-relaxed mb-4" style={{ color: C.faint }}>{quizResult.note}</p>}
 
