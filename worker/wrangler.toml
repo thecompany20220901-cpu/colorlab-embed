@@ -1,0 +1,12 @@
+name = "colorlab-selfcard"
+main = "selfcard-worker.js"
+compatibility_date = "2026-09-05"
+
+# 日次カウンタ用。デプロイ前に作って id を差し替えること:
+#   wrangler kv namespace create SELFCARD_KV
+[[kv_namespaces]]
+binding = "SELFCARD_KV"
+id = "REPLACE_WITH_KV_NAMESPACE_ID"
+
+# OPENAI_API_KEY はここに書かない。必ず Secret で入れる:
+#   wrangler secret put OPENAI_API_KEY

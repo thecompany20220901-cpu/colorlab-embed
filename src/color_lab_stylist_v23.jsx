@@ -839,6 +839,61 @@ const SEASON_AVATAR_PERSONA = {
   winter: "passion",      // ブルベ冬 x 情熱家
 };
 
+// ── 自分の顔で作る（Cloudflare Workers 中継）──
+// APIキーは公開JSに置けないので、生成は必ず中継ごしに行う。中継が未デプロイの間は
+// この定数を false にしておくこと（入口ごと出さない）。
+const SELFCARD_ENABLED = false;
+const SELFCARD_ENDPOINT = "https://colorlab-selfcard.thecompany20220901.workers.dev/illustrate";
+const SELFCARD_DAILY_LIMIT = 50;   // 中継側の実数。ここは表示用の控えでしかない
+const SELFCARD_CACHE_KEY = "colorlab-selfcard";
+// プロンプトを変えたらこの版番号も上げる。上げないと古い絵がキャッシュから返る。
+const SELFCARD_PROMPT_VERSION = "v1";
+
+// 撮影・アップロード画面に出す告知。写真が端末の外に出る点を最初に書く
+// （既存の顔写真診断は端末内で色を測るだけで、写真は外に出ない）。
+const SELFCARD_NOTICE = [
+  "この機能は、お送りいただいた写真を画像生成AI（OpenAI）に送信してイラストを作ります。"
+  + "顔写真診断とは異なり、写真が端末の外に出ます。",
+  "当社では写真を保存しません（生成後すぐに破棄します）",
+  "できたイラストはこのタブを閉じるまで一時保存され、閉じると消えます",
+  "気になる場合は、事前に用意したイラストからお選びいただけます",
+];
+
+// JST の日付。日次上限のリセット境界を中継側と揃えるために使う。
+const jstDateKey = () => {
+  const d = new Date(Date.now() + 9 * 3600 * 1000);
+  return d.toISOString().slice(0, 10);
+};
+
+// キャッシュキー = 写真の中身 + 色タイプ + 個性 + サイズ/品質 + プロンプト版。
+// 写真そのものは保存せず、このハッシュだけを残す。
+async function selfcardKey(bytes, res) {
+  const meta = [res.first, res.second, res.q1, res.q2,
+                "1024x1536", "medium", SELFCARD_PROMPT_VERSION].join("|");
+  const metaBytes = new TextEncoder().encode(meta);
+  const buf = new Uint8Array(bytes.byteLength + metaBytes.byteLength);
+  buf.set(new Uint8Array(bytes), 0);
+  buf.set(metaBytes, bytes.byteLength);
+  const hash = await crypto.subtle.digest("SHA-256", buf);
+  return [...new Uint8Array(hash)].map((b) => b.toString(16).padStart(2, "0")).join("");
+}
+
+const readSelfcardCache = (key) => {
+  try {
+    const raw = sessionStorage.getItem(SELFCARD_CACHE_KEY);
+    if (!raw) return null;
+    const v = JSON.parse(raw);
+    return v && v.key === key ? v.image : null;
+  } catch (e) { return null; }
+};
+// 直近1件だけ持つ。画像1枚で数百KBあり、sessionStorage は数MBで頭打ちのため。
+const writeSelfcardCache = (key, image) => {
+  try {
+    sessionStorage.setItem(SELFCARD_CACHE_KEY,
+      JSON.stringify({ key: key, image: image, at: Date.now() }));
+  } catch (e) { /* 容量オーバー等。キャッシュできなくても機能は動く */ }
+};
+
 // Q3: 6ペアの回答から 1位/2位 を決める。
 // 加点式・重み一律+1・同点はタイプ番号昇順で、本番Q12(sortTypes)と完全に同じ規則。
 function scoreCardQ3(answers) {
@@ -1012,7 +1067,8 @@ async function shareResultImage(RT, secondName, axes) {
 // レイアウトの実測値は renderer/test_output/colorlab_card_test_20260904 で確定したもの:
 //   上部余白60 / 小見出し40px / アバター幅720 / 「あなたの色は」48px / 色名81px /
 //   称号64px / コピー1-2行 31px・3-4行 44px（行間1.4）/ 下部帯220px。ブロック間ギャップは0。
-async function buildCardImage(res) {
+// selfImage を渡すと、事前生成アバターの代わりにそれを描く。
+async function buildCardImage(res, selfImage) {
   const W = 1080, H = 1920, PAD = 80;
   const cv = document.createElement("canvas");
   cv.width = W; cv.height = H;
@@ -1036,7 +1092,7 @@ async function buildCardImage(res) {
       const im = new Image();
       im.crossOrigin = "anonymous";
       im.onload = () => ok(im); im.onerror = ng;
-      im.src = cardAvatarUrl(T.key, res.persona.key);
+      im.src = selfImage || cardAvatarUrl(T.key, res.persona.key);
     });
     x.drawImage(img, (W - 720) / 2, 116, 720, 1080);
   } catch (e) { /* 画像が読めなくてもカードは出す */ }
@@ -2685,6 +2741,13 @@ export default function App() {
   const [cardQ3, setCardQ3] = useState([]);
   const [cardResult, setCardResult] = useState(null);
   const [cardSaving, setCardSaving] = useState(false);
+  // 自分の顔で作る。写真そのものは state に残さない（プレビュー用のURLだけ持ち、送信後に捨てる）。
+  const [selfImage, setSelfImage] = useState(null);   // 生成されたイラスト(dataURL)
+  const [selfPreview, setSelfPreview] = useState(null);
+  const [selfBusy, setSelfBusy] = useState(false);
+  const [selfError, setSelfError] = useState(null);
+  const [selfSoldOut, setSelfSoldOut] = useState(false);  // 本日の枠が終了
+  const selfFileRef = useRef(null);
 
   // pair
   const [pA, setPA] = useState(null);
@@ -2875,6 +2938,7 @@ export default function App() {
   const startCard = (entry) => {
     setCardEntry(entry); setCardQ1(null); setCardQ2(null);
     setCardQ3([]); setCardQ3i(0); setCardResult(null);
+    setSelfImage(null); setSelfError(null);
     setCardStep("q1"); setMode("card");
   };
 
@@ -2911,11 +2975,65 @@ export default function App() {
     finishCard(cardQ1, cardQ2, next);
   };
 
+  // 写真を選んだら即送る。File は関数内に閉じ込め、終わったら参照を切る。
+  const runSelfcard = async (file) => {
+    if (!file || !cardResult || selfBusy) return;
+    setSelfBusy(true); setSelfError(null);
+    let previewUrl = null;
+    try {
+      previewUrl = URL.createObjectURL(file);
+      setSelfPreview(previewUrl);
+      const bytes = await file.arrayBuffer();
+      const key = await selfcardKey(bytes, cardResult);
+
+      // 同じ写真・同じ結果ならAPIを叩かない（日次枠も消費しない）
+      const cached = readSelfcardCache(key);
+      if (cached) {
+        setSelfImage(cached); setCardStep("result");
+        ga4("card_self_illustrated", { source: "cache",
+          color_type: TYPES[cardResult.first].num + "-" + TYPES[cardResult.second].num });
+        return;
+      }
+
+      const fd = new FormData();
+      fd.append("photo", new Blob([bytes], { type: file.type || "image/jpeg" }), "p.jpg");
+      fd.append("first", cardResult.first);
+      fd.append("second", cardResult.second);
+      fd.append("date", jstDateKey());
+      const r = await fetch(SELFCARD_ENDPOINT, { method: "POST", body: fd });
+      const j = await r.json().catch(() => ({}));
+
+      if (r.status === 429 || j.reason === "daily_limit") {
+        setSelfSoldOut(true);
+        setSelfError("本日の生成枠は終了しました");
+        setCardStep("result");
+        return;
+      }
+      if (!r.ok || !j.image) throw new Error(j.message || ("生成に失敗しました (" + r.status + ")"));
+
+      const dataUrl = "data:image/png;base64," + j.image;
+      writeSelfcardCache(key, dataUrl);
+      setSelfImage(dataUrl); setCardStep("result");
+      if (typeof j.remaining === "number" && j.remaining <= 0) setSelfSoldOut(true);
+      ga4("card_self_illustrated", { source: "api",
+        color_type: TYPES[cardResult.first].num + "-" + TYPES[cardResult.second].num });
+    } catch (e) {
+      setSelfError("うまく作れませんでした。時間をおいて試すか、用意したイラストをお使いください。");
+      setCardStep("result");
+    } finally {
+      // 写真は保存しない。プレビュー用のURLも解放して参照を切る。
+      if (previewUrl) { URL.revokeObjectURL(previewUrl); }
+      setSelfPreview(null);
+      if (selfFileRef.current) selfFileRef.current.value = "";
+      setSelfBusy(false);
+    }
+  };
+
   const saveCardImage = async () => {
     if (!cardResult || cardSaving) return;
     setCardSaving(true);
     try {
-      const cv = await buildCardImage(cardResult);
+      const cv = await buildCardImage(cardResult, selfImage);
       const blob = await new Promise((r) => cv.toBlob(r, "image/png"));
       const file = new File([blob], "personal_color_card.png", { type: "image/png" });
       ga4("card_saved", {
@@ -3228,7 +3346,50 @@ export default function App() {
         )}
 
         {/* ═══ CARD: パーソナルカラーカード（v1.20.0） ═══ */}
-        {mode === "card" && cardStep !== "result" && (() => {
+        {/* 自分の顔で作る：撮影・アップロード画面 */}
+        {mode === "card" && cardStep === "selfphoto" && cardResult && (() => {
+          const T = TYPES[cardResult.first];
+          return (
+            <div className="fade-up">
+              <Header title="自分の顔で作る" onBack={() => setCardStep("result")} />
+              <div className="px-6 pb-10">
+                {/* 写真が端末の外に出る点を最初に伝える。既存の顔写真診断とは扱いが違う。 */}
+                <div className="rounded-2xl p-4 mb-5" style={{ background: "#fffaf2", border: "1px solid #f0e0c4" }}>
+                  <p className="text-xs leading-relaxed mb-2" style={{ color: "#6b5836" }}>{SELFCARD_NOTICE[0]}</p>
+                  <ul className="text-xs leading-relaxed" style={{ color: "#8a7550", paddingLeft: "1.1em", listStyle: "disc" }}>
+                    {SELFCARD_NOTICE.slice(1).map((t, i) => <li key={i}>{t}</li>)}
+                  </ul>
+                </div>
+
+                {selfBusy ? (
+                  <div className="text-center py-10">
+                    {selfPreview && (
+                      <img src={selfPreview} alt="" className="block mx-auto rounded-2xl mb-4"
+                        style={{ maxWidth: 160, opacity: 0.5 }} />
+                    )}
+                    <div className="text-sm mb-1" style={{ color: C.ink }}>イラストを作っています…</div>
+                    <div className="text-xs" style={{ color: C.faint }}>30秒ほどかかります</div>
+                  </div>
+                ) : (
+                  <>
+                    <input ref={selfFileRef} type="file" accept="image/*" className="hidden"
+                      onChange={(e) => runSelfcard(e.target.files && e.target.files[0])} />
+                    <button onClick={() => selfFileRef.current && selfFileRef.current.click()}
+                      className="flex items-center justify-center gap-2 w-full px-6 py-3.5 rounded-full text-white text-sm font-medium mb-3 transition-transform hover:scale-105"
+                      style={{ background: T.accent }}>
+                      <Camera size={16} /> 写真を選ぶ
+                    </button>
+                    <p className="text-xs leading-relaxed" style={{ color: C.faint }}>
+                      正面から明るい場所で撮った顔写真がきれいに仕上がります。
+                    </p>
+                  </>
+                )}
+              </div>
+            </div>
+          );
+        })()}
+
+        {mode === "card" && cardStep !== "result" && cardStep !== "selfphoto" && (() => {
           // 入口A、または端末に診断結果がある入口Bは2問で終わる。それ以外はQ3(6ペア)を足す。
           const total = (cardEntry === "A" || (myType && mySecond)) ? 2 : 2 + CARD_Q3.length;
           const now = cardStep === "q1" ? 1 : cardStep === "q2" ? 2 : 3 + cardQ3i;
@@ -3297,7 +3458,7 @@ export default function App() {
                     <div className="text-sm" style={{ color: "#333" }}>あなたの個性にマッチする色は？</div>
                     {/* 画像はCDN(自身と同じタグ)から遅延読み込み。読めない間もレイアウトが
                         飛ばないよう 2:3 の枠を先に確保し、失敗したら黙って隠す。 */}
-                    <img src={cardAvatarUrl(T.key, cardResult.persona.key)} alt=""
+                    <img src={selfImage || cardAvatarUrl(T.key, cardResult.persona.key)} alt=""
                       className="block mx-auto w-full" loading="lazy"
                       style={{ maxWidth: 280, aspectRatio: "2 / 3", objectFit: "contain" }}
                       onError={(e) => { e.currentTarget.style.visibility = "hidden"; }} />
@@ -3321,8 +3482,37 @@ export default function App() {
                   </div>
                 </div>
 
+                {/* 自分の顔で作る。診断が確定している画面にしか出ないので、入口Bでも
+                    診断済みなら出る。中継が未デプロイの間は SELFCARD_ENABLED=false で丸ごと出さない。 */}
+                {SELFCARD_ENABLED && (
+                  <>
+                    <button onClick={() => { if (!selfSoldOut) { setSelfError(null); setCardStep("selfphoto"); } }}
+                      disabled={selfSoldOut}
+                      className="flex items-center justify-center gap-2 w-full text-center px-6 py-3.5 rounded-full text-sm font-medium mt-5 mb-2 transition-transform"
+                      style={selfSoldOut
+                        ? { background: "#efedf0", color: "#a49daa", cursor: "not-allowed" }
+                        : { border: "2px solid " + T.accent, color: T.accent, background: T.accent + "0a" }}>
+                      <Camera size={15} /> {selfImage ? "別の写真で作り直す" : "自分の顔で作る"}
+                    </button>
+                    {selfSoldOut && (
+                      <p className="text-xs mb-2" style={{ color: C.sub }}>
+                        本日の生成枠は終了しました。用意したイラストのカードはこのまま保存できます。
+                      </p>
+                    )}
+                    {selfError && !selfSoldOut && (
+                      <p className="text-xs mb-2" style={{ color: "#b4553f" }}>{selfError}</p>
+                    )}
+                    {selfImage && (
+                      <button onClick={() => setSelfImage(null)}
+                        className="block w-full text-center text-xs underline mb-2" style={{ color: C.faint }}>
+                        用意したイラストに戻す
+                      </button>
+                    )}
+                  </>
+                )}
+
                 <button onClick={saveCardImage} disabled={cardSaving}
-                  className="flex items-center justify-center gap-2 w-full text-center px-6 py-3.5 rounded-full text-white text-sm font-medium mt-5 mb-3 transition-transform hover:scale-105"
+                  className="flex items-center justify-center gap-2 w-full text-center px-6 py-3.5 rounded-full text-white text-sm font-medium mt-2 mb-3 transition-transform hover:scale-105"
                   style={{ background: T.accent, opacity: cardSaving ? 0.6 : 1 }}>
                   <Download size={15} /> {cardSaving ? "画像を作成中…" : "カードを画像で保存・シェア"}
                 </button>
