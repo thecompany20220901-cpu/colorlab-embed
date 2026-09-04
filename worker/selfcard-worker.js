@@ -80,6 +80,33 @@ export default {
     if (request.method === "OPTIONS") {
       return new Response(null, { status: 204, headers: cors(origin) });
     }
+
+    // GET /health — Secret が生きているかだけを確かめる。画像生成しないので課金は発生しない。
+    // 鍵そのものは絶対に返さない（有効かどうかの真偽と、上流のステータスだけ）。
+    if (request.method === "GET" && new URL(request.url).pathname === "/health") {
+      if (!env.OPENAI_API_KEY) {
+        return json({ ok: false, secret: false, reason: "not_configured" }, 500, origin);
+      }
+      let st = 0;
+      try {
+        const r = await fetch("https://api.openai.com/v1/models", {
+          headers: { Authorization: "Bearer " + env.OPENAI_API_KEY },
+        });
+        st = r.status;
+      } catch (e) {
+        return json({ ok: false, secret: true, reason: "upstream_unreachable" }, 502, origin);
+      }
+      const day = jstDateKey();
+      const used = parseInt((await env.SELFCARD_KV.get("count:" + day)) || "0", 10);
+      return json({
+        ok: st === 200,
+        secret: true,              // Secret はバインドされている
+        openai_status: st,         // 200 なら鍵が有効
+        day: day,
+        used: used,
+        remaining: Math.max(0, DAILY_LIMIT - used),
+      }, st === 200 ? 200 : 502, origin);
+    }
     if (request.method !== "POST") {
       return json({ ok: false, reason: "method_not_allowed" }, 405, origin);
     }
