@@ -381,11 +381,29 @@ MutationObserver + pushState フック）がそのまま働く。**SPA遷移で�
 
 ## 現在の運用タグ
 
-| アプリ | 参照タグ | jsDelivr |
-|---|---|---|
-| colorlab | `@v1.17.1` | `https://cdn.jsdelivr.net/gh/thecompany20220901-cpu/colorlab-embed@v1.17.1/dist/colorlab.iife.js` |
-| ngpolice | `@v1.3.0` | `https://cdn.jsdelivr.net/gh/thecompany20220901-cpu/colorlab-embed@v1.3.0/dist/ngpolice.iife.js` |
-| mens | `@v1.6.1` | `https://cdn.jsdelivr.net/gh/thecompany20220901-cpu/colorlab-embed@v1.6.1/dist/mens.iife.js` |
+colorlab は設置先ごとに参照タグが違うので、**サイト別に書く**（同じ行にまとめると実態を見誤る）。
+
+| アプリ / 設置先 | 参照タグ | 設置方式 | jsDelivr |
+|---|---|---|---|
+| colorlab / **IEBEL** | `@v1.19.0` | GTM（GTM-WVFLHTNW） | `https://cdn.jsdelivr.net/gh/thecompany20220901-cpu/colorlab-embed@v1.19.0/dist/colorlab.iife.js` |
+| colorlab / **BLUBEL** | `@v1.17.0` | 本文HTML（GTM招待待ち） | `https://cdn.jsdelivr.net/gh/thecompany20220901-cpu/colorlab-embed@v1.17.0/dist/colorlab.iife.js` |
+| ngpolice | `@v1.3.0` | 本文HTML | `https://cdn.jsdelivr.net/gh/thecompany20220901-cpu/colorlab-embed@v1.3.0/dist/ngpolice.iife.js` |
+| mens | `@v1.6.1` | 本文HTML | `https://cdn.jsdelivr.net/gh/thecompany20220901-cpu/colorlab-embed@v1.6.1/dist/mens.iife.js` |
+
+- **BLUBEL は v1.17.0 のまま**で、v1.17.1 の「正しい白い紙まで弾く不具合の修正」がまだ入っていない。
+  GTM コンテナ（`GTM-NN7QDLCH`）の招待が届くまでは、本文HTMLのバージョン番号を書き換えて上げる。
+- v1.19.0 の内容: **ホーム画面タイルのデザイン改修**。並びを 写真/質問(2列) → 写真＋質問 →
+  コーデ提案 → 骨格診断 にし、各タイルを淡いパステルの面（#FDE8D8 / #E8F0E8 / #FFD6E0 /
+  #EDE0F0 / #F0EDE8）＋セリフ体の見出し＋細い線のアイコンへ。ハンガーと星＋カメラのアイコンは
+  lucide に無いので描き起こした。**写真＋質問だけは主導線として強調**し、罫 2px `#E8829A`・
+  見出し 17px `#7D2E46`、文言を「写真＋質問で12タイプ診断！／業界トップクラスの精度最強診断」に
+  変更して金バッジを廃止。「似合うを知る」「買い足す・楽しむ」は見出しを16px＋3pxアクセントライン、
+  ボタンを白カード（角丸12px + `0 2px 8px rgba(0,0,0,.08)`）へ。**検証 165 → 168 項目。**
+- v1.18.0 の内容: **ホーム画面のタイル再設計**。「パーソナルカラー診断（12タイプ）」「顔写真で診断」を
+  廃し、**写真で診断 / 質問で診断 / 写真＋質問で診断**の3導線に置き換え（骨格診断も上段へ集約）。
+  **写真＋質問**は新規フローで、写真診断→13問の質問を続けて行い、1st が一致すればそのまま確定、
+  割れたときだけ **写真6：質問4** の重み付けで最終タイプを決める（3軸は符号付きに直してから混ぜる）。
+  結果画面は既存のものをそのまま流用。**検証 152 → 165 項目。**
 
 - v1.17.1 の内容: **v1.17.0 の白基準ゲートが「正しい白い紙」まで弾いていたのを修正**（本番で発生）。
   9/4 に正しい紙の実写を2枚追加でもらったところ、青寄り度が **+0.079 / +0.066** と、
