@@ -385,13 +385,17 @@ colorlab は設置先ごとに参照タグが違うので、**サイト別に書
 
 | アプリ / 設置先 | 参照タグ | 設置方式 | jsDelivr |
 |---|---|---|---|
-| colorlab / **IEBEL** | `@v1.19.0` | GTM（GTM-WVFLHTNW） | `https://cdn.jsdelivr.net/gh/thecompany20220901-cpu/colorlab-embed@v1.19.0/dist/colorlab.iife.js` |
-| colorlab / **BLUBEL** | `@v1.17.0` | 本文HTML（GTM招待待ち） | `https://cdn.jsdelivr.net/gh/thecompany20220901-cpu/colorlab-embed@v1.17.0/dist/colorlab.iife.js` |
+| colorlab / **IEBEL** | `@v1.20.3` | GTM（GTM-WVFLHTNW） | `https://cdn.jsdelivr.net/gh/thecompany20220901-cpu/colorlab-embed@v1.20.3/dist/colorlab.iife.js` |
+| colorlab / **BLUBEL** | `@v1.20.3` | 本文HTML（GTM招待待ち） | `https://cdn.jsdelivr.net/gh/thecompany20220901-cpu/colorlab-embed@v1.20.3/dist/colorlab.iife.js` |
 | ngpolice | `@v1.3.0` | 本文HTML | `https://cdn.jsdelivr.net/gh/thecompany20220901-cpu/colorlab-embed@v1.3.0/dist/ngpolice.iife.js` |
 | mens | `@v1.6.1` | 本文HTML | `https://cdn.jsdelivr.net/gh/thecompany20220901-cpu/colorlab-embed@v1.6.1/dist/mens.iife.js` |
 
-- **BLUBEL は v1.17.0 のまま**で、v1.17.1 の「正しい白い紙まで弾く不具合の修正」がまだ入っていない。
-  GTM コンテナ（`GTM-NN7QDLCH`）の招待が届くまでは、本文HTMLのバージョン番号を書き換えて上げる。
+- 上の表は **2026-09-05 に実物を測った値**（BLUBEL＝ページ本文HTML、IEBEL＝GTM コンテナ `gtm.js` を取得して確認）。
+  推測で書かず、切替のたびに実測して書き換えること。
+- BLUBEL は GTM コンテナ（`GTM-NN7QDLCH`）の招待が届くまで、本文HTMLのバージョン番号を書き換えて上げる。
+- **v1.20.4 はタグ発行済み・本番切替待ち**（2026-09-05）。カードの 1st/2nd 表示と、
+  診断前の「アバターで見る / 自分の顔で作る」選択を追加した。両サイトとも `@v1.20.3` → `@v1.20.4`
+  に書き換えれば反映される（BLUBEL＝本文HTML の1行、IEBEL＝GTM のカスタムHTMLタグの1行）。
 - **v1.20.0 の内容（タグ未発行・keisuke確認待ち）**: **パーソナルカラーカード**を追加。
   入口は2つで、**入口A**＝12タイプ結果画面の「あなたのパーソナルカラーカードを見る」から個性2問、
   **入口B**＝ホーム最上段の「あなたの個性色が分かる！」から。入口Bは端末に診断結果があれば
