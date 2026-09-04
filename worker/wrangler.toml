@@ -1,6 +1,8 @@
 name = "colorlab-selfcard"
 main = "selfcard-worker.js"
-compatibility_date = "2026-09-05"
+# Cloudflare は UTC 基準。JST の今日(9/5)を入れると「未来の日付」として弾かれるので
+# UTC の当日に合わせる。
+compatibility_date = "2026-09-04"
 
 # 日次カウンタ用。デプロイ前に作って id を差し替えること:
 #   wrangler kv namespace create SELFCARD_KV

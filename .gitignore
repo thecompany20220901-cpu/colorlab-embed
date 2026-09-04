@@ -15,3 +15,6 @@ test/_card_*.png
 test/_season_avatar.png
 test/_selfcard.png
 test/_selfcard_dist/
+
+# wrangler のローカル作業ディレクトリ
+worker/.wrangler/
