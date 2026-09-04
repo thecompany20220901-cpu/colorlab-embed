@@ -3,7 +3,8 @@
 //
 // v1.4.0 (colorlab v23 / ngpolice v2) で確認する要点:
 //   - ホームの AI機能2つ（コーデ提案 / コーデ採点）が「グレートーン」+「近日公開」バッジ
-//   - 「顔写真で診断」は実測方式(白基準補正+CIELab)で解禁済み → 近日公開にならない
+//   - 「写真で診断」は実測方式(白基準補正+CIELab)で解禁済み → 近日公開にならない
+//   - ホーム上部は 写真で診断 / 質問で診断 / 骨格診断 / 写真＋質問で診断 の4タイル(2026-09-04 再設計)
 //   - 「コーデ提案」はシーン別記事22本のデータ参照方式で解禁済み → 近日公開にならない
 //   - 「今日のコーデ採点」は色照合方式(CIELabのΔE)で解禁済み → 近日公開にならない
 //   - v1.8.0 で3機能とも解禁されたため、ホームに「近日公開」バッジは1つも無い
@@ -284,7 +285,7 @@ try {
   };
   for (const [label, marker] of [
     ["今日のコーデ採点", "服の色とタイプの相性"],
-    ["顔写真で診断", "撮影条件（すべて必要です）"],
+    ["写真で診断", "撮影条件（すべて必要です）"],
     ["パーソナルカラー別コーデ提案", "今日のシーン"],
   ]) {
     await page.goto(ART, { waitUntil: "networkidle" });
@@ -292,7 +293,8 @@ try {
     await setProfile(JSON.stringify({ myType: "spring", mySecond: "autumn", myFrame: null }));
     await page.reload({ waitUntil: "networkidle" });
     await page.waitForSelector("#colorlab-root button", { timeout: 10000 });
-    await cl().getByRole("button", { name: new RegExp(label) }).first().click();
+    // 「写真で診断」は「写真＋質問で診断」にも部分一致するため、先頭一致で引く
+    await cl().getByRole("button", { name: new RegExp("^" + label) }).first().click();
     const ok = await page.locator(`#colorlab-root >> text=${marker}`).first().isVisible({ timeout: 5000 }).catch(() => false);
     check(`「${label}」が近日公開モーダルを出さず実画面へ進む`, ok && (await modal().count()) === 0);
   }
@@ -308,7 +310,7 @@ try {
   await shotEl("#colorlab-root", "02_home_all_enabled.png");
 
   // ── 3. 12タイプ診断 → 結果ページ（苦手色1箇所 + 勝ち色の体系化 + 専門表記 + コスメ） ──
-  await page.getByRole("button", { name: /パーソナルカラー診断（12タイプ）/ }).click();
+  await page.getByRole("button", { name: /^質問で診断/ }).click();
   const myType = await runQuiz();
   check("12タイプ診断が完了し localStorage に保存された", !!myType);
   await page.waitForTimeout(400);
@@ -397,14 +399,14 @@ try {
   check("本家リンクが blubel.jp/pages/personalcolor", mainHref === "https://www.blubel.jp/pages/personalcolor");
   await shotEl("#ngpolice-root", "07_ngpolice_result.png");
 
-  // ── 6b. 顔写真で診断（実測方式・外部通信なし）──
+  // ── 6b. 写真で診断（実測方式・外部通信なし）──
   await page.goto(ART, { waitUntil: "networkidle" });
   await page.evaluate(() => { try { localStorage.removeItem("colorlab-profile"); } catch (e) {} });
   await page.reload({ waitUntil: "networkidle" });
   await page.waitForSelector("#colorlab-root button", { timeout: 10000 });
-  await page.getByRole("button", { name: /顔写真で診断/ }).click();
+  await page.getByRole("button", { name: /^写真で診断/ }).click();
   await page.waitForSelector("#colorlab-root >> text=撮影条件（すべて必要です）", { timeout: 5000 });
-  check("顔写真タイル → 近日公開モーダルが出ず撮影条件画面へ進む", (await modal().count()) === 0);
+  check("「写真で診断」タイル → 近日公開モーダルが出ず撮影条件画面へ進む", (await modal().count()) === 0);
   const boxes = page.locator("#colorlab-root input[type=checkbox]");
   const nBox = await boxes.count();
   check("撮影条件のチェックボックスが5個", nBox === 5);
@@ -473,7 +475,7 @@ try {
   //       結果ページからは写真選択へ戻れないので、記事ページから入り直す。
   await page.goto(ART, { waitUntil: "networkidle" });
   await page.waitForSelector("#colorlab-root button", { timeout: 10000 });
-  await page.getByRole("button", { name: /顔写真で診断/ }).click();
+  await page.getByRole("button", { name: /^写真で診断/ }).click();
   await page.waitForSelector("#colorlab-root >> text=撮影条件（すべて必要です）", { timeout: 5000 });
   const cbBl = page.locator("#colorlab-root input[type=checkbox]");
   for (let i = 0; i < (await cbBl.count()); i++) await cbBl.nth(i).check();
@@ -487,6 +489,79 @@ try {
   const bluishRes = await page.locator("#colorlab-root").innerText();
   check("青寄りに写った正しい白い紙は弾かれない（白基準ゲートを締めすぎない）", !/白い紙が見つかりません/.test(bluishRes));
   check("青寄りの白い紙でも判定結果まで到達する", /タイプです！/.test(bluishRes));
+
+  // ── 6b-2. ホームの3タイル + 写真＋質問で診断（統合フロー・2026-09-04）──
+  //   写真 → 質問 の順に両方こなし、写真6：質問4 で統合した結果を出すこと。
+  //   写真の時点で結果ページを出してしまうと「合わせ技」にならないので、そこも見る。
+  await page.goto(ART, { waitUntil: "networkidle" });
+  await page.evaluate(() => { try { localStorage.removeItem("colorlab-profile"); } catch (e) {} });
+  await page.reload({ waitUntil: "networkidle" });
+  await page.waitForSelector("#colorlab-root button", { timeout: 10000 });
+
+  const homeTiles = await page.locator("#colorlab-root").innerText();
+  check("ホーム上部に 写真で診断 / 質問で診断 / 骨格診断 / 写真＋質問で診断 が揃っている",
+    /写真で診断/.test(homeTiles) && /質問で診断/.test(homeTiles) && /骨格診断/.test(homeTiles) && /写真＋質問で診断/.test(homeTiles));
+  check("下段タイルに「精度最強」バッジがある", /精度最強/.test(homeTiles));
+  check("旧「パーソナルカラー診断（12タイプ）」タイルは残っていない", !/パーソナルカラー診断（12タイプ）/.test(homeTiles));
+  check("旧「顔写真で診断」タイルは残っていない（写真で診断へ改称）", !/顔写真で診断/.test(homeTiles));
+
+  // タイルの実測: 上段2列・下段は2枚ぶんの幅
+  const tileBox = async (re) => {
+    const b = await cl().getByRole("button", { name: re }).first().boundingBox();
+    return b ? { x: Math.round(b.x), y: Math.round(b.y), w: Math.round(b.width) } : null;
+  };
+  const tPhoto = await tileBox(/^写真で診断/), tQuiz = await tileBox(/^質問で診断/);
+  const tFrame = await tileBox(/^骨格診断/), tCombo = await tileBox(/写真＋質問で診断/);
+  check(`上段2タイルが横並び1行 (y=${tPhoto && tPhoto.y} / ${tQuiz && tQuiz.y})`,
+    !!tPhoto && !!tQuiz && Math.abs(tPhoto.y - tQuiz.y) <= 1 && tQuiz.x > tPhoto.x);
+  check(`骨格診断が上段の下の行で幅いっぱい (${tFrame && tFrame.w}px)`,
+    !!tFrame && !!tPhoto && !!tQuiz && tFrame.y > tPhoto.y && Math.abs(tFrame.w - (tQuiz.x + tQuiz.w - tPhoto.x)) <= 2);
+  check(`写真＋質問タイルが幅いっぱい (${tCombo && tCombo.w}px)`,
+    !!tCombo && !!tPhoto && !!tQuiz && Math.abs(tCombo.w - (tQuiz.x + tQuiz.w - tPhoto.x)) <= 2);
+  await shotEl("#colorlab-root", "44_home_tiles.png");
+
+  // STEP 1/2: 写真
+  await page.getByRole("button", { name: /写真＋質問で診断/ }).click();
+  await page.waitForSelector("#colorlab-root >> text=撮影条件（すべて必要です）", { timeout: 5000 });
+  check("写真＋質問: 1/2（写真）の見出しに切り替わる",
+    /写真＋質問で診断（1\/2 写真）/.test(await page.locator("#colorlab-root").innerText()));
+  const cbCombo = page.locator("#colorlab-root input[type=checkbox]");
+  for (let i = 0; i < (await cbCombo.count()); i++) await cbCombo.nth(i).check();
+  await page.getByRole("button", { name: /^地毛に近い$/ }).click();
+  await page.getByRole("button", { name: /撮影にすすむ/ }).click();
+  await page.getByRole("button", { name: /カメラを起動する/ }).click();
+  await page.waitForSelector("#colorlab-root >> text=写真を選ぶ", { timeout: 10000 });
+  await page.waitForSelector("#colorlab-root input[type=file]", { state: "attached", timeout: 5000 });
+  await page.locator("#colorlab-root input[type=file]").setInputFiles({ name: "ok.png", mimeType: "image/png", buffer: PHOTO_OK });
+
+  // STEP 2/2: 写真の直後に結果を出さず、13問へ入ること
+  await page.waitForSelector("#colorlab-root >> text=写真＋質問で診断（2/2 質問）", { timeout: 15000 });
+  const comboStep2 = await page.locator("#colorlab-root").innerText();
+  check("写真＋質問: 写真の直後に結果ページを出さない", !/タイプです！/.test(comboStep2));
+  check("写真＋質問: 続けて13問の1問目が出る", /質問 1 \/ 13/.test(comboStep2));
+  await shotEl("#colorlab-root", "45_combo_step2_quiz.png");
+
+  // 13問を回す（combo は写真の時点で myType が入るため runQuiz の終了条件は使えない）
+  for (let i = 0; i < 24; i++) {
+    if (await page.locator("#colorlab-root >> text=タイプです！").count()) break;
+    const btns = page.locator("#colorlab-root button");
+    const n = await btns.count();
+    let clicked = false;
+    for (let b = 0; b < n; b++) {
+      const t = (await btns.nth(b).innerText().catch(() => "")).trim();
+      if (t === "A" || /^A\b/.test(t)) { await btns.nth(b).click().catch(() => {}); clicked = true; break; }
+    }
+    if (!clicked && n > 0) await btns.first().click().catch(() => {});
+    await page.waitForTimeout(180);
+  }
+  await page.waitForSelector("#colorlab-root >> text=タイプです！", { timeout: 15000 });
+  const comboRes = await page.locator("#colorlab-root").innerText();
+  check("写真＋質問: 統合結果ページ（1st / 2nd）まで到達する", /タイプです！/.test(comboRes) && /2nd：/.test(comboRes));
+  check("写真＋質問: 統合の根拠が注記に出る",
+    /写真の実測/.test(comboRes) && (/一致したので/.test(comboRes) || /写真6：質問4/.test(comboRes)));
+  check("写真＋質問: 結果ページの中身は通常どおり（勝ち色の体系化・コスメ）",
+    /似合う色（勝ち色 \d+色）/.test(comboRes) && /仕上げのコスメはコレ/.test(comboRes));
+  await shotEl("#colorlab-root", "46_combo_result.png");
 
   // ── 6c. 撮影ガイド（全画面オーバーレイ + 丸型グラデ + 下部シャッター）: フェイクカメラで実描画 ──
   const camBrowser = await chromium.launch({
@@ -506,7 +581,7 @@ try {
       document.body.appendChild(h);
     });
     await camPage.waitForSelector("#colorlab-root button", { timeout: 15000 });
-    await camPage.getByRole("button", { name: /顔写真で診断/ }).click();
+    await camPage.getByRole("button", { name: /^写真で診断/ }).click();
     await camPage.waitForSelector("#colorlab-root >> text=撮影条件（すべて必要です）", { timeout: 5000 });
     const cb = camPage.locator("#colorlab-root input[type=checkbox]");
     const ncb = await cb.count();
@@ -652,7 +727,7 @@ try {
         return !(Math.abs(b.width - window.innerWidth) < 1 && Math.abs(b.height - window.innerHeight) < 1);
       });
       await pg.waitForSelector("#colorlab-root button", { timeout: 15000 });
-      await pg.locator("#colorlab-root").getByRole("button", { name: /顔写真で診断/ }).click();
+      await pg.locator("#colorlab-root").getByRole("button", { name: /^写真で診断/ }).click();
       await pg.waitForSelector("#colorlab-root >> text=撮影条件（すべて必要です）", { timeout: 5000 });
       const cb2 = pg.locator("#colorlab-root input[type=checkbox]");
       for (let i = 0; i < (await cb2.count()); i++) await cb2.nth(i).check();
@@ -682,7 +757,7 @@ try {
   const openPhotoGuide = async (pg) => {
     await pg.goto(ART, { waitUntil: "networkidle" });
     await pg.waitForSelector("#colorlab-root button", { timeout: 15000 });
-    await pg.locator("#colorlab-root").getByRole("button", { name: /顔写真で診断/ }).click();
+    await pg.locator("#colorlab-root").getByRole("button", { name: /^写真で診断/ }).click();
     await pg.waitForSelector("#colorlab-root >> text=撮影条件（すべて必要です）", { timeout: 5000 });
     const cb = pg.locator("#colorlab-root input[type=checkbox]");
     for (let i = 0; i < (await cb.count()); i++) await cb.nth(i).check();

@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from "react";
 import { createPortal } from "react-dom";
-import { Sparkles, ArrowRight, ArrowLeft, RotateCcw, Copy, Check, Camera, Heart, Palette, Shirt, Upload, ExternalLink, Brush, Scissors, Ban, Droplet, Paintbrush, ShoppingBag, Eraser } from "lucide-react";
+import { Sparkles, ArrowRight, ArrowLeft, RotateCcw, Copy, Check, Camera, Heart, Palette, Shirt, Upload, ExternalLink, Brush, Scissors, Ban, Droplet, Paintbrush, ShoppingBag, Eraser, HelpCircle, Star } from "lucide-react";
 
 // ════════════════════════════════════════════
 // 設問イラスト / タイプ別イラスト（既存の顔イラスト素材の色差し替え）
@@ -466,6 +466,56 @@ const WD_WORRIES = [
 ];
 
 const NUM2KEY = { 1: "spring", 2: "summer", 3: "autumn", 4: "winter" };
+
+// ════════════════════════════
+// 写真＋質問の統合判定（2026-09-04 追加）
+// 1st が一致していればそのまま確定。割れたときだけ 写真6：質問4 で決める。
+// ════════════════════════════
+const COMBO_W_PHOTO = 0.6, COMBO_W_QUIZ = 0.4;
+const TYPE_KEYS = ["spring", "summer", "autumn", "winter"];
+/* 合計1に正規化してから混ぜる。写真は 1st=1.0 / 2nd=0.5、質問は13問の素点をそのまま使う。
+   これで「写真が優先されるが、質問側の差が大きければ覆る」形になる。 */
+const normVec = (v) => {
+  const sum = TYPE_KEYS.reduce((a, k) => a + (v[k] || 0), 0) || 1;
+  const o = {};
+  TYPE_KEYS.forEach((k) => { o[k] = (v[k] || 0) / sum; });
+  return o;
+};
+/* 3軸は符号付きに戻してから混ぜる。pct をそのまま平均すると
+   「Warm 70%」と「Cool 60%」が同じ向きとして足されてしまうため。 */
+const AXIS_POS = { hue: "Cool（青み）", value: "Light（明るい）", chroma: "Clear（クリア）" };
+const AXIS_NEG = { hue: "Warm（黄み）", value: "Deep（深い）", chroma: "Soft（ソフト）" };
+const signedAxis = (ax, key) => (((ax && ax.label) === AXIS_POS[key] ? 1 : -1) * ((ax && ax.pct) || 50)) / 100;
+const mergeAxes = (pAx, qAx) => {
+  const out = {};
+  Object.keys(AXIS_POS).forEach((k) => {
+    const v = COMBO_W_PHOTO * signedAxis(pAx[k], k) + COMBO_W_QUIZ * signedAxis(qAx[k], k);
+    out[k] = { pct: Math.min(90, Math.max(50, Math.round(Math.abs(v) * 100))), label: v >= 0 ? AXIS_POS[k] : AXIS_NEG[k] };
+  });
+  return out;
+};
+/* photo: {first, second, axes, note} / quizScores: {1..4} / quizPick: {first, second} */
+const mergeCombo = (photo, quizScores, quizPick, quizAxes) => {
+  const pv = normVec({ [photo.first]: 1, [photo.second]: 0.5 });
+  const qraw = {};
+  TYPE_KEYS.forEach((k) => { qraw[k] = quizScores[TYPES[k].num] || 0; });
+  const qv = normVec(qraw);
+  const mixed = TYPE_KEYS
+    .map((k) => ({ k, v: COMBO_W_PHOTO * pv[k] + COMBO_W_QUIZ * qv[k] }))
+    .sort((a, b) => b.v - a.v);
+  const agree = photo.first === quizPick.first;
+  const first = agree ? photo.first : mixed[0].k;
+  const second = (mixed.find((x) => x.k !== first) || mixed[1]).k;
+  const note = agree
+    ? `※写真の実測と13問の回答がどちらも【${TYPES[first].name}】で一致したので、そのまま確定しました。`
+    : `※写真の実測は【${TYPES[photo.first].name}】、13問の回答は【${TYPES[quizPick.first].name}】で割れたため、写真6：質問4の重み付けで【${TYPES[first].name}】に決めました。`;
+  return {
+    first, second,
+    url: RESULT_MAP[`${TYPES[first].num}-${TYPES[second].num}`] || TYPES[first].siteUrl,
+    axes: mergeAxes(photo.axes, quizAxes),
+    note: note + (photo.note ? " " + photo.note : ""),
+  };
+};
 
 // 埋め込み公開時は false にする（対象機能に「近日公開」を表示）
 // AI_ENABLED はコーデ提案 / コーデ採点（外部AI依存）のゲート。false のまま維持する。
@@ -2399,6 +2449,9 @@ export default function App() {
   const [scores, setScores] = useState({ 1: 0, 2: 0, 3: 0, 4: 0 });
   const [tieMode, setTieMode] = useState(false);
   const [quizResult, setQuizResult] = useState(null); // {first, second, url}
+  // 写真＋質問フロー。"photo"=写真の番 / "quiz"=質問の番 / null=単独診断
+  const [comboStage, setComboStage] = useState(null);
+  const [comboPhoto, setComboPhoto] = useState(null); // 写真診断の結果を質問が終わるまで持っておく
 
   // stylist
   const [stTpo, setStTpo] = useState("work");
@@ -2465,6 +2518,8 @@ export default function App() {
   const [wdWorry, setWdWorry] = useState(null);
 
   const goHome = () => setMode("home");
+  // 途中でホームへ戻ったら、写真＋質問の道中の状態は捨てる（中途半端な統合を防ぐ）
+  useEffect(() => { if (mode === "home") { setComboStage(null); setComboPhoto(null); } }, [mode]);
   const rootRef = useRef(null);
   useEffect(() => { window.scrollTo({ top: 0, left: 0, behavior: "instant" }); }, [mode]);
   // 顔写真診断から離れたらカメラを必ず解放する（撮影後・戻る・別タイルへ遷移のいずれでも）
@@ -2592,6 +2647,8 @@ export default function App() {
   const T = myType ? TYPES[myType] : null;
 
   const startQuiz = () => { setScores({ 1: 0, 2: 0, 3: 0, 4: 0 }); setQi(0); setTieMode(false); setQuizResult(null); setMode("quiz"); };
+  // 写真＋質問：まず写真から。写真が終わった時点で質問へ送る（runPhotoDiagnose 側）
+  const startCombo = () => { setComboPhoto(null); setComboStage("photo"); openPhoto(); };
 
   const finishQuiz = (finalScores) => {
     const sorted = sortTypes(finalScores);
@@ -2607,6 +2664,14 @@ export default function App() {
       value: { pct: pct(s[1] + s[2], s[3] + s[4]), label: s[1] + s[2] >= s[3] + s[4] ? "Light（明るい）" : "Deep（深い）" },
       chroma: { pct: pct(s[1] + s[4], s[2] + s[3]), label: s[1] + s[4] >= s[2] + s[3] ? "Clear（クリア）" : "Soft（ソフト）" },
     };
+    // 写真＋質問フローなら、ここで写真の結果と統合してから結果画面へ
+    if (comboStage === "quiz" && comboPhoto) {
+      const m = mergeCombo(comboPhoto, finalScores, { first: fKey, second: sKey }, axes);
+      setMyType(m.first); setMySecond(m.second);
+      setQuizResult(m);
+      setComboStage(null); setComboPhoto(null);
+      return;
+    }
     setQuizResult({ first: fKey, second: sKey, url: RESULT_MAP[`${first}-${second}`] || TYPES[fKey].siteUrl, axes });
   };
 
@@ -2663,6 +2728,13 @@ export default function App() {
           chroma: { pct: clamp(r.chroma_pct), label: r.type === "spring" || r.type === "winter" ? "Clear（クリア）" : "Soft（ソフト）" },
         };
         const conf = r.confidence === "high" ? "高" : r.confidence === "medium" ? "中" : "低";
+        // 写真＋質問フロー：ここでは結果を出さず、写真の結果を持ったまま13問へ進む
+        if (comboStage === "photo") {
+          setComboPhoto({ first: r.type, second: sKey, axes, note: `※お写真の色を実測した結果です（信頼度：${conf}）。${r.reason || ""}` });
+          setComboStage("quiz");
+          startQuiz();
+          return;
+        }
         setQuizResult({
           first: r.type, second: sKey,
           url: RESULT_MAP[`${fT.num}-${sT.num}`] || fT.siteUrl,
@@ -2788,7 +2860,7 @@ export default function App() {
                 <div className="mx-auto max-w-sm bg-white rounded-3xl px-6 py-7" style={{ boxShadow: "0 16px 40px -16px rgba(80,70,90,0.3)" }}>
                   <div className="text-xs font-medium mb-3 tracking-wide" style={{ color: C.sub }}>ブルベ研究所・イエベ研究所 監修</div>
                   <h1 className="font-serif text-3xl leading-tight mb-2" style={{ color: C.ink }}>パーソナルカラー<br />スタイリング</h1>
-                  <p className="text-sm" style={{ color: C.sub }}>12タイプ診断から「今日なに着る？」まで。</p>
+                  <p className="text-sm" style={{ color: C.sub }}>12タイプ診断から「今日に着る？」まで。</p>
                 </div>
                 {T && (
                   <div className="mx-auto max-w-sm mt-4 rounded-2xl px-5 py-4 text-left" style={{ background: T.accent + "0d", border: `1px solid ${T.accent}33` }}>
@@ -2815,11 +2887,31 @@ export default function App() {
                   </div>
                 )}
               </div>
-            {/* ── 主要2機能：大ボタン ── */}
+            {/* ── 12タイプ診断の入口：写真 / 質問 / 両方（2026-09-04 再設計）── */}
             <div className="space-y-3">
-              <button onClick={startQuiz} className="w-full flex items-center gap-4 rounded-2xl p-5 text-left transition-shadow hover:shadow-md" style={{ border: `2px solid ${C.main}`, background: "#fdfbfd" }}>
-                <span className="w-11 h-11 rounded-full flex items-center justify-center shrink-0 text-white" style={{ background: C.main }}><Palette size={20} /></span>
-                <span className="min-w-0 flex-1"><span className="block text-sm font-medium" style={{ color: C.ink }}>パーソナルカラー診断（12タイプ）</span><span className="block text-xs mt-0.5" style={{ color: C.sub }}>13の質問から、1st×2ndタイプまで判定</span></span>
+              <div className="grid grid-cols-2 gap-2.5">
+                {[
+                  { icon: <Camera size={20} />, label: "写真で診断", sub: "12タイプ診断から「今日に着る？」まで", soon: !PHOTO_DIAGNOSE_ENABLED, onClick: () => { if (!PHOTO_DIAGNOSE_ENABLED) { setSoonOpen(true); return; } openPhoto(); } },
+                  { icon: <HelpCircle size={20} />, label: "質問で診断", sub: "12タイプ診断から「今日に着る？」まで", onClick: startQuiz },
+                  // 「診断する」欄から移設（遷移先 startFrame は変更なし）。下の行を丸ごと使う
+                  { icon: <Sparkles size={20} />, label: "骨格診断", sub: "8問のセルフチェックで、似合う形を判定", onClick: startFrame, wide: true },
+                ].map((it, i) => (
+                  <button key={i} onClick={it.onClick} className={"rounded-2xl p-4 text-left transition-shadow hover:shadow-md" + (it.wide ? " col-span-2 flex items-center gap-4" : "")} style={{ border: it.soon ? "2px solid #dedede" : `2px solid ${C.main}`, background: it.soon ? "#f7f7f7" : "#fdfbfd" }}>
+                    <span className={"w-11 h-11 rounded-full flex items-center justify-center text-white shrink-0" + (it.wide ? "" : " mb-2.5")} style={{ background: it.soon ? "#bdbdbd" : C.main }}>{it.icon}</span>
+                    <span className={it.wide ? "min-w-0 flex-1" : "block"}>
+                      <span className="block text-sm font-medium" style={{ color: it.soon ? "#9a9a9a" : C.ink }}>{it.label}</span>
+                      <span className="block text-[11px] mt-0.5 leading-tight" style={{ color: it.soon ? "#ababab" : C.sub }}>{it.sub}</span>
+                    </span>
+                  </button>
+                ))}
+              </div>
+              <button onClick={() => { if (!PHOTO_DIAGNOSE_ENABLED) { setSoonOpen(true); return; } startCombo(); }} className="w-full flex items-center gap-4 rounded-2xl p-5 text-left transition-shadow hover:shadow-md" style={{ border: `2px solid ${C.main}`, background: C.main + "0f" }}>
+                <span className="w-11 h-11 rounded-full flex items-center justify-center shrink-0 text-white" style={{ background: C.main }}><Star size={20} /></span>
+                <span className="min-w-0 flex-1">
+                  <span className="inline-block text-[9px] px-2 py-0.5 rounded-full font-bold mb-1" style={{ background: C.main, color: "#fff" }}>精度最強</span>
+                  <span className="block text-sm font-medium whitespace-nowrap" style={{ color: C.ink }}>写真＋質問で診断</span>
+                  <span className="block text-xs mt-0.5" style={{ color: C.sub }}>精度最強！12タイプ診断！</span>
+                </span>
                 <ArrowRight size={16} style={{ color: C.main }} />
               </button>
               <button onClick={() => { if (!STYLIST_ENABLED) { setSoonOpen(true); return; } setStResult(null); setMode("stylist"); }} className="w-full flex items-center gap-4 rounded-2xl p-5 text-left transition-shadow hover:shadow-md" style={{ border: STYLIST_ENABLED ? `2px solid ${C.main}` : "2px solid #dedede", background: STYLIST_ENABLED ? "#fdfbfd" : "#f7f7f7" }}>
@@ -2827,23 +2919,6 @@ export default function App() {
                 <span className="min-w-0 flex-1"><span className="block text-sm font-medium" style={{ color: STYLIST_ENABLED ? C.ink : "#9a9a9a" }}>パーソナルカラー別コーデ提案{!STYLIST_ENABLED && <span className="ml-2 align-middle text-[10px] px-2 py-0.5 rounded-full" style={{ background: "#e4e4e4", color: "#8a8a8a" }}>近日公開</span>}</span><span className="block text-xs mt-0.5" style={{ color: STYLIST_ENABLED ? C.sub : "#ababab" }}>シーン×気分から、服とメイクを提案</span></span>
                 <ArrowRight size={16} style={{ color: STYLIST_ENABLED ? C.main : "#bdbdbd" }} />
               </button>
-            </div>
-
-            {/* ── 診断する ── */}
-            <div className="flex items-center gap-3 mt-7 mb-3">
-              <span className="text-xs tracking-widest shrink-0" style={{ color: C.faint }}>診断する</span>
-              <span className="h-px flex-1" style={{ background: C.line }} />
-            </div>
-            <div className="grid grid-cols-2 gap-2.5">
-              {[
-                { icon: <Camera size={17} />, label: "顔写真で診断", soon: !PHOTO_DIAGNOSE_ENABLED, onClick: () => { if (!PHOTO_DIAGNOSE_ENABLED) { setSoonOpen(true); return; } openPhoto(); } },
-                { icon: <Sparkles size={17} />, label: "骨格診断", onClick: startFrame },
-              ].map((it, i) => (
-                <button key={i} onClick={it.onClick} className="flex items-center gap-2.5 rounded-2xl px-3.5 py-4 text-left transition-shadow hover:shadow-md" style={{ border: it.soon ? "1px solid #dedede" : "1px solid " + C.line, background: it.soon ? "#f7f7f7" : "white" }}>
-                  <span className="w-8 h-8 rounded-full flex items-center justify-center shrink-0" style={{ background: it.soon ? "#e8e8e8" : "#f4eff3", color: it.soon ? "#a5a5a5" : C.main }}>{it.icon}</span>
-                  <span className="text-xs font-medium leading-tight" style={{ color: it.soon ? "#9a9a9a" : C.ink }}>{it.label}{it.soon && <span className="block mt-0.5 text-[9px] px-1.5 py-0.5 rounded-full w-fit" style={{ background: "#e4e4e4", color: "#8a8a8a" }}>近日公開</span>}</span>
-                </button>
-              ))}
             </div>
 
             {/* ── 似合うを知る ── */}
@@ -2891,7 +2966,7 @@ export default function App() {
         {/* ═══ QUIZ（本番12タイプロジック） ═══ */}
         {mode === "quiz" && !quizResult && (
           <div>
-            <Header title="12タイプ カラー診断" onBack={goHome} />
+            <Header title={comboStage === "quiz" ? "写真＋質問で診断（2/2 質問）" : "12タイプ カラー診断"} onBack={goHome} />
             <div className="px-8 pb-12 pt-4">
               {!tieMode ? (
                 <>
@@ -3356,7 +3431,7 @@ export default function App() {
         {/* ═══ PHOTO（白基準補正 + CIELab 実測。外部通信なし） ═══ */}
         {mode === "photo" && (
           <div>
-            <Header title="顔写真で診断" onBack={goHome} />
+            <Header title={comboStage === "photo" ? "写真＋質問で診断（1/2 写真）" : "顔写真で診断"} onBack={goHome} />
             <div className="px-8 pb-12 pt-3">
 
               {/* ── STEP: intro（撮影条件チェック + 染髪確認） ── */}

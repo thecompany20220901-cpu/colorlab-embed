@@ -61,7 +61,7 @@ await page.waitForSelector("#colorlab-root button", { timeout: 15000 });
 await setProfile(null);
 await page.reload({ waitUntil: "networkidle" });
 await page.waitForSelector("#colorlab-root button", { timeout: 15000 });
-await cl().getByRole("button", { name: /パーソナルカラー診断（12タイプ）/ }).click();
+await cl().getByRole("button", { name: /^質問で診断/ }).click();
 for (let i = 1; i <= 13; i++) {
   await page.waitForTimeout(180);
   const card = cl().locator("div.fade-up, div").filter({ hasText: /^Q\d+/ }).first();
@@ -102,7 +102,7 @@ for (const t of ["spring", "summer", "autumn", "winter"]) {
   await setProfile(null);
   await page.reload({ waitUntil: "networkidle" });
   await page.waitForSelector("#colorlab-root button", { timeout: 15000 });
-  await cl().getByRole("button", { name: /パーソナルカラー診断（12タイプ）/ }).click();
+  await cl().getByRole("button", { name: /^質問で診断/ }).click();
   for (let i = 1; i <= 13; i++) {
     await page.waitForTimeout(120);
     const want = ANSWERS[t][i - 1];

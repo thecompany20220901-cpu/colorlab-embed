@@ -113,7 +113,7 @@ function toY4m(W, H, rgba, frames = 3) {
 const openPhotoGuide = async (pg) => {
   await pg.goto(ART, { waitUntil: "networkidle" });
   await pg.waitForSelector("#colorlab-root button", { timeout: 15000 });
-  await pg.locator("#colorlab-root").getByRole("button", { name: /顔写真で診断/ }).click();
+  await pg.locator("#colorlab-root").getByRole("button", { name: /^写真で診断/ }).click();
   await pg.waitForSelector("#colorlab-root >> text=撮影条件（すべて必要です）", { timeout: 5000 });
   const cb = pg.locator("#colorlab-root input[type=checkbox]");
   for (let i = 0; i < (await cb.count()); i++) await cb.nth(i).check();
