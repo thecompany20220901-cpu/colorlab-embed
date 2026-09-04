@@ -1083,7 +1083,13 @@ async function buildCardImage(res, selfImage) {
     x.fillText(text, W / 2, top + h / 2);
   };
 
-  center("あなたの個性にマッチする色は？", 40, "400", "#333333", 60, 56);
+  // 縦は順に積む。座標を直書きすると、行を足したときに下部帯へ当たる。
+  const AV_W = 680;                       // アバター幅。行が増えたぶん 720 から詰めた
+  const AV_H = Math.round(AV_W * 1.5);    // 素材は 2:3
+  let y = 60;
+  const stack = (text, size, weight, color, h) => { center(text, size, weight, color, y, h); y += h; };
+
+  stack("あなたの個性にマッチする色は？", 40, "400", "#333333", 56);
 
   // アバター（jsDelivr）。CORS 許可付きで読めないと canvas が汚染されて保存できないため、
   // crossOrigin を付けて読む。失敗しても文字だけのカードとして成立させる。
@@ -1094,18 +1100,20 @@ async function buildCardImage(res, selfImage) {
       im.onload = () => ok(im); im.onerror = ng;
       im.src = selfImage || cardAvatarUrl(T.key, res.persona.key);
     });
-    x.drawImage(img, (W - 720) / 2, 116, 720, 1080);
+    x.drawImage(img, (W - AV_W) / 2, y, AV_W, AV_H);
   } catch (e) { /* 画像が読めなくてもカードは出す */ }
+  y += AV_H;
 
-  center("あなたの色は", 48, "400", "#333333", 1196, 67.19);
-  center(res.copy.cn, 81, "700", T.accent, 1263.19, 89.09);
-  center(res.copy.t, 64, "400", "#333333", 1352.28, 89.59);
+  // 1st / 2nd のタイプ名。どのタイプの結果なのかがカード単体で分かるようにする。
+  stack("1st " + TYPES[res.first].name + "　2nd " + TYPES[res.second].name,
+        34, "500", "#6b6470", 47.6);
+  stack("あなたの色は", 48, "400", "#333333", 67.19);
+  stack(res.copy.cn, 81, "700", T.accent, 89.09);
+  stack(res.copy.t, 64, "400", "#333333", 89.59);
   const sizes = [31, 31, 44, 44];
-  let cy = 1441.88;
   res.copy.c.forEach((ln, i) => {
     const lh = sizes[i] * 1.4;
-    center(ln, sizes[i], "400", "#444444", cy, lh);
-    cy += lh;
+    stack(ln, sizes[i], "400", "#444444", lh);
   });
 
   // 下部帯
@@ -3462,6 +3470,9 @@ export default function App() {
                       className="block mx-auto w-full" loading="lazy"
                       style={{ maxWidth: 280, aspectRatio: "2 / 3", objectFit: "contain" }}
                       onError={(e) => { e.currentTarget.style.visibility = "hidden"; }} />
+                    <div className="text-[11px] mt-1" style={{ color: "#6b6470" }}>
+                      1st {TYPES[cardResult.first].name}　2nd {TYPES[cardResult.second].name}
+                    </div>
                     <div className="text-base" style={{ color: "#333" }}>あなたの色は</div>
                     <div className="font-bold leading-tight" style={{ fontSize: 27, color: T.accent }}>{cardResult.copy.cn}</div>
                     <div className="text-xl mb-2" style={{ color: "#333" }}>{cardResult.copy.t}</div>
