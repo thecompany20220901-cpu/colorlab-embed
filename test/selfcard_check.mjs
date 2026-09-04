@@ -22,7 +22,8 @@ let built = false;
 try {
   const flipped = original.toString("utf-8")
     .replace("const SELFCARD_ENABLED = false;", "const SELFCARD_ENABLED = true;");
-  if (flipped === original.toString("utf-8")) {
+  // 既に true (中継が開通済み) ならそのままビルドすればよい
+  if (flipped === original.toString("utf-8") && !/const SELFCARD_ENABLED = true;/.test(flipped)) {
     console.error("SELFCARD_ENABLED を反転できませんでした");
     process.exit(2);
   }
@@ -66,7 +67,7 @@ const browser = await chromium.launch();
 const page = await browser.newPage({ viewport: { width: 420, height: 900 } });
 page.on("pageerror", (e) => ng.push("pageerror: " + e.message));
 // 中継はここで差し替える。https -> http へは route.continue できないので fulfill で返す。
-await page.route("https://colorlab-selfcard.thecompany20220901.workers.dev/illustrate", (route) => {
+await page.route("https://colorlab-selfcard.the-company-20220901.workers.dev/illustrate", (route) => {
   if (forceLimit) {
     return route.fulfill({ status: 429, contentType: "application/json",
       headers: { "Access-Control-Allow-Origin": "*" },

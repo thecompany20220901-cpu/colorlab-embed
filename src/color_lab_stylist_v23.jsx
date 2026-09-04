@@ -842,8 +842,8 @@ const SEASON_AVATAR_PERSONA = {
 // ── 自分の顔で作る（Cloudflare Workers 中継）──
 // APIキーは公開JSに置けないので、生成は必ず中継ごしに行う。中継が未デプロイの間は
 // この定数を false にしておくこと（入口ごと出さない）。
-const SELFCARD_ENABLED = false;
-const SELFCARD_ENDPOINT = "https://colorlab-selfcard.thecompany20220901.workers.dev/illustrate";
+const SELFCARD_ENABLED = true;
+const SELFCARD_ENDPOINT = "https://colorlab-selfcard.the-company-20220901.workers.dev/illustrate";
 const SELFCARD_DAILY_LIMIT = 50;   // 中継側の実数。ここは表示用の控えでしかない
 const SELFCARD_CACHE_KEY = "colorlab-selfcard";
 // プロンプトを変えたらこの版番号も上げる。上げないと古い絵がキャッシュから返る。

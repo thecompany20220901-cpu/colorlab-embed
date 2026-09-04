@@ -1,5 +1,10 @@
 name = "colorlab-selfcard"
 main = "selfcard-worker.js"
+
+# workers.dev の公開URLは使う。ただしプレビューURLは意図しない経路になるので明示的に閉じる。
+# どちらも未指定だと既定で有効になり、デプロイのたびに警告が出る。
+workers_dev = true
+preview_urls = false
 # Cloudflare は UTC 基準。JST の今日(9/5)を入れると「未来の日付」として弾かれるので
 # UTC の当日に合わせる。
 compatibility_date = "2026-09-04"
