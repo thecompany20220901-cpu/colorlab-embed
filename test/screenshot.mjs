@@ -149,9 +149,11 @@ const PHOTO_DARK = regionPng(600, 800, [30, 28, 26], [
 ]);
 /* 白基準の枠に「白い紙」ではないものが入っている2パターン。どちらも 2026-09-02 の実機で
    実際に起きたもので、数値は そのスクショの実測値をそのまま使っている。
-   (1) 顎の影に入った白いTシャツ … 肌より明るい(比1.31)ので明るさでは弾けない。
-       周りより青い(青寄り度+0.099)ことで初めて「顔と違う光の面」と分かる。
-   (2) 首や顎の肌 … 青くはないが、白い紙より暗い(比0.89)。 */
+   (1) 顎の影に入った白いTシャツ … 肌より明るい(比1.31)ので「肌との比」では弾けない。
+       白基準そのものが暗い(wMax=171)ことで「影の中の面」と分かる。
+   (2) 首や顎の肌 … wMax=135 で暗く、かつ肌より暗い(比0.89)。
+   ★青寄り度では分けられない。正しい紙の実測が +0.079（9/4）まで来ており、
+     誤爆(+0.099)との差が 0.02 しかないため（2026-09-04 に4枚目で判明）。 */
 const PHOTO_SHIRT = regionPng(600, 800, [190, 180, 170], [
   [0.40, 0.06, 0.60, 0.16, [62, 46, 38]],
   [0.24, 0.46, 0.36, 0.58, [161, 112, 104]],
@@ -163,6 +165,16 @@ const PHOTO_NECK = regionPng(600, 800, [190, 180, 170], [
   [0.24, 0.46, 0.36, 0.58, [157, 115, 103]],
   [0.64, 0.46, 0.76, 0.58, [157, 115, 103]],
   [0.34, 0.76, 0.66, 0.92, [135, 104, 92]],    // 紙を持たず首の肌を拾った（実測値）
+]);
+/* ★逆向きの回帰ゲート。正しい白い紙でも、光によっては青寄りに写る。
+   2026-09-04 の実機2枚が RGB(209,219,227) / (211,222,226)＝青寄り度 +0.079 / +0.066 で、
+   一度これを「白い紙ではない」と誤って弾いてしまった（青寄り度の上限を 0.05 にしていたため）。
+   正しい紙を弾かないことを、誤爆を弾くことと同じ重みで守る。 */
+const PHOTO_BLUISH_PAPER = regionPng(600, 800, [190, 190, 195], [
+  [0.40, 0.06, 0.60, 0.16, [62, 46, 38]],
+  [0.24, 0.46, 0.36, 0.58, [233, 194, 168]],
+  [0.64, 0.46, 0.76, 0.58, [233, 194, 168]],
+  [0.34, 0.76, 0.66, 0.92, [209, 219, 227]],   // 青寄りだが正しい白い紙（9/4 実測値）
 ]);
 
 // 領域を塗り分けた映像を Y4M(I420) で作る。Chromium の
@@ -422,8 +434,8 @@ try {
   //       ここを通すと、歪んだモノサシで肌を測って a* が +10.5 も持ち上がり、
   //       「頬の位置で肌以外を測ってしまいました」という見当違いの理由で落ちる。
   for (const [name, buf, why] of [
-    ["shirt.png", PHOTO_SHIRT, "顎の影の白いTシャツ（肌より明るいので明るさでは弾けない）"],
-    ["neck.png", PHOTO_NECK, "紙を持たず首の肌を拾った（青くないので青寄り度では弾けない）"],
+    ["shirt.png", PHOTO_SHIRT, "顎の影の白いTシャツ（肌との比 1.31 では弾けず、白基準の暗さ wMax=171 で弾く）"],
+    ["neck.png", PHOTO_NECK, "紙を持たず首の肌を拾った（wMax=135・肌より暗い 比0.89）"],
   ]) {
     await page.getByRole("button", { name: /撮り直す/ }).click();
     await page.waitForSelector("#colorlab-root >> text=写真を選ぶ", { timeout: 10000 });
@@ -455,6 +467,26 @@ try {
   const detailHref = await page.locator("#colorlab-root a", { hasText: "あなたの詳しい診断結果ページへ" }).getAttribute("href");
   check("詳細リンクが RESULT_MAP のURL (" + detailHref + ")", detailHref === "https://www.iebel.jp/pages/diagnosis3");
   await shotEl("#colorlab-root", "11_photo_result_page.png");
+
+  // (a-3) 逆向きの回帰ゲート: 青寄りに写った「正しい白い紙」を誤って弾かないこと。
+  //       2026-09-04 の実機2枚（青寄り度 +0.079 / +0.066）を、一度この向きで弾いてしまった。
+  //       結果ページからは写真選択へ戻れないので、記事ページから入り直す。
+  await page.goto(ART, { waitUntil: "networkidle" });
+  await page.waitForSelector("#colorlab-root button", { timeout: 10000 });
+  await page.getByRole("button", { name: /顔写真で診断/ }).click();
+  await page.waitForSelector("#colorlab-root >> text=撮影条件（すべて必要です）", { timeout: 5000 });
+  const cbBl = page.locator("#colorlab-root input[type=checkbox]");
+  for (let i = 0; i < (await cbBl.count()); i++) await cbBl.nth(i).check();
+  await page.getByRole("button", { name: /^地毛に近い$/ }).click();
+  await page.getByRole("button", { name: /撮影にすすむ/ }).click();
+  await page.getByRole("button", { name: /カメラを起動する/ }).click();
+  await page.waitForSelector("#colorlab-root >> text=写真を選ぶ", { timeout: 10000 });
+  await page.waitForSelector("#colorlab-root input[type=file]", { state: "attached", timeout: 5000 });
+  await page.locator("#colorlab-root input[type=file]").setInputFiles({ name: "bluish.png", mimeType: "image/png", buffer: PHOTO_BLUISH_PAPER });
+  await page.waitForSelector("#colorlab-root >> text=タイプです！", { timeout: 15000 });
+  const bluishRes = await page.locator("#colorlab-root").innerText();
+  check("青寄りに写った正しい白い紙は弾かれない（白基準ゲートを締めすぎない）", !/白い紙が見つかりません/.test(bluishRes));
+  check("青寄りの白い紙でも判定結果まで到達する", /タイプです！/.test(bluishRes));
 
   // ── 6c. 撮影ガイド（全画面オーバーレイ + 丸型グラデ + 下部シャッター）: フェイクカメラで実描画 ──
   const camBrowser = await chromium.launch({
@@ -884,6 +916,29 @@ try {
       /顔の位置\s*—判定待ち/.test(t) && !/顔の位置\s*○ズレ/.test(t));
     await pg.screenshot({ path: join(SHOTS, "41_photo_live_shirt_as_paper.png") });
     log("  SS: 41_photo_live_shirt_as_paper.png");
+  } finally { await lb.close(); }
+
+  // (f) 青寄りに写った「正しい白い紙」は ✓検出 のままであること（2026-09-04 の実機2枚）
+  const bluishY4m = join(tmpdir(), "colorlab_live_bluish.y4m");
+  wfs(bluishY4m, y4mFromRegions(480, 640, [190, 190, 195], [
+    [0.40, 0.06, 0.60, 0.16, [62, 46, 38]],
+    [0.24, 0.46, 0.36, 0.58, [233, 194, 168]],
+    [0.64, 0.46, 0.76, 0.58, [233, 194, 168]],
+    [0.34, 0.76, 0.66, 0.92, [209, 219, 227]],   // 青寄りだが正しい白い紙（9/4 実測値）
+  ]));
+  lb = await liveBrowser(bluishY4m);
+  try {
+    const c = await lb.newContext({ viewport: { width: 375, height: 812 }, deviceScaleFactor: 2, permissions: ["camera"] });
+    const pg = await c.newPage();
+    pg.on("request", (r) => { if (/anthropic\.com/.test(r.url())) aiCalls.push(r.url()); });
+    await openPhotoGuide(pg);
+    const t = await pg.locator("body").innerText();
+    check("ライブ判定: 青寄りの正しい白い紙は ✓検出 のまま", /白い紙\s*✓検出/.test(t));
+    // 「白い紙✓検出」なのに「顔の位置 —判定待ち」という自己矛盾を出さない（2026-09-04 実機）
+    check("「白い紙 ✓検出」なら「顔の位置」は判定待ちにしない（表示の自己矛盾を防ぐ）",
+      !(/白い紙\s*✓検出/.test(t) && /顔の位置\s*—判定待ち/.test(t)));
+    await pg.screenshot({ path: join(SHOTS, "44_photo_live_bluish_paper_ok.png") });
+    log("  SS: 44_photo_live_bluish_paper_ok.png");
   } finally { await lb.close(); }
 
   // (d) 境界付近で揺れる映像でも、表示がチラつかないこと（v1.15.0 の平滑化＋ヒステリシス）
