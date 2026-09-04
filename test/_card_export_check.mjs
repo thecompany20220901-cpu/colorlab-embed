@@ -37,7 +37,7 @@ await page.evaluate(() => localStorage.setItem("colorlab-profile",
   JSON.stringify({ myType: "summer", mySecond: "winter", myFrame: null })));
 await page.reload();
 await page.waitForSelector("#colorlab-root button", { timeout: 15000 });
-await page.getByRole("button", { name: /30秒であなたの色がわかる/ }).first().click();
+await page.getByRole("button", { name: /あなたの個性色が分かる！/ }).first().click();
 await page.getByRole("button", { name: /^考えて選ぶ/ }).click();
 await page.getByRole("button", { name: /^聞き役になる/ }).click();
 await page.waitForTimeout(800);

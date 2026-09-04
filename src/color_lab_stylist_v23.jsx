@@ -3149,7 +3149,7 @@ export default function App() {
               {/* 入口B（v1.20.0）: タイル一覧の最上段。面の色は既存パステル5色の
                   TILE.stylist（淡いラベンダー）をそのまま使い、新しい配色は作らない。 */}
               <HomeTile wide t={TILE.stylist} icon={<Sparkles size={26} strokeWidth={1.4} />}
-                label="30秒であなたの色がわかる" sub="2〜3問で、あなたのパーソナルカラーカードを作ります"
+                label="あなたの個性色が分かる！" sub="2〜3問・30秒で、あなたのパーソナルカラーカードを作ります"
                 onClick={() => startCard("B")} />
               <div className="grid grid-cols-2 gap-2.5">
                 <HomeTile t={TILE.photo} icon={<Camera size={26} strokeWidth={1.4} />}
