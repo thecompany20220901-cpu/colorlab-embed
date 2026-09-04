@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from "react";
 import { createPortal } from "react-dom";
-import { Sparkles, ArrowRight, ArrowLeft, RotateCcw, Copy, Check, Camera, Heart, Palette, Shirt, Upload, ExternalLink, Brush, Scissors, Ban, Droplet, Paintbrush, ShoppingBag, Eraser, Star, ListChecks, PersonStanding } from "lucide-react";
+import { Sparkles, ArrowRight, ArrowLeft, RotateCcw, Copy, Check, Camera, Heart, Palette, Shirt, Upload, ExternalLink, Brush, Scissors, Ban, Droplet, Paintbrush, ShoppingBag, Eraser, Star, ListChecks, PersonStanding, Download } from "lucide-react";
+import { CARD_COPY, CARD_Q3, CARD_PERSONA, cardAvatarUrl, cardKey } from "./card_data.js";
 
 // ════════════════════════════════════════════
 // 設問イラスト / タイプ別イラスト（既存の顔イラスト素材の色差し替え）
@@ -49,6 +50,16 @@ const TYPE_FACE_IMG = { spring: FACE_SPRING, summer: FACE_SUMMER, autumn: FACE_A
 const UTM = "utm_source=colorlab&utm_medium=app&utm_campaign=ai_stylist";
 const ITEM_URL = (site, id) => `https://${site}.jp/items/${id}?${UTM}`;
 const SITE_URL = (site) => `https://${site}.jp?${UTM}`;
+
+// GA4（サイト側の GTM 経由）。dataLayer が無い環境・計測ブロック環境でも
+// アプリを落とさないため、push は必ず try-catch で包む。
+const ga4 = (event, params) => {
+  try {
+    if (typeof window === "undefined") return;
+    window.dataLayer = window.dataLayer || [];
+    window.dataLayer.push(Object.assign({ event: event }, params || {}));
+  } catch (e) { /* 計測失敗で機能を止めない */ }
+};
 
 // 診断結果の端末ごと保存（localStorage 版・旧 window.storage と同等インターフェイス）
 // キー名は据え置き（colorlab-profile）。try-catch でプライベートブラウズ等でも落とさない。
@@ -809,6 +820,28 @@ const sortTypes = (scores) =>
     .sort((a, b) => (b.score !== a.score ? b.score - a.score : a.type - b.type));
 
 // ════════════════════════════════════════════
+// パーソナルカラーカード（v1.20.0）
+// ════════════════════════════════════════════
+// 診断LP。カード内のURLとシェア画像には ?ref=colorcard を付けて GA4 で流入を切り分ける。
+const CARD_LP = { blubel: "https://blubel.jp/pages/personalcolor", iebel: "https://iebel.jp/pages/personalcolor" };
+const CARD_REF = "?ref=colorcard";
+const cardLpUrl = (site) => CARD_LP[site] + CARD_REF;
+// フッター帯の色だけサイトごとに出し分ける（面の色は既存アカウントのアクセントに準拠）。
+const CARD_FOOTER = { blubel: { bg: "#F5F2FA", ink: "#3a3340" }, iebel: { bg: "#FAF4EE", ink: "#3a3340" } };
+
+// Q3: 6ペアの回答から 1位/2位 を決める。
+// 加点式・重み一律+1・同点はタイプ番号昇順で、本番Q12(sortTypes)と完全に同じ規則。
+function scoreCardQ3(answers) {
+  const s = { 1: 0, 2: 0, 3: 0, 4: 0 };
+  CARD_Q3.forEach((pair, i) => {
+    const pick = answers[i];
+    if (pick !== "A" && pick !== "B") return;
+    (pick === "A" ? pair.A : pair.B).forEach((t) => { s[t] += 1; });
+  });
+  return s;
+}
+
+// ════════════════════════════════════════════
 // ペア相性
 // ════════════════════════════════════════════
 const PAIR = {
@@ -963,6 +996,62 @@ async function shareResultImage(RT, secondName, axes) {
   const a = document.createElement("a");
   a.href = URL.createObjectURL(blob); a.download = "my_personal_color.png"; a.click();
   URL.revokeObjectURL(a.href);
+}
+
+// パーソナルカラーカードを 1080x1920（ストーリー）で描く。
+// レイアウトの実測値は renderer/test_output/colorlab_card_test_20260904 で確定したもの:
+//   上部余白60 / 小見出し40px / アバター幅720 / 「あなたの色は」48px / 色名81px /
+//   称号64px / コピー1-2行 31px・3-4行 44px（行間1.4）/ 下部帯220px。ブロック間ギャップは0。
+async function buildCardImage(res) {
+  const W = 1080, H = 1920, PAD = 80;
+  const cv = document.createElement("canvas");
+  cv.width = W; cv.height = H;
+  const x = cv.getContext("2d");
+  x.fillStyle = "#ffffff"; x.fillRect(0, 0, W, H);
+  const T = TYPES[res.first];
+  const foot = CARD_FOOTER[T.site] || CARD_FOOTER.blubel;
+  const FAM = "'Noto Sans JP', 'Hiragino Sans', 'Yu Gothic', sans-serif";
+  const center = (text, size, weight, color, top, h) => {
+    x.font = weight + " " + size + "px " + FAM;
+    x.fillStyle = color; x.textAlign = "center"; x.textBaseline = "middle";
+    x.fillText(text, W / 2, top + h / 2);
+  };
+
+  center("あなたの個性にマッチする色は？", 40, "400", "#333333", 60, 56);
+
+  // アバター（jsDelivr）。CORS 許可付きで読めないと canvas が汚染されて保存できないため、
+  // crossOrigin を付けて読む。失敗しても文字だけのカードとして成立させる。
+  try {
+    const img = await new Promise((ok, ng) => {
+      const im = new Image();
+      im.crossOrigin = "anonymous";
+      im.onload = () => ok(im); im.onerror = ng;
+      im.src = cardAvatarUrl(T.key, res.persona.key);
+    });
+    x.drawImage(img, (W - 720) / 2, 116, 720, 1080);
+  } catch (e) { /* 画像が読めなくてもカードは出す */ }
+
+  center("あなたの色は", 48, "400", "#333333", 1196, 67.19);
+  center(res.copy.cn, 81, "700", T.accent, 1263.19, 89.09);
+  center(res.copy.t, 64, "400", "#333333", 1352.28, 89.59);
+  const sizes = [31, 31, 44, 44];
+  let cy = 1441.88;
+  res.copy.c.forEach((ln, i) => {
+    const lh = sizes[i] * 1.4;
+    center(ln, sizes[i], "400", "#444444", cy, lh);
+    cy += lh;
+  });
+
+  // 下部帯
+  x.fillStyle = foot.bg; x.fillRect(0, H - 220, W, 220);
+  x.textBaseline = "middle"; x.fillStyle = foot.ink;
+  x.font = "900 36px " + FAM; x.textAlign = "left";
+  x.fillText(T.siteName, PAD, H - 220 + 66);
+  x.font = "400 32px " + FAM; x.textAlign = "right";
+  x.fillText("#パーソナルカラーカード", W - PAD, H - 220 + 66);
+  x.textAlign = "center";
+  x.fillText("あなたの色は？ 無料・30秒 → " + CARD_LP[T.site].replace("https://", ""), W / 2, H - 220 + 150);
+  return cv;
 }
 
 // ════════════════════════════════════════════
@@ -2557,6 +2646,16 @@ export default function App() {
   const [stLoading, setStLoading] = useState(false);
   const [stError, setStError] = useState("");
 
+  // パーソナルカラーカード（v1.20.0）
+  const [cardEntry, setCardEntry] = useState(null);  // "A"=診断後 / "B"=いきなり
+  const [cardStep, setCardStep] = useState("q1");    // q1 | q2 | q3 | result
+  const [cardQ1, setCardQ1] = useState(null);        // intuition | deliberate
+  const [cardQ2, setCardQ2] = useState(null);        // action | receive
+  const [cardQ3i, setCardQ3i] = useState(0);
+  const [cardQ3, setCardQ3] = useState([]);
+  const [cardResult, setCardResult] = useState(null);
+  const [cardSaving, setCardSaving] = useState(false);
+
   // pair
   const [pA, setPA] = useState(null);
   const [pB, setPB] = useState(null);
@@ -2739,6 +2838,70 @@ export default function App() {
   const T = myType ? TYPES[myType] : null;
 
   const startQuiz = () => { setScores({ 1: 0, 2: 0, 3: 0, 4: 0 }); setQi(0); setTieMode(false); setQuizResult(null); setMode("quiz"); };
+
+  // ── パーソナルカラーカード ──
+  // 入口A(診断後)は色が確定しているので Q1・Q2 の2問だけ。
+  // 入口B(いきなり)は、端末に診断結果があれば入口Aと同じ2問に合流し、無ければ Q3 も聞く。
+  const startCard = (entry) => {
+    setCardEntry(entry); setCardQ1(null); setCardQ2(null);
+    setCardQ3([]); setCardQ3i(0); setCardResult(null);
+    setCardStep("q1"); setMode("card");
+  };
+
+  const finishCard = (q1, q2, q3answers) => {
+    let first = myType, second = mySecond;
+    if (!first || !second) {
+      const sorted = sortTypes(scoreCardQ3(q3answers));
+      first = NUM2KEY[sorted[0].type]; second = NUM2KEY[sorted[1].type];
+    }
+    const key = cardKey(TYPES[first].num, TYPES[second].num, q1, q2);
+    const persona = CARD_PERSONA[q1 + "_" + q2];
+    setCardResult({ first: first, second: second, q1: q1, q2: q2, key: key,
+                    persona: persona, copy: CARD_COPY[key] });
+    setCardStep("result");
+    ga4("personalcolor_card_generated", {
+      entry_point: cardEntry,
+      color_type: TYPES[first].num + "-" + TYPES[second].num,
+      personality_q1: q1,
+      personality_q2: q2,
+    });
+  };
+
+  const pickCardQ1 = (v) => { setCardQ1(v); setCardStep("q2"); };
+  const pickCardQ2 = (v) => {
+    setCardQ2(v);
+    // 端末に診断結果があれば Q3 は不要（入口Bでも2問で終わる）。
+    if (myType && mySecond) { finishCard(cardQ1, v, []); return; }
+    setCardQ3([]); setCardQ3i(0); setCardStep("q3");
+  };
+  const pickCardQ3 = (choice) => {
+    const next = cardQ3.slice(); next[cardQ3i] = choice;
+    setCardQ3(next);
+    if (cardQ3i + 1 < CARD_Q3.length) { setCardQ3i(cardQ3i + 1); return; }
+    finishCard(cardQ1, cardQ2, next);
+  };
+
+  const saveCardImage = async () => {
+    if (!cardResult || cardSaving) return;
+    setCardSaving(true);
+    try {
+      const cv = await buildCardImage(cardResult);
+      const blob = await new Promise((r) => cv.toBlob(r, "image/png"));
+      const file = new File([blob], "personal_color_card.png", { type: "image/png" });
+      ga4("card_saved", {
+        entry_point: cardEntry,
+        color_type: TYPES[cardResult.first].num + "-" + TYPES[cardResult.second].num,
+        personality_q1: cardResult.q1,
+        personality_q2: cardResult.q2,
+      });
+      if (navigator.canShare && navigator.canShare({ files: [file] })) {
+        try { await navigator.share({ files: [file], title: "パーソナルカラーカード" }); return; } catch (e) { /* キャンセル時は保存にフォールバック */ }
+      }
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob); a.download = "personal_color_card.png"; a.click();
+      URL.revokeObjectURL(a.href);
+    } finally { setCardSaving(false); }
+  };
   // 写真＋質問：まず写真から。写真が終わった時点で質問へ送る（runPhotoDiagnose 側）
   const startCombo = () => { setComboPhoto(null); setComboStage("photo"); openPhoto(); };
 
@@ -2983,6 +3146,11 @@ export default function App() {
                 並び: 写真 / 質問 → 写真＋質問 → コーデ提案 → 骨格診断。
                 面の色は指定値、アイコンは細い線、見出しはセリフ体。 */}
             <div className="space-y-2.5">
+              {/* 入口B（v1.20.0）: タイル一覧の最上段。面の色は既存パステル5色の
+                  TILE.stylist（淡いラベンダー）をそのまま使い、新しい配色は作らない。 */}
+              <HomeTile wide t={TILE.stylist} icon={<Sparkles size={26} strokeWidth={1.4} />}
+                label="30秒であなたの色がわかる" sub="2〜3問で、あなたのパーソナルカラーカードを作ります"
+                onClick={() => startCard("B")} />
               <div className="grid grid-cols-2 gap-2.5">
                 <HomeTile t={TILE.photo} icon={<Camera size={26} strokeWidth={1.4} />}
                   label="写真で診断" sub="12タイプ診断から「今日に着る？」まで"
@@ -3028,6 +3196,128 @@ export default function App() {
             </div>
           </div>
         )}
+
+        {/* ═══ CARD: パーソナルカラーカード（v1.20.0） ═══ */}
+        {mode === "card" && cardStep !== "result" && (() => {
+          // 入口A、または端末に診断結果がある入口Bは2問で終わる。それ以外はQ3(6ペア)を足す。
+          const total = (cardEntry === "A" || (myType && mySecond)) ? 2 : 2 + CARD_Q3.length;
+          const now = cardStep === "q1" ? 1 : cardStep === "q2" ? 2 : 3 + cardQ3i;
+          const Choice = ({ label, sub, chips, onClick }) => (
+            <button onClick={onClick} className="w-full rounded-2xl p-5 text-left mb-3 transition-shadow hover:shadow-md"
+              style={{ background: "#fdfcfd", border: "1px solid " + C.line }}>
+              <span className="block font-serif text-base" style={{ color: C.ink }}>{label}</span>
+              {sub && <span className="block text-xs mt-1" style={{ color: C.sub }}>{sub}</span>}
+              {chips && (
+                <span className="flex gap-2 mt-3">
+                  {chips.map((c, i) => <span key={i} className="flex-1 h-10 rounded-lg" style={{ background: c, border: "1px solid #00000012" }} />)}
+                </span>
+              )}
+            </button>
+          );
+          return (
+            <div className="fade-up">
+              <Header title="パーソナルカラーカード" onBack={goHome} />
+              <div className="px-6 pb-10">
+                <div className="text-xs mb-1" style={{ color: C.faint }}>{now} / {total}</div>
+                <div className="h-1 rounded-full mb-6" style={{ background: C.line }}>
+                  <div className="h-1 rounded-full" style={{ width: (now / total * 100) + "%", background: C.main }} />
+                </div>
+                {cardStep === "q1" && (
+                  <>
+                    <h2 className="font-serif text-lg leading-relaxed mb-5" style={{ color: C.ink }}>今日着る服、直感で選ぶ？ それとも考えて選ぶ？</h2>
+                    <Choice label="直感で選ぶ" sub="その日の気分でぱっと決めるほう" onClick={() => pickCardQ1("intuition")} />
+                    <Choice label="考えて選ぶ" sub="予定や相手を思い浮かべて決めるほう" onClick={() => pickCardQ1("deliberate")} />
+                  </>
+                )}
+                {cardStep === "q2" && (
+                  <>
+                    <h2 className="font-serif text-lg leading-relaxed mb-5" style={{ color: C.ink }}>初対面の人には、自分から話しかける？ 聞き役になる？</h2>
+                    <Choice label="自分から話しかける" sub="場をつくりにいくほう" onClick={() => pickCardQ2("action")} />
+                    <Choice label="聞き役になる" sub="相手の話を受けとめるほう" onClick={() => pickCardQ2("receive")} />
+                  </>
+                )}
+                {cardStep === "q3" && (() => {
+                  const pair = CARD_Q3[cardQ3i];
+                  return (
+                    <>
+                      <h2 className="font-serif text-lg leading-relaxed mb-5" style={{ color: C.ink }}>{pair.q}</h2>
+                      <Choice label={pair.a.label} chips={pair.a.colors} onClick={() => pickCardQ3("A")} />
+                      <Choice label={pair.b.label} chips={pair.b.colors} onClick={() => pickCardQ3("B")} />
+                      <p className="text-xs mt-4 leading-relaxed" style={{ color: C.faint }}>
+                        色の好みから、いちばん近いタイプを推定します。より正確に知りたい方は、あとで12タイプ診断へどうぞ。
+                      </p>
+                    </>
+                  );
+                })()}
+              </div>
+            </div>
+          );
+        })()}
+
+        {mode === "card" && cardStep === "result" && cardResult && (() => {
+          const T = TYPES[cardResult.first];
+          const foot = CARD_FOOTER[T.site] || CARD_FOOTER.blubel;
+          return (
+            <div className="fade-up">
+              <Header title="パーソナルカラーカード" onBack={goHome} />
+              <div className="px-6 pb-10">
+                {/* カード本体。保存画像(1080x1920)と同じ並び・同じ文言。 */}
+                <div className="rounded-2xl overflow-hidden" style={{ background: "#fff", border: "1px solid " + C.line }}>
+                  <div className="px-6 pt-6 text-center">
+                    <div className="text-sm" style={{ color: "#333" }}>あなたの個性にマッチする色は？</div>
+                    {/* 画像はCDN(自身と同じタグ)から遅延読み込み。読めない間もレイアウトが
+                        飛ばないよう 2:3 の枠を先に確保し、失敗したら黙って隠す。 */}
+                    <img src={cardAvatarUrl(T.key, cardResult.persona.key)} alt=""
+                      className="block mx-auto w-full" loading="lazy"
+                      style={{ maxWidth: 280, aspectRatio: "2 / 3", objectFit: "contain" }}
+                      onError={(e) => { e.currentTarget.style.visibility = "hidden"; }} />
+                    <div className="text-base" style={{ color: "#333" }}>あなたの色は</div>
+                    <div className="font-bold leading-tight" style={{ fontSize: 27, color: T.accent }}>{cardResult.copy.cn}</div>
+                    <div className="text-xl mb-2" style={{ color: "#333" }}>{cardResult.copy.t}</div>
+                    <div className="pb-6">
+                      {cardResult.copy.c.map((ln, i) => (
+                        <p key={i} className="leading-snug" style={{ color: "#444", fontSize: i < 2 ? 11 : 15 }}>{ln}</p>
+                      ))}
+                    </div>
+                  </div>
+                  <div className="px-5 py-4" style={{ background: foot.bg }}>
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-black tracking-wider" style={{ color: foot.ink }}>{T.siteName}</span>
+                      <span className="text-[10px]" style={{ color: foot.ink }}>#パーソナルカラーカード</span>
+                    </div>
+                    <div className="text-[10px] text-center mt-1.5" style={{ color: foot.ink }}>
+                      あなたの色は？ 無料・30秒 → {CARD_LP[T.site].replace("https://", "")}
+                    </div>
+                  </div>
+                </div>
+
+                <button onClick={saveCardImage} disabled={cardSaving}
+                  className="flex items-center justify-center gap-2 w-full text-center px-6 py-3.5 rounded-full text-white text-sm font-medium mt-5 mb-3 transition-transform hover:scale-105"
+                  style={{ background: T.accent, opacity: cardSaving ? 0.6 : 1 }}>
+                  <Download size={15} /> {cardSaving ? "画像を作成中…" : "カードを画像で保存・シェア"}
+                </button>
+
+                {/* 送客導線。?ref=colorcard を付けて GA4 で流入を切り分ける。 */}
+                <a href={cardLpUrl(T.site)} target="_blank" rel="noreferrer"
+                  onClick={() => ga4("card_to_diagnosis_click", {
+                    entry_point: cardEntry,
+                    color_type: TYPES[cardResult.first].num + "-" + TYPES[cardResult.second].num,
+                    personality_q1: cardResult.q1,
+                    personality_q2: cardResult.q2,
+                  })}
+                  className="flex items-center justify-center gap-1.5 w-full text-center px-6 py-3.5 rounded-full text-sm font-medium mb-3"
+                  style={{ border: "1px solid " + C.line, color: C.sub }}>
+                  もっと正確に診断する <ExternalLink size={14} />
+                </a>
+                <p className="text-xs leading-relaxed" style={{ color: C.faint }}>
+                  {myType && mySecond
+                    ? "この色は、あなたの12タイプ診断の結果（" + TYPES[cardResult.first].name + " → " + TYPES[cardResult.second].name + "）をそのまま使っています。"
+                    : "この色は、6問の色えらびから推定したものです。写真診断や12タイプ設問なら、もっと正確に分かります。"}
+                </p>
+              </div>
+            </div>
+          );
+        })()}
 
         {/* ═══ QUIZ（本番12タイプロジック） ═══ */}
         {mode === "quiz" && !quizResult && (
@@ -3170,6 +3460,10 @@ export default function App() {
                 <a href={SITE_URL(TYPES[quizResult.second].site)} target="_blank" rel="noreferrer" className="block text-center text-xs underline mt-1" style={{ color: TYPES[quizResult.second].accent }}>2nd {TYPES[quizResult.second].name}の冒険アイテムをもっと見る →</a>
               </div>
 
+              {/* 入口A（v1.20.0）: 色は確定済みなので、個性2問だけ聞いてカードにする。 */}
+              <button onClick={() => startCard("A")} className="flex items-center justify-center gap-2 w-full text-center px-6 py-3.5 rounded-full text-white text-sm font-medium mb-3 mt-2 transition-transform hover:scale-105" style={{ background: RT.accent }}>
+                <Sparkles size={15} /> あなたのパーソナルカラーカードを見る
+              </button>
               <button onClick={() => { if (!STYLIST_ENABLED) { setSoonOpen(true); return; } setStResult(null); setMode("stylist"); }} className="block w-full text-center px-6 py-3.5 rounded-full text-white text-sm font-medium mb-3 mt-2 transition-transform hover:scale-105" style={{ background: RT.accent }}>このタイプで「今日なに着る？」→</button>
               <button onClick={() => shareResultImage(RT, TYPES[quizResult.second].name, quizResult.axes)} className="flex items-center justify-center gap-2 w-full text-center px-6 py-3.5 rounded-full text-sm font-medium mb-3 transition-transform hover:scale-105" style={{ border: `2px solid ${RT.accent}`, color: RT.accent, background: RT.accent + "0a" }}>
                 <Sparkles size={15} /> 結果を画像で保存・シェア
