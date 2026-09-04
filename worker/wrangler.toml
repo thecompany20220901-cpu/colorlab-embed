@@ -6,7 +6,7 @@ compatibility_date = "2026-09-05"
 #   wrangler kv namespace create SELFCARD_KV
 [[kv_namespaces]]
 binding = "SELFCARD_KV"
-id = "REPLACE_WITH_KV_NAMESPACE_ID"
+id = "c199a47f84744c28b3902bfdaa523bfa"
 
 # OPENAI_API_KEY はここに書かない。必ず Secret で入れる:
 #   wrangler secret put OPENAI_API_KEY
