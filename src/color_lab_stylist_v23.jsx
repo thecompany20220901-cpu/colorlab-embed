@@ -2742,7 +2742,10 @@ export default function App() {
 
   // パーソナルカラーカード（v1.20.0）
   const [cardEntry, setCardEntry] = useState(null);  // "A"=診断後 / "B"=いきなり
-  const [cardStep, setCardStep] = useState("q1");    // q1 | q2 | q3 | result
+  const [cardStep, setCardStep] = useState("q1");    // choose | q1 | q2 | q3 | result | selfphoto
+  // アバターで見る / 自分の顔で作る（v1.20.4）。診断の前に選ばせ、結果が確定した
+  // あとの行き先（結果画面 or 撮影画面）に使う。
+  const [cardMedium, setCardMedium] = useState("avatar");   // avatar | self
   const [cardQ1, setCardQ1] = useState(null);        // intuition | deliberate
   const [cardQ2, setCardQ2] = useState(null);        // action | receive
   const [cardQ3i, setCardQ3i] = useState(0);
@@ -2947,7 +2950,9 @@ export default function App() {
     setCardEntry(entry); setCardQ1(null); setCardQ2(null);
     setCardQ3([]); setCardQ3i(0); setCardResult(null);
     setSelfImage(null); setSelfError(null);
-    setCardStep("q1"); setMode("card");
+    // 先に「どう見る？」を聞く。中継が止まっている間は選ばせても仕方ないので Q1 から始める。
+    setCardMedium("avatar");
+    setCardStep(SELFCARD_ENABLED ? "choose" : "q1"); setMode("card");
   };
 
   const finishCard = (q1, q2, q3answers) => {
@@ -2960,7 +2965,9 @@ export default function App() {
     const persona = CARD_PERSONA[q1 + "_" + q2];
     setCardResult({ first: first, second: second, q1: q1, q2: q2, key: key,
                     persona: persona, copy: CARD_COPY[key] });
-    setCardStep("result");
+    // 「自分の顔で作る」を選んでいたら、結果を見せる前にそのまま撮影画面へ送る。
+    // 枠が終了しているときは撮っても作れないので、素直に結果画面を出す。
+    setCardStep(cardMedium === "self" && SELFCARD_ENABLED && !selfSoldOut ? "selfphoto" : "result");
     ga4("personalcolor_card_generated", {
       entry_point: cardEntry,
       color_type: TYPES[first].num + "-" + TYPES[second].num,
@@ -2969,6 +2976,7 @@ export default function App() {
     });
   };
 
+  const pickCardMedium = (v) => { setCardMedium(v); setCardStep("q1"); };
   const pickCardQ1 = (v) => { setCardQ1(v); setCardStep("q2"); };
   const pickCardQ2 = (v) => {
     setCardQ2(v);
@@ -3397,7 +3405,41 @@ export default function App() {
           );
         })()}
 
-        {mode === "card" && cardStep !== "result" && cardStep !== "selfphoto" && (() => {
+        {/* 診断の前に「どう見る？」を聞く（v1.20.4）。ここでの選択が、結果確定後に
+            そのまま撮影画面へ送るかどうかの分かれ道になる。 */}
+        {mode === "card" && cardStep === "choose" && (
+          <div className="fade-up">
+            <Header title="パーソナルカラーカード" onBack={goHome} />
+            <div className="px-6 pb-10">
+              <h2 className="font-serif text-lg leading-relaxed mb-5" style={{ color: C.ink }}>あなたの結果をどう見る？</h2>
+              <button onClick={() => pickCardMedium("avatar")}
+                className="w-full rounded-2xl p-5 text-left mb-3 transition-shadow hover:shadow-md"
+                style={{ background: "#fdfcfd", border: "1px solid " + C.line }}>
+                <span className="flex items-center gap-2 font-serif text-base" style={{ color: C.ink }}>
+                  <Sparkles size={16} /> アバターで見る
+                </span>
+                <span className="block text-xs mt-1" style={{ color: C.sub }}>無料・すぐに完成</span>
+              </button>
+              <button onClick={() => { if (!selfSoldOut) pickCardMedium("self"); }} disabled={selfSoldOut}
+                className="w-full rounded-2xl p-5 text-left mb-3 transition-shadow hover:shadow-md"
+                style={selfSoldOut
+                  ? { background: "#f7f6f8", border: "1px solid " + C.line, cursor: "not-allowed" }
+                  : { background: "#fdfcfd", border: "1px solid " + C.line }}>
+                <span className="flex items-center gap-2 font-serif text-base" style={{ color: selfSoldOut ? "#a49daa" : C.ink }}>
+                  <Camera size={16} /> 自分の顔で作る
+                </span>
+                <span className="block text-xs mt-1" style={{ color: selfSoldOut ? "#a49daa" : C.sub }}>
+                  {selfSoldOut ? "本日の生成枠は終了しました" : "写真から本人風イラストを生成"}
+                </span>
+              </button>
+              <p className="text-xs leading-relaxed mt-4" style={{ color: C.faint }}>
+                どちらを選んでも、あとから結果画面で切り替えられます。
+              </p>
+            </div>
+          </div>
+        )}
+
+        {mode === "card" && cardStep !== "choose" && cardStep !== "result" && cardStep !== "selfphoto" && (() => {
           // 入口A、または端末に診断結果がある入口Bは2問で終わる。それ以外はQ3(6ペア)を足す。
           const total = (cardEntry === "A" || (myType && mySecond)) ? 2 : 2 + CARD_Q3.length;
           const now = cardStep === "q1" ? 1 : cardStep === "q2" ? 2 : 3 + cardQ3i;
@@ -3503,7 +3545,7 @@ export default function App() {
                       style={selfSoldOut
                         ? { background: "#efedf0", color: "#a49daa", cursor: "not-allowed" }
                         : { border: "2px solid " + T.accent, color: T.accent, background: T.accent + "0a" }}>
-                      <Camera size={15} /> {selfImage ? "別の写真で作り直す" : "自分の顔で作る"}
+                      <Camera size={15} /> {(selfImage || cardMedium === "self") ? "別の写真で作り直す" : "自分の顔で作る"}
                     </button>
                     {selfSoldOut && (
                       <p className="text-xs mb-2" style={{ color: C.sub }}>

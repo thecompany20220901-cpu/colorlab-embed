@@ -36,6 +36,17 @@ const tile = page.getByRole("button", { name: /あなたの個性色が分かる
 check(await tile.count() > 0, "入口Bタイルがホーム最上段にある");
 await tile.first().click();
 
+// ── 診断前の「どう見る？」選択画面(v1.20.4) ──
+check(await page.getByText("あなたの結果をどう見る？").count() > 0, "診断の前に選択画面が出る");
+check(await page.getByRole("button", { name: /アバターで見る/ }).count() > 0, "「アバターで見る」がある");
+check(await page.getByRole("button", { name: /自分の顔で作る/ }).count() > 0, "「自分の顔で作る」がある");
+check((await page.textContent("#colorlab-root")).includes("無料・すぐに完成"), "アバター側の説明文が指示書どおり");
+check((await page.textContent("#colorlab-root")).includes("写真から本人風イラストを生成"), "自分の顔側の説明文が指示書どおり");
+check(!(await page.textContent("#colorlab-root")).includes("今日着る服"), "選択画面ではまだQ1を出さない");
+await page.waitForTimeout(600);   // fade-up が終わってから撮る
+await page.screenshot({ path: resolve(HERE, "_card_choose.png"), fullPage: true });
+await page.getByRole("button", { name: /アバターで見る/ }).first().click();
+
 check(await page.getByText("今日着る服、直感で選ぶ").count() > 0, "Q1が指示書どおりの文言");
 check((await page.textContent("#colorlab-root")).includes("1 / 8"), "入口B(未診断)は全8問と表示される");
 await page.getByRole("button", { name: /^直感で選ぶ/ }).click();
@@ -84,6 +95,7 @@ await page.evaluate(() => localStorage.setItem("colorlab-profile", JSON.stringif
 await page.reload();
 await page.waitForSelector("#colorlab-root button", { timeout: 15000 });
 await page.getByRole("button", { name: /あなたの個性色が分かる！/ }).first().click();
+await page.getByRole("button", { name: /アバターで見る/ }).first().click();
 check((await page.textContent("#colorlab-root")).includes("1 / 2"), "診断済みなら全2問になる");
 await page.getByRole("button", { name: /^考えて選ぶ/ }).click();
 await page.getByRole("button", { name: /^聞き役になる/ }).click();
@@ -110,6 +122,45 @@ const base = await page.evaluate(() => document.querySelectorAll("#colorlab-root
 check(base >= 0, "アバターimgのエラーで画面が壊れない");
 
 await page.screenshot({ path: resolve(HERE, "_card_entryA.png"), fullPage: true });
+
+// ── 「自分の顔で作る」を選んだルート(v1.20.4) ──
+// 診断済み(2問)で入り、結果確定後にそのまま撮影画面へ落ちることを見る。
+await page.reload();
+await page.waitForSelector("#colorlab-root button", { timeout: 15000 });
+await page.getByRole("button", { name: /あなたの個性色が分かる！/ }).first().click();
+await page.getByRole("button", { name: /自分の顔で作る/ }).first().click();
+check((await page.textContent("#colorlab-root")).includes("1 / 2"), "自分の顔を選んでもQ1から始まる");
+await page.getByRole("button", { name: /^考えて選ぶ/ }).click();
+await page.getByRole("button", { name: /^聞き役になる/ }).click();
+await page.waitForTimeout(400);
+body = await page.textContent("#colorlab-root");
+check(await page.getByRole("button", { name: /写真を選ぶ/ }).count() > 0, "結果確定後、そのまま撮影画面へ自動遷移する");
+check(!body.includes("カードを画像で保存"), "撮影画面では結果画面を先に見せない");
+dl = await page.evaluate(() => window.dataLayer.slice());
+const gen3 = dl.filter((d) => d.event === "personalcolor_card_generated").pop();
+check(gen3 && gen3.color_type === "2-4", "撮影画面へ送っても結果自体は確定している");
+await page.waitForTimeout(600);
+await page.screenshot({ path: resolve(HERE, "_card_selfphoto.png"), fullPage: true });
+
+// 撮影画面から戻ると結果画面。ボタンは「別の写真で作り直す」になっている。
+await page.locator("#colorlab-root button").first().click();
+await page.waitForTimeout(300);
+body = await page.textContent("#colorlab-root");
+check(body.includes("透明感の知性派"), "戻ると結果画面が出る");
+check(body.includes("別の写真で作り直す"), "自分の顔を選んだ時は「別の写真で作り直す」表記");
+check(!body.includes("自分の顔で作る"), "同時に「自分の顔で作る」表記は出さない");
+
+// アバターを選んだ時は従来どおり「自分の顔で作る」ボタンが残る（後から切り替えられる）。
+await page.reload();
+await page.waitForSelector("#colorlab-root button", { timeout: 15000 });
+await page.getByRole("button", { name: /あなたの個性色が分かる！/ }).first().click();
+await page.getByRole("button", { name: /アバターで見る/ }).first().click();
+await page.getByRole("button", { name: /^考えて選ぶ/ }).click();
+await page.getByRole("button", { name: /^聞き役になる/ }).click();
+await page.waitForTimeout(400);
+body = await page.textContent("#colorlab-root");
+check(body.includes("自分の顔で作る") && !body.includes("別の写真で作り直す"),
+      "アバターを選んだ時は結果画面に「自分の顔で作る」が残る");
 
 // ── 既存機能が壊れていないこと ──
 await page.evaluate(() => history.replaceState({}, "", location.href));

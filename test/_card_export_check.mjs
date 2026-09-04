@@ -38,6 +38,7 @@ await page.evaluate(() => localStorage.setItem("colorlab-profile",
 await page.reload();
 await page.waitForSelector("#colorlab-root button", { timeout: 15000 });
 await page.getByRole("button", { name: /あなたの個性色が分かる！/ }).first().click();
+await page.getByRole("button", { name: /アバターで見る/ }).first().click();   // v1.20.4: 診断前の選択
 await page.getByRole("button", { name: /^考えて選ぶ/ }).click();
 await page.getByRole("button", { name: /^聞き役になる/ }).click();
 await page.waitForTimeout(800);

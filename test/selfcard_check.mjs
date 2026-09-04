@@ -87,6 +87,9 @@ const openCard = async () => {
   await page.reload();
   await page.waitForSelector("#colorlab-root button", { timeout: 15000 });
   await page.getByRole("button", { name: /あなたの個性色が分かる！/ }).first().click();
+  // v1.20.4: 診断の前に「どう見る？」を挟む。ここは結果画面から写真を選ぶ経路の確認なので
+  // アバター側を選び、従来どおり結果画面に着地させる。
+  await page.getByRole("button", { name: /アバターで見る/ }).first().click();
   await page.getByRole("button", { name: /^考えて選ぶ/ }).click();
   await page.getByRole("button", { name: /^聞き役になる/ }).click();
   await page.waitForTimeout(500);
