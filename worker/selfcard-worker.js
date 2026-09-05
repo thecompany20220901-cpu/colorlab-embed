@@ -65,6 +65,30 @@ export const LEGACY_SECOND = {
   winter: { en: "bordeaux red", hex: "#9E1F33" },
 };
 
+// 2色が近いと、色鉛筆調の彩度落ち（実測 ΔE 15〜20）のほうが色見本どうしの距離より
+// 大きくなり、2色目が主色に溶ける。実測した色見本間の距離:
+//   ピーチ x キャメル 22.1 / ピーチ x ローズ 24.2 ← この2組だけが 30 を切る
+//   テラコッタ x ローズ 35.9 / ピーチ x マゼンタ 47.5 / ... / ネイビー x イエロー 106.6
+// 近い組でだけ「実際の色見本より濃く・彩度を上げて描け」と足す。表を持たず毎回測るのは、
+// 色見本を差し替えたときに閾値の外れた組を書き換え忘れないため。
+const CLOSE_PAIR_DELTA_E = 30;
+
+function labOf(hex) {
+  const v = parseInt(hex.slice(1), 16);
+  const f = (u) => { u /= 255; return u <= 0.04045 ? u / 12.92 : Math.pow((u + 0.055) / 1.055, 2.4); };
+  const R = f((v >> 16) & 255), G = f((v >> 8) & 255), B = f(v & 255);
+  const X = (R * 0.4124 + G * 0.3576 + B * 0.1805) / 0.95047;
+  const Y = (R * 0.2126 + G * 0.7152 + B * 0.0722);
+  const Z = (R * 0.0193 + G * 0.1192 + B * 0.9505) / 1.08883;
+  const k = (t) => (t > 0.008856 ? Math.cbrt(t) : 7.787 * t + 16 / 116);
+  const fx = k(X), fy = k(Y), fz = k(Z);
+  return [116 * fy - 16, 500 * (fx - fy), 200 * (fy - fz)];
+}
+export function deltaE(hexA, hexB) {
+  const a = labOf(hexA), b = labOf(hexB);
+  return Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2]);
+}
+
 // 名前付き export は test/selfcard_prompt_check.mjs から色表とプロンプトを実測するため。
 // Workers は default export の fetch しか見ないので、増やしても実行時の挙動は変わらない。
 //
@@ -75,6 +99,13 @@ export const buildPrompt = (first, second) => {
   const dom = FIRST_COLOR[first] || FIRST_COLOR.summer;
   const acc = (second && second !== first && SECOND_COLOR[second])
     || LEGACY_SECOND[first] || LEGACY_SECOND.summer;
+  // 近い組だけ、2色目を色見本より一段濃く振らせる。生成は必ず淡いほうへ寄るので、
+  // 色見本ちょうどを狙わせると主色に溶ける（2026-09-05 ピーチxローズで実測）。
+  const close = deltaE(dom.hex, acc.hex) < CLOSE_PAIR_DELTA_E
+    ? "These two colors are close in hue, so push them apart: render the " + acc.en +
+      " one or two shades deeper and more saturated than " + acc.hex + ", clearly darker " +
+      "than the " + dom.en + ", never a paler tint of it. "
+    : "";
   return (
     "Editorial magazine-style illustrated portrait based on the reference photo. " +
     "Loose black ink linework with soft colored pencil shading. Keep the face and " +
@@ -86,6 +117,7 @@ export const buildPrompt = (first, second) => {
     " collar, cuffs and button placket on that same garment, about one quarter of the " +
     "clothing area, large enough to be obvious in a small thumbnail. The " + acc.en +
     " must read as " + acc.en + " at a glance, not as a shadow or a tint of the " + dom.en + ". " +
+    close +
     "Keep the second color on the garment's own parts and on the background strokes; " +
     "add no accessories that are not in the photo. " +
     "White background with loose brush strokes, mostly " + dom.en + " plus at least two " +

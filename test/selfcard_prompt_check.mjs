@@ -7,7 +7,7 @@
 // プロンプトは bordeaux red で、絵に camel が出ないのは当然だった。
 //
 // 実行: node test/selfcard_prompt_check.mjs
-import { buildPrompt, FIRST_COLOR, SECOND_COLOR, LEGACY_SECOND } from "../worker/selfcard-worker.js";
+import { buildPrompt, deltaE, FIRST_COLOR, SECOND_COLOR, LEGACY_SECOND } from "../worker/selfcard-worker.js";
 import { CARD_COPY } from "../src/card_data.js";
 
 const NUM2KEY = { 1: "spring", 2: "summer", 3: "autumn", 4: "winter" };
@@ -82,6 +82,31 @@ ok(p.includes("Loose black ink linework with soft colored pencil shading."), "�
 ok(p.includes("Keep the face and hairstyle accurately recognizable as the same person."),
    "本人性の指定が従来どおり");
 ok(p.endsWith("No text."), "末尾の No text. が残っている");
+
+
+// -- 5. 近い2色ペアにだけ「濃く・彩度を上げろ」の一文が付くか
+// 全12ペアの実測 ΔE で線を引く。付く/付かないを表で持たず毎回測るのは、
+// 色見本を差し替えたときに書き換え忘れないため。
+console.log("\n[5] 近い2色ペアにだけ押し離しの一文が付くか");
+const NUM = { spring: 1, summer: 2, autumn: 3, winter: 4 };
+const closeSeen = [];
+for (const f of Object.keys(FIRST_COLOR)) {
+  for (const sd of Object.keys(SECOND_COLOR)) {
+    if (f === sd) continue;
+    const d = deltaE(FIRST_COLOR[f].hex, SECOND_COLOR[sd].hex);
+    const has = buildPrompt(f, sd).includes("close in hue");
+    const want = d < 30;
+    if (want) closeSeen.push(`${f}/${sd} ΔE${d.toFixed(1)}`);
+    ok(has === want,
+      `${NUM[f]}-${NUM[sd]} ${FIRST_COLOR[f].en} x ${SECOND_COLOR[sd].en} ΔE ${d.toFixed(1)} -> ` +
+      `一文 ${has ? "あり" : "なし"} (期待 ${want ? "あり" : "なし"})`);
+  }
+}
+ok(closeSeen.length === 2, `近いペアは2組だけ (実測 ${closeSeen.length}組: ${closeSeen.join(", ")})`);
+ok(buildPrompt("spring", "summer").includes("deeper and more saturated than #D4708E"),
+   "ピーチxローズは色見本の hex より濃く振れと書いてある");
+ok(!buildPrompt("winter", "autumn").includes("close in hue"),
+   "ネイビーxキャメル (ΔE 66.0) には付かない");
 
 console.log(`\n=== ${n - ng}/${n} 合格 ===`);
 if (ng) { console.log("実測プロンプト(winter/autumn):\n" + p); process.exit(1); }
