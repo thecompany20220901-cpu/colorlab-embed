@@ -89,6 +89,25 @@ export function deltaE(hexA, hexB) {
   return Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2]);
 }
 
+// 1色目から2色目へ「どちらの向きに振ればよいか」を Lab の差から言葉にする。
+//
+// 2026-09-05 実測: ピーチ x ローズで「濃く・彩度を上げろ」とだけ書いたら、
+// 生成物は L* が下がり a* が上がっただけで b* が 21 のまま残り、ローズ (b* 1.6)
+// ではなくレンガ色に振れた。色見本への ΔE は 18.6 -> 21.1 とむしろ悪化している。
+// 外していたのは明度でも彩度でもなく色相なので、軸ごとに向きを言葉で渡す。
+function pushDirection(fromHex, toHex) {
+  const a = labOf(fromHex), b = labOf(toHex);
+  const dL = b[0] - a[0], da = b[1] - a[1], db = b[2] - a[2];
+  const w = [];
+  if (dL <= -5) w.push("clearly darker");
+  else if (dL >= 5) w.push("clearly lighter");
+  if (da >= 5) w.push("redder");
+  else if (da <= -5) w.push("less red");
+  if (db <= -5) w.push("much cooler and far less orange or yellow");
+  else if (db >= 5) w.push("warmer and more golden");
+  return w;
+}
+
 // 名前付き export は test/selfcard_prompt_check.mjs から色表とプロンプトを実測するため。
 // Workers は default export の fetch しか見ないので、増やしても実行時の挙動は変わらない。
 //
@@ -101,10 +120,13 @@ export const buildPrompt = (first, second) => {
     || LEGACY_SECOND[first] || LEGACY_SECOND.summer;
   // 近い組だけ、2色目を色見本より一段濃く振らせる。生成は必ず淡いほうへ寄るので、
   // 色見本ちょうどを狙わせると主色に溶ける（2026-09-05 ピーチxローズで実測）。
+  const dir = pushDirection(dom.hex, acc.hex);
   const close = deltaE(dom.hex, acc.hex) < CLOSE_PAIR_DELTA_E
-    ? "These two colors are close in hue, so push them apart: render the " + acc.en +
-      " one or two shades deeper and more saturated than " + acc.hex + ", clearly darker " +
-      "than the " + dom.en + ", never a paler tint of it. "
+    ? "These two colors are close, so push them apart along the right axis: next to the " +
+      dom.en + ", the " + acc.en + " must be " + dir.join(", ") + ". " +
+      "Making it darker or more saturated is not enough on its own: get the hue of " +
+      acc.hex + " right first, then the depth. Never let it read as a tint of the " +
+      dom.en + ". "
     : "";
   return (
     "Editorial magazine-style illustrated portrait based on the reference photo. " +

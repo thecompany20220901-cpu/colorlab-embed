@@ -94,7 +94,7 @@ for (const f of Object.keys(FIRST_COLOR)) {
   for (const sd of Object.keys(SECOND_COLOR)) {
     if (f === sd) continue;
     const d = deltaE(FIRST_COLOR[f].hex, SECOND_COLOR[sd].hex);
-    const has = buildPrompt(f, sd).includes("close in hue");
+    const has = buildPrompt(f, sd).includes("push them apart along the right axis");
     const want = d < 30;
     if (want) closeSeen.push(`${f}/${sd} ΔE${d.toFixed(1)}`);
     ok(has === want,
@@ -103,9 +103,13 @@ for (const f of Object.keys(FIRST_COLOR)) {
   }
 }
 ok(closeSeen.length === 2, `近いペアは2組だけ (実測 ${closeSeen.length}組: ${closeSeen.join(", ")})`);
-ok(buildPrompt("spring", "summer").includes("deeper and more saturated than #D4708E"),
-   "ピーチxローズは色見本の hex より濃く振れと書いてある");
-ok(!buildPrompt("winter", "autumn").includes("close in hue"),
+ok(buildPrompt("spring", "summer").includes("much cooler and far less orange or yellow"),
+   "ピーチxローズは「暗く・赤く・オレンジみを大きく落とせ」と軸ごとに書いてある");
+ok(buildPrompt("spring", "autumn").includes("warmer and more golden"),
+   "ピーチxキャメルは逆向き（暖かく・黄みを足せ）に書いてある");
+ok(!buildPrompt("spring", "autumn").includes("cooler"),
+   "キャメル側にローズ用の「冷たく」が混ざっていない");
+ok(!buildPrompt("winter", "autumn").includes("push them apart along the right axis"),
    "ネイビーxキャメル (ΔE 66.0) には付かない");
 
 console.log(`\n=== ${n - ng}/${n} 合格 ===`);
