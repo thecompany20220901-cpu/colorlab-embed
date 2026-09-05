@@ -1088,6 +1088,14 @@ async function shareResultImage(RT, secondName, axes) {
 //   上部余白60 / 小見出し40px / アバター幅720 / 「あなたの色は」48px / 色名81px /
 //   称号64px / コピー1-2行 31px・3-4行 44px（行間1.4）/ 下部帯220px。ブロック間ギャップは0。
 // selfImage を渡すと、事前生成アバターの代わりにそれを描く。
+// カードの監修表記。英字の BLUBEL/IEBEL は自社EC、カナのブルベ/イエベが研究所アカウント。
+// 出所は TYPES[].site と TYPES[].sns だけで、名前もIDも新しくは作らない。
+const LAB_CREDIT = { blubel: "ブルベ研究所監修", iebel: "イエベ研究所監修" };
+export function labCredit(typeKey) {
+  const T = TYPES[typeKey];
+  return (LAB_CREDIT[T.site] || LAB_CREDIT.blubel) + "  " + T.sns;
+}
+
 async function buildCardImage(res, selfImage) {
   const W = 1080, H = 1920, PAD = 80;
   const cv = document.createElement("canvas");
@@ -1104,7 +1112,7 @@ async function buildCardImage(res, selfImage) {
   };
 
   // 縦は順に積む。座標を直書きすると、行を足したときに下部帯へ当たる。
-  const AV_W = 680;                       // アバター幅。行が増えたぶん 720 から詰めた
+  const AV_W = 660;                       // アバター幅。行が増えるたび詰めている (720 -> 680 -> 660)
   const AV_H = Math.round(AV_W * 1.5);    // 素材は 2:3
   let y = 60;
   const stack = (text, size, weight, color, h) => { center(text, size, weight, color, y, h); y += h; };
@@ -1135,6 +1143,10 @@ async function buildCardImage(res, selfImage) {
     const lh = sizes[i] * 1.4;
     stack(ln, sizes[i], "400", "#444444", lh);
   });
+
+  // 研究所の監修表記。下部帯は H-220 から下に描くので、ここまでの y が
+  // そこへ食い込まないことを test/card_footer_check.mjs で実測する。
+  stack(labCredit(res.first), 30, "500", "#8a8291", 46);
 
   // 下部帯
   x.fillStyle = foot.bg; x.fillRect(0, H - 220, W, 220);

@@ -385,8 +385,8 @@ colorlab は設置先ごとに参照タグが違うので、**サイト別に書
 
 | アプリ / 設置先 | 参照タグ | 設置方式 | jsDelivr |
 |---|---|---|---|
-| colorlab / **IEBEL** | `@v1.20.3` | GTM（GTM-WVFLHTNW） | `https://cdn.jsdelivr.net/gh/thecompany20220901-cpu/colorlab-embed@v1.20.3/dist/colorlab.iife.js` |
-| colorlab / **BLUBEL** | `@v1.20.3` | 本文HTML（GTM招待待ち） | `https://cdn.jsdelivr.net/gh/thecompany20220901-cpu/colorlab-embed@v1.20.3/dist/colorlab.iife.js` |
+| colorlab / **IEBEL** | `@v1.20.4` | GTM（GTM-WVFLHTNW） | `https://cdn.jsdelivr.net/gh/thecompany20220901-cpu/colorlab-embed@v1.20.4/dist/colorlab.iife.js` |
+| colorlab / **BLUBEL** | `@v1.20.4` | 本文HTML（GTM招待待ち） | `https://cdn.jsdelivr.net/gh/thecompany20220901-cpu/colorlab-embed@v1.20.4/dist/colorlab.iife.js` |
 | ngpolice | `@v1.3.0` | 本文HTML | `https://cdn.jsdelivr.net/gh/thecompany20220901-cpu/colorlab-embed@v1.3.0/dist/ngpolice.iife.js` |
 | mens | `@v1.6.1` | 本文HTML | `https://cdn.jsdelivr.net/gh/thecompany20220901-cpu/colorlab-embed@v1.6.1/dist/mens.iife.js` |
 
@@ -398,9 +398,26 @@ colorlab は設置先ごとに参照タグが違うので、**サイト別に書
   した瞬間に本番へ出る。バンドル（`dist/colorlab.iife.js`）は1バイトも変わらないので、
   **プロンプトを直してもタグは上げない**（上げても中身が同じで、切替の判断を誤らせる）。
   デプロイ済みの Worker バージョン: `b2ff9dd7-0362-4758-8361-59e573af38dd`（2色配色の修正込み）。
-- **v1.20.4 はタグ発行済み・本番切替待ち**（2026-09-05）。カードの 1st/2nd 表示と、
-  診断前の「アバターで見る / 自分の顔で作る」選択を追加した。両サイトとも `@v1.20.3` → `@v1.20.4`
+- **v1.20.4 は両サイトとも本番切替済み**（2026-09-05 実測。BLUBEL＝ページ本文HTML を直接取得、
+  IEBEL＝GTM コンテナ `gtm.js?id=GTM-WVFLHTNW` を取得して確認。どちらも `@v1.20.4`）。
+  カードの 1st/2nd 表示と、診断前の「アバターで見る / 自分の顔で作る」選択が入っている。
+- **v1.20.5 の内容**（2026-09-05）:
+  - **「自分の顔で作る」結果画面のおすすめ商品**。カードと保存ボタンの下に、閲覧中サイトの
+    在庫から6点を横スクロールで出す。データ源は既存のみ（タイプ→サイト `TYPES[].site`、
+    在庫 `SKUS[site]`、画像 `SKU_IMG[site][id]`、リンク `ITEM_URL()`）。保存・SNS用の
+    1080x1920 PNG には入らない（PNG は canvas 描画で、この DOM とは無関係）。
+    検証は `test/card_sku_check.mjs`。
+  - **保存カードの研究所監修表記**。本文の最後に「ブルベ研究所監修 @blube_lab」
+    （IEBEL 判定なら「イエベ研究所監修 @iebe_lab」）を1行積む。座標直書きではなく
+    `stack()` で積み、下部帯 (`y=1700`) との干渉を `test/card_footer_check.mjs` で
+    毎回ピクセル実測する（2026-09-05 実測: 最下端 y=1649・すき間 51px）。
+    アバター幅は行が増えたぶん 680 → 660 に詰めた。
+
+- **v1.20.5 はタグ発行済み・本番切替待ち**（2026-09-05）。「自分の顔で作る」結果画面の
+  おすすめ商品欄と、保存カードの研究所監修表記を追加した。両サイトとも `@v1.20.4` → `@v1.20.5`
   に書き換えれば反映される（BLUBEL＝本文HTML の1行、IEBEL＝GTM のカスタムHTMLタグの1行）。
+  生成プロンプトの2色配色の修正も同日に入れているが、そちらは Worker 側なのでタグとは無関係で、
+  すでに本番へ出ている。
 - **v1.20.5 の内容（タグ未発行）**: **「自分の顔で作る」の結果画面に、おすすめ商品を追加**（2026-09-05）。
   カード本体の**下**に置く**画面表示だけ**の領域で、保存・SNSシェア用の 1080x1920 PNG には入らない
   （PNG は `buildCardImage()` が canvas に描いており、この DOM とは無関係。実測でも 1080x1920 のまま）。

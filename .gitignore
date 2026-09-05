@@ -17,6 +17,8 @@ test/_season_avatar.png
 test/_selfcard.png
 test/_selfcard_live.png
 test/_live_colors_*.png
+test/_live_colors_backup/
+test/_card_footer_*.png
 test/_selfcard_dist/
 
 # wrangler のローカル作業ディレクトリ
