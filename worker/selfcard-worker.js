@@ -30,24 +30,66 @@ const SIZE = "1024x1536";
 const QUALITY = "medium";
 const MAX_PHOTO_BYTES = 8 * 1024 * 1024;
 
-// カード側のプロンプト。事前生成16種と画風を揃えるため文面を共通にしてある。
-// ドミナント色だけ1位シーズンで差し替える。眼鏡には触れない（写真に無いものを描き足させない）。
-const DOMINANT = {
-  spring: "peach pink", summer: "lavender", autumn: "terracotta orange", winter: "navy blue",
+// カード側のプロンプト。事前生成16種と画風を揃えるため画風の文面は共通にしてある。
+//
+// 色は「カードに実際に出る2色配色」と必ず一致させる。出所は src/card_data.js の
+// CARD_COPY[].cn / .ch（例 4-3 = "ネイビー×キャメル." / ["#1E2A44","#B5734A"]）。
+// 12ペアぶんの表は要らない。1色目は1位シーズン、2色目は2位シーズンだけで決まるため。
+//
+//   1位: 春=ピーチ #EE8B7E / 夏=ラベンダー #C9B8D8 / 秋=テラコッタ #A65A3A / 冬=ネイビー #1E2A44
+//   2位: 春=イエロー #F6D65B / 夏=ローズ #D4708E / 秋=キャメル #B5734A / 冬=マゼンタ #C2408B
+//
+// 2026-09-05: それ以前は 2色目を 1位シーズンだけで決め打ちしていた（冬なら常に
+// bordeaux red 等）。カードが「ネイビー×キャメル」でも生成側へは camel が一度も
+// 渡っておらず、2色目が絵に出ないのは当然だった。ここが本体の原因。
+export const FIRST_COLOR = {
+  spring: { en: "peach",      hex: "#EE8B7E" },
+  summer: { en: "lavender",   hex: "#C9B8D8" },
+  autumn: { en: "terracotta", hex: "#A65A3A" },
+  winter: { en: "navy",       hex: "#1E2A44" },
 };
-const ACCENT = {
-  spring: "light green", summer: "charcoal gray", autumn: "olive green", winter: "bordeaux red",
+export const SECOND_COLOR = {
+  spring: { en: "warm yellow", hex: "#F6D65B" },
+  summer: { en: "rose pink",   hex: "#D4708E" },
+  autumn: { en: "camel",       hex: "#B5734A" },
+  winter: { en: "magenta",     hex: "#C2408B" },
 };
 
-const buildPrompt = (first) => {
-  const dom = DOMINANT[first] || DOMINANT.summer;
-  const acc = ACCENT[first] || ACCENT.summer;
+// second が届かない旧バンドル向けの保険。v1.20.3 以降のクライアントは必ず送るので
+// 通常は使われないが、キャッシュに残った版を 400 で落とさないために残す。
+// 値は 2026-09-05 以前の実挙動そのまま（＝振る舞いを変えない）。
+export const LEGACY_SECOND = {
+  spring: { en: "light green",  hex: "#8FCB9B" },
+  summer: { en: "charcoal gray", hex: "#93A5B8" },
+  autumn: { en: "olive green",  hex: "#7B8B45" },
+  winter: { en: "bordeaux red", hex: "#9E1F33" },
+};
+
+// 名前付き export は test/selfcard_prompt_check.mjs から色表とプロンプトを実測するため。
+// Workers は default export の fetch しか見ないので、増やしても実行時の挙動は変わらない。
+//
+// 2色目の置き場所は「服そのものの部位」と「背景のストローク」に限る。
+// 眼鏡・帽子・アクセサリーは写真に無いものを描き足させないため使わない
+// （CC指示では小物案も挙がっていたが、既存の設計方針を優先した）。
+export const buildPrompt = (first, second) => {
+  const dom = FIRST_COLOR[first] || FIRST_COLOR.summer;
+  const acc = (second && second !== first && SECOND_COLOR[second])
+    || LEGACY_SECOND[first] || LEGACY_SECOND.summer;
   return (
     "Editorial magazine-style illustrated portrait based on the reference photo. " +
     "Loose black ink linework with soft colored pencil shading. Keep the face and " +
-    "hairstyle accurately recognizable as the same person. Dominant " + dom +
-    " color wash on clothing, " + acc + " accent, white background with loose " + dom +
-    " brush strokes. Upper body, confident calm expression. No text."
+    "hairstyle accurately recognizable as the same person. Upper body, confident calm expression. " +
+    "Two-color outfit. Both colors must be clearly visible; do not drop either one. " +
+    "MAIN COLOR is " + dom.en + " (" + dom.hex + "): the body of the garment, about " +
+    "three quarters of the clothing area. " +
+    "SECOND COLOR is " + acc.en + " (" + acc.hex + "): solid " + acc.en +
+    " collar, cuffs and button placket on that same garment, about one quarter of the " +
+    "clothing area, large enough to be obvious in a small thumbnail. The " + acc.en +
+    " must read as " + acc.en + " at a glance, not as a shadow or a tint of the " + dom.en + ". " +
+    "Keep the second color on the garment's own parts and on the background strokes; " +
+    "add no accessories that are not in the photo. " +
+    "White background with loose brush strokes, mostly " + dom.en + " plus at least two " +
+    acc.en + " strokes. No text."
   );
 };
 
@@ -126,13 +168,15 @@ export default {
 
     const photo = form.get("photo");
     const first = String(form.get("first") || "summer");
+    // 2色目。カードの配色は 1位x2位 で決まるので、これが無いと絵に2色目が出ない。
+    const second = String(form.get("second") || "");
     if (!photo || typeof photo.arrayBuffer !== "function") {
       return json({ ok: false, reason: "no_photo" }, 400, origin);
     }
     if (photo.size > MAX_PHOTO_BYTES) {
       return json({ ok: false, reason: "photo_too_large" }, 413, origin);
     }
-    if (!DOMINANT[first]) {
+    if (!FIRST_COLOR[first]) {
       return json({ ok: false, reason: "bad_type" }, 400, origin);
     }
 
@@ -150,7 +194,7 @@ export default {
 
     const upstream = new FormData();
     upstream.append("model", MODEL);
-    upstream.append("prompt", buildPrompt(first));
+    upstream.append("prompt", buildPrompt(first, second));
     upstream.append("size", SIZE);
     upstream.append("quality", QUALITY);
     upstream.append("n", "1");

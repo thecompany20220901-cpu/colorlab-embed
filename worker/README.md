@@ -40,15 +40,25 @@ curl -i -X POST https://colorlab-selfcard.<account>.workers.dev/illustrate \
 
 # 許可オリジンなら 200 で画像が返ること
 curl -s -X POST https://colorlab-selfcard.<account>.workers.dev/illustrate \
-  -H "Origin: https://blubel.jp" -F "photo=@test.jpg" -F "first=summer" \
+  -H "Origin: https://blubel.jp" -F "photo=@test.jpg" -F "first=summer" -F "second=winter" \
   | head -c 200
+```
+
+```bash
+# 生成プロンプトの実測（OpenAI は叩かない・課金ゼロ）
+node test/selfcard_prompt_check.mjs
+
+# 検出器の自己検証 → 生成PNGに2色目が写っているかの実測
+node test/selfcard_color_detect.mjs --self-test
+node test/selfcard_color_detect.mjs --first=winter --second=autumn <生成PNG...>
 ```
 
 ## 仕様
 
 | 項目 | 内容 |
 |---|---|
-| 受け付け | `POST` / `multipart/form-data`（`photo`, `first`） |
+| 受け付け | `POST` / `multipart/form-data`（`photo`, `first`, `second`） |
+| 配色 | カードの2色配色と一致させる。1色目=1位シーズン、2色目=**2位シーズン**（`second`） |
 | 許可オリジン | blubel.jp / iebel.jp（www 有無の4つ）。それ以外は 403 |
 | 生成 | `images.edit` / `gpt-image-1.5` / medium / 1024x1536 |
 | 日次上限 | **50回/日**、JST 0:00 リセット。超過は 429 + `reason: "daily_limit"` |
@@ -63,3 +73,39 @@ curl -s -X POST https://colorlab-selfcard.<account>.workers.dev/illustrate \
 - 生成に失敗した回も枠を1消費する。上限の意味（課金の上限）を守るための割り切り。
 - サイズは 1024x1536 固定。1024x1024 なら出力画像トークンが 1584 → 1056 に減るが、
   事前生成16種アバターと画角が揃わなくなるため採用していない（2026-09-05 実測・判断）。
+
+## 2色配色（2026-09-05 修正）
+
+カードには「ネイビー×キャメル」のような**2色**が出る。出所は `src/card_data.js` の
+`CARD_COPY[].cn` / `.ch` で、**1色目は1位シーズン・2色目は2位シーズン**で決まる。
+
+| | 春 | 夏 | 秋 | 冬 |
+|---|---|---|---|---|
+| 1位のとき（主色） | ピーチ `#EE8B7E` | ラベンダー `#C9B8D8` | テラコッタ `#A65A3A` | ネイビー `#1E2A44` |
+| 2位のとき（2色目） | イエロー `#F6D65B` | ローズ `#D4708E` | キャメル `#B5734A` | マゼンタ `#C2408B` |
+
+### 何が壊れていたか
+
+修正前の Worker は `second` を **一度も読んでいなかった**。2色目は1位シーズンだけで
+決め打ち（冬なら常に bordeaux red）だったので、カードが「ネイビー×キャメル」でも
+OpenAI へ camel という語は一度も渡っていない。絵に2色目が出ないのは当然だった。
+クライアントは v1.20.3 の初版から `second` を送っていたので、**直すのは Worker だけ**。
+
+副次的に、旧プロンプトの2色目は `"<色> accent"` という語だけで、役割も置き場所も
+面積も指定していなかった。画像モデルは2色指定のうち弱いほうを落としやすいので、
+新プロンプトでは以下を明示する。
+
+- `MAIN COLOR is <1色目> (<hex>)` … 服の身頃・約3/4
+- `SECOND COLOR is <2色目> (<hex>)` … **襟・袖口・前立て**をベタで・約1/4・サムネでも分かる大きさ
+- 「主色の陰影やティントで済ませるな」
+- 背景ストロークにも2色目を最低2本
+
+2色目の置き場所は**服そのものの部位と背景だけ**に限っている。CC指示では眼鏡フレームや
+アクセサリーへの配色案も挙がっていたが、「写真に無いものを描き足させない」という
+既存の設計方針（16種アバターと同じ）を優先した。
+
+### 互換
+
+`second` が届かない場合（キャッシュに残った旧バンドル）は、2026-09-05 以前と
+まったく同じ色（light green / charcoal gray / olive green / bordeaux red）に
+フォールバックする。400 では落とさない。
