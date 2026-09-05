@@ -51,6 +51,26 @@ const UTM = "utm_source=colorlab&utm_medium=app&utm_campaign=ai_stylist";
 const ITEM_URL = (site, id) => `https://${site}.jp/items/${id}?${UTM}`;
 const SITE_URL = (site) => `https://${site}.jp?${UTM}`;
 
+// ── 閲覧中のサイト（blubel.jp / iebel.jp）──
+// 同じ colorlab.iife.js を両サイトの共通ヘッダーに置いているので、どちらで見られているかは
+// ホスト名でしか分からない。おすすめ商品は「閲覧中サイト自身の商品」だけを出すため、
+// ここで判定した結果を使う（他サイトの商品を混ぜない）。
+// 判定できない場所（検証用のローカルHTML・プレビュー等）では null を返し、
+// 呼び出し側がタイプ既定のサイト（TYPES[].site）にフォールバックする＝従来どおりの挙動。
+// 上書き用の window.COLORLAB_SITE / #colorlab-root[data-site] は検証（両サイトの出し分け確認）用。
+function embedSite() {
+  try {
+    if (typeof window === "undefined") return null;
+    const root = document.getElementById("colorlab-root");
+    const forced = window.COLORLAB_SITE || (root && root.getAttribute("data-site"));
+    if (forced === "blubel" || forced === "iebel") return forced;
+    const h = (location.hostname || "").toLowerCase();
+    if (h.includes("iebel")) return "iebel";
+    if (h.includes("blubel")) return "blubel";
+    return null;
+  } catch (e) { return null; }
+}
+
 // GA4（サイト側の GTM 経由）。dataLayer が無い環境・計測ブロック環境でも
 // アプリを落とさないため、push は必ず try-catch で包む。
 const ga4 = (event, params) => {
@@ -2330,6 +2350,75 @@ function SkuCard({ sku, site, accent }) {
 }
 
 // ════════════════════════════════════════════
+// パーソナルカラーカードの結果画面に出すおすすめ商品（v1.20.5・画面表示のみ）
+// ────────────────────────────────────────────
+// データ源は既存のものだけを使い、新しいマッピングは作らない:
+//   ・タイプ → サイト … TYPES[key].site（イエベ春/秋=IEBEL・ブルベ夏/冬=BLUBEL）
+//   ・サイト → 在庫商品 … SKUS[site]（「在庫あり・直近2ヶ月売れ筋」の実データ。
+//                          在庫切れはそもそもこの配列に入っていない＝既存の在庫ロジックに準拠）
+//   ・商品画像 … SKU_IMG[site][id]（商品マスタ item_{site}.csv の images1・25SKU全件）
+//   ・商品リンク … ITEM_URL(site, id)（UTM 付き）
+// 並べ方も新規ではなく「ふたりの相性配色」の Your Pair Coordinate と同じ
+// 「トップス → ワンピース/ボトムス/セットアップ → 小物」のカテゴリ散らしをそのまま使う。
+// ════════════════════════════════════════════
+// 表示件数（4〜6点）。カテゴリを散らして最大この数まで出す。
+const CARD_SKU_LIMIT = 6;
+// アバターのカードにも同じ商品欄を出すかどうか。アバター側には元から商品連携が無いため、
+// まずは「自分の顔で作る」ルートだけで出す（true にすれば両方に出る）。
+const CARD_SKU_ON_AVATAR = false;
+const CARD_SKU_GROUPS = [
+  [["トップス"], 2],
+  [["ワンピース", "ボトムス", "セットアップ"], 2],
+  [["アクセサリー", "バッグ"], 2],
+];
+
+// 在庫(SKUS[site])から最大 limit 点。カテゴリを散らし、足りなければ残りから補う。
+// 同じサイトなら必ず同じ並びになる（決定論）。
+function pickCardSkus(site, limit) {
+  const list = SKUS[site] || [];
+  const picked = [];
+  CARD_SKU_GROUPS.forEach(([cats, n]) => {
+    list.filter((s) => cats.includes(s.cat) && !picked.includes(s))
+      .slice(0, n).forEach((s) => picked.push(s));
+  });
+  for (const s of list) { if (picked.length >= limit) break; if (!picked.includes(s)) picked.push(s); }
+  return picked.slice(0, limit);
+}
+
+// 横スクロールの商品ストリップ。商品画像・商品名・価格・商品ページへのリンクを出す。
+// カード本体(1080x1920のPNG)とは無関係で、画面にしか出ない。
+function SkuStrip({ skus, site, accent, onPick }) {
+  if (!skus.length) return null;
+  return (
+    <div className="flex gap-3 overflow-x-auto pb-2 -mx-6 px-6"
+      style={{ scrollSnapType: "x mandatory", WebkitOverflowScrolling: "touch" }}>
+      {skus.map((sku) => {
+        const img = (SKU_IMG[site] || {})[String(sku.id)];
+        return (
+          <a key={sku.id} href={ITEM_URL(site, sku.id)} target="_blank" rel="noreferrer"
+            onClick={() => onPick && onPick(sku)}
+            className="rounded-2xl overflow-hidden transition-shadow hover:shadow-md"
+            style={{ width: 132, flex: "none", border: "1px solid " + C.line, background: "#fff", scrollSnapAlign: "start" }}>
+            {/* 画像が読めなくてもレイアウトが崩れないよう、先に 3:4 の枠を確保する */}
+            <div style={{ width: "100%", aspectRatio: "3 / 4", background: "#f4f0f4" }}>
+              {img && <img src={img} alt="" loading="lazy"
+                style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
+                onError={(e) => { e.currentTarget.style.visibility = "hidden"; }} />}
+            </div>
+            <div className="px-2 pt-1.5 pb-2">
+              <div className="text-[9px]" style={{ color: C.faint }}>{sku.cat}</div>
+              <div className="text-[11px] leading-tight mt-0.5" style={{ color: C.ink,
+                display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>{sku.name}</div>
+              <div className="text-xs font-medium mt-1" style={{ color: accent }}>¥{sku.price.toLocaleString()}</div>
+            </div>
+          </a>
+        );
+      })}
+    </div>
+  );
+}
+
+// ════════════════════════════════════════════
 // 結果画面：タイプ別イラスト・専門表記・勝ち色の体系化（対象2）
 // ────────────────────────────────────────────
 // 表記はプロ資料「120 personal color LIST」の分類語に合わせる。
@@ -3569,6 +3658,51 @@ export default function App() {
                   style={{ background: T.accent, opacity: cardSaving ? 0.6 : 1 }}>
                   <Download size={15} /> {cardSaving ? "画像を作成中…" : "カードを画像で保存・シェア"}
                 </button>
+
+                {/* ── おすすめ商品（v1.20.5）──
+                    カード本体の「下」に置く、画面表示だけの領域。保存・SNSシェア用の
+                    1080x1920 PNG は buildCardImage() が canvas に描いており、この DOM とは
+                    無関係なので、ここに何を足してもカード画像には入らない。
+                    出すのは「自分の顔で作る」を通った結果画面だけ（CARD_SKU_ON_AVATAR で
+                    アバター側にも出せる）。商品は閲覧中サイト自身のものだけを出す。 */}
+                {(CARD_SKU_ON_AVATAR || cardMedium === "self" || selfImage) && (() => {
+                  const site = embedSite() || T.site;
+                  const skus = pickCardSkus(site, CARD_SKU_LIMIT);
+                  if (!skus.length) return null;
+                  const siteName = site === "iebel" ? "IEBEL" : "BLUBEL";
+                  // 閲覧中サイトがそのタイプの担当サイト（イエベ=IEBEL / ブルベ=BLUBEL）と
+                  // 違うことはある（例: iebel.jp でブルベ夏が出る）。その場合まで
+                  // 「このタイプに似合う」と言い切ると事実と合わないので、文言を分ける。
+                  const onOwnSite = site === T.site;
+                  return (
+                    <div className="mt-6 mb-4 pt-5" style={{ borderTop: "1px dashed " + C.line }}>
+                      <div className="text-xs tracking-widest uppercase mb-1" style={{ color: T.accent }}>Recommended Items</div>
+                      <h4 className="font-serif text-lg leading-snug mb-1" style={{ color: C.ink }}>
+                        {onOwnSite ? T.name + "のあなたに似合うアイテム" : siteName + "のおすすめアイテム"}
+                      </h4>
+                      <p className="text-xs leading-relaxed mb-3" style={{ color: C.sub }}>
+                        {onOwnSite
+                          ? LAB(site) + "（" + siteName + "）の在庫から、" + T.name + "の勝ち色と相性のいいものを選びました。"
+                          : "いま見ている" + siteName + "の在庫から選びました。" + T.name + "の勝ち色に合わせたアイテムは "
+                            + LAB(T.site) + "（" + T.siteName + "）にそろっています。"}
+                      </p>
+                      <SkuStrip skus={skus} site={site} accent={T.accent}
+                        onPick={(sku) => ga4("card_sku_click", {
+                          entry_point: cardEntry,
+                          card_medium: selfImage ? "self" : cardMedium,
+                          color_type: TYPES[cardResult.first].num + "-" + TYPES[cardResult.second].num,
+                          site: site,
+                          sku_id: sku.id,
+                        })} />
+                      <a href={SITE_URL(site)} target="_blank" rel="noreferrer"
+                        className="block w-full text-center px-6 py-3 rounded-full text-white text-sm font-medium mt-3 transition-transform hover:scale-105"
+                        style={{ background: T.accent }}>{siteName}の服をもっと見る →</a>
+                      <p className="mt-3 text-center text-[10px] leading-relaxed" style={{ color: "#b3aab2" }}>
+                        ※この商品一覧は画面表示のみです。保存・シェアされる画像には入りません。
+                      </p>
+                    </div>
+                  );
+                })()}
 
                 {/* 送客導線。?ref=colorcard を付けて GA4 で流入を切り分ける。 */}
                 <a href={cardLpUrl(T.site)} target="_blank" rel="noreferrer"
