@@ -2,26 +2,40 @@
 //
 // 使い方:
 //   node test/selfcard_color_detect.mjs --self-test
-//     → 合成画像（既知の 75/25 配分）で検出器そのものを検証する。画像は要らない。
+//     → 合成画像（既知の配分）で検出器そのものを検証する。画像は要らない。
 //   node test/selfcard_color_detect.mjs --first=winter --second=autumn a.png b.png
-//     → 実際の生成PNGを測る。ΔE(CIE76) が近い画素を数え、2色目の面積比で判定する。
+//     → 実際の生成PNGを測る。
 //
-// 判定: 白背景を除いた画素のうち、2色目が SECOND_MIN_PCT 以上あれば「視認できる」。
-// 画像デコードは playwright の chromium（既に devDependency）で行う。新規依存なし。
+// 2つの指標を出す。片方だけでは誤判定するため、両方を見る。
+//
+//   [絶対] 各画素を Lab で色見本に最近傍マッチさせた面積比。
+//          色見本どおりの色が出ているかは分かるが、**2色が近いペアでは効かない**。
+//          実測 ΔE: ピーチ×キャメル 22.1 / ピーチ×ローズ 24.2 と、
+//          色鉛筆調の彩度落ちより小さい。取り違えが起きる。
+//   [相対] Lab 上で「1色目→2色目」を結ぶ線に各画素を射影した位置 t。
+//          t>=0.35 の画素を「2色目側に寄っている」と数える。
+//          色見本ぴったりでなくても、1色目から2色目の方向へ振れていれば拾える。
+//
+// 合格は「どちらかが基準を満たす」。近いペアで [絶対] が効かないことへの手当てで、
+// しきい値を緩めたのではない。判定の根拠になった指標を必ず表示する。
 import { chromium } from "playwright";
 import { readFileSync, existsSync } from "fs";
-import { fileURLToPath } from "url";
+import { fileURLToPath, pathToFileURL } from "url";
 import { dirname, resolve, basename } from "path";
-import { pathToFileURL } from "url";
 import { FIRST_COLOR, SECOND_COLOR } from "../worker/selfcard-worker.js";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(HERE, "..");
 
-const DELTA_E_MAX = 28;      // これ以下なら「その色に見える」とみなす
-const WHITE_L_MIN = 92;      // L* がこれ以上かつ彩度が低い画素は白背景として除外
+const DELTA_E_MAX = 28;      // [絶対] これ以下なら「その色見本に見える」
+const WHITE_L_MIN = 92;      // L* がこれ以上かつ低彩度の画素は白背景として除外
 const WHITE_C_MAX = 8;
-const SECOND_MIN_PCT = 3.0;  // 2色目がこの割合以上なら合格
+const LINE_PERP_MAX = 22;    // [相対] 1色目-2色目の線からこれ以上離れた色（髪・黒線）は無関係
+const LINE_T_MIN = -0.3;     // [相対] 線上とみなす t の範囲
+const LINE_T_MAX = 1.3;
+const LEAN_T = 0.35;         // [相対] これ以上なら2色目側
+const ABS_MIN_PCT = 3.0;     // [絶対] 合格ライン
+const LEAN_MIN_PCT = 6.0;    // [相対] 合格ライン
 
 // ---- sRGB -> Lab -------------------------------------------------------
 function hex2rgb(h) {
@@ -39,37 +53,62 @@ function rgb2lab(r, g, b) {
   return [116 * fy - 16, 500 * (fx - fy), 200 * (fy - fz)];
 }
 const dE = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2]);
+export const pairDeltaE = (t1, t2) => dE(rgb2lab(...hex2rgb(t1.hex)), rgb2lab(...hex2rgb(t2.hex)));
 
 // ---- 画素を数える ------------------------------------------------------
-// pixels は RGBA の Uint8 配列。step で間引いて数える（1024x1536 全画素は不要）。
+// pixels は RGBA の Uint8 配列。step で間引く（1024x1536 の全画素は要らない）。
 export function measure(pixels, targets, step = 2) {
-  const lab = targets.map((t) => rgb2lab(...hex2rgb(t.hex)));
-  const hit = targets.map(() => 0);
-  let total = 0, ink = 0;
+  const L1 = rgb2lab(...hex2rgb(targets[0].hex));
+  const L2 = rgb2lab(...hex2rgb(targets[1].hex));
+  const d = [L2[0] - L1[0], L2[1] - L1[1], L2[2] - L1[2]];
+  const dd = d[0] * d[0] + d[1] * d[1] + d[2] * d[2];
+
+  const hit = [0, 0];
+  let total = 0, ink = 0, onLine = 0, lean = 0;
   for (let i = 0; i < pixels.length; i += 4 * step) {
-    if (pixels[i + 3] < 128) continue;             // 透明は数えない
+    if (pixels[i + 3] < 128) continue;                              // 透明
     total++;
-    const px = rgb2lab(pixels[i], pixels[i + 1], pixels[i + 2]);
-    const chroma = Math.hypot(px[1], px[2]);
-    if (px[0] >= WHITE_L_MIN && chroma <= WHITE_C_MAX) continue;  // 白背景
+    const p = rgb2lab(pixels[i], pixels[i + 1], pixels[i + 2]);
+    if (p[0] >= WHITE_L_MIN && Math.hypot(p[1], p[2]) <= WHITE_C_MAX) continue;  // 白背景
     ink++;
-    let best = -1, bestD = DELTA_E_MAX;
-    for (let t = 0; t < lab.length; t++) {
-      const d = dE(px, lab[t]);
-      if (d < bestD) { bestD = d; best = t; }
+
+    // [絶対] 色見本への最近傍
+    const d1 = dE(p, L1), d2 = dE(p, L2);
+    if (Math.min(d1, d2) <= DELTA_E_MAX) hit[d1 <= d2 ? 0 : 1]++;
+
+    // [相対] 1色目→2色目の線への射影
+    const v = [p[0] - L1[0], p[1] - L1[1], p[2] - L1[2]];
+    const t = (v[0] * d[0] + v[1] * d[1] + v[2] * d[2]) / dd;
+    const perp = Math.hypot(v[0] - t * d[0], v[1] - t * d[1], v[2] - t * d[2]);
+    if (perp <= LINE_PERP_MAX && t >= LINE_T_MIN && t <= LINE_T_MAX) {
+      onLine++;
+      if (t >= LEAN_T) lean++;
     }
-    if (best >= 0) hit[best]++;
   }
   return {
-    total, ink,
-    pct: hit.map((h) => (ink ? (h * 100) / ink : 0)),   // 白背景を除いた比
-    pctAll: hit.map((h) => (total ? (h * 100) / total : 0)),
+    total, ink, onLine,
+    pct: hit.map((h) => (ink ? (h * 100) / ink : 0)),          // [絶対] 白背景を除いた比
+    leanPct: onLine ? (lean * 100) / onLine : 0,               // [相対] 線上画素のうち2色目側
+    deltaE: dE(L1, L2),
   };
 }
 
+export function verdict(m) {
+  const byAbs = m.pct[1] >= ABS_MIN_PCT;
+  const byLean = m.leanPct >= LEAN_MIN_PCT;
+  return { pass: byAbs || byLean, byAbs, byLean };
+}
+
+export function line(m) {
+  const v = verdict(m);
+  return `[絶対] 1色目 ${m.pct[0].toFixed(1)}% / 2色目 ${m.pct[1].toFixed(1)}%` +
+    `  [相対] 2色目側 ${m.leanPct.toFixed(1)}%` +
+    `  (色見本間 ΔE ${m.deltaE.toFixed(1)}${m.deltaE < 30 ? " ←近い。絶対は当てにならない" : ""})` +
+    `  根拠: ${v.byAbs && v.byLean ? "両方" : v.byAbs ? "絶対" : v.byLean ? "相対のみ" : "なし"}`;
+}
+
 // ---- PNG を RGBA に開く（chromium の canvas を使う）--------------------
-async function decode(page, file) {
-  const b64 = readFileSync(file).toString("base64");
+export async function decodeB64(page, b64) {
   return await page.evaluate(async (d) => {
     const img = new Image();
     await new Promise((ok, ng) => { img.onload = ok; img.onerror = ng; img.src = "data:image/png;base64," + d; });
@@ -83,11 +122,13 @@ async function decode(page, file) {
 
 // ---- 検出器そのものの自己検証 ------------------------------------------
 // 「合格」を返すだけの形骸ゲートにしないため、既知の配分を作って測り直す。
+// 2色目ゼロの面は必ず不合格になること（＝落とすべきものを落とせること）まで見る。
 function selfTest() {
   const cases = [
     { first: "winter", second: "autumn", ratio: 0.25, label: "ネイビー75% / キャメル25%" },
-    { first: "spring", second: "summer", ratio: 0.25, label: "ピーチ75% / ローズ25%" },
+    { first: "spring", second: "summer", ratio: 0.25, label: "ピーチ75% / ローズ25%（近いペア）" },
     { first: "winter", second: "autumn", ratio: 0.00, label: "ネイビーのみ（2色目なし＝不合格になるべき）" },
+    { first: "spring", second: "summer", ratio: 0.00, label: "ピーチのみ（2色目なし＝不合格になるべき）" },
     { first: "summer", second: "spring", ratio: 0.10, label: "ラベンダー90% / イエロー10%" },
   ];
   let ng = 0;
@@ -102,15 +143,14 @@ function selfTest() {
       if (y >= H / 2) col = (x < W * c.ratio) ? b : a;
       px[i] = col[0]; px[i + 1] = col[1]; px[i + 2] = col[2]; px[i + 3] = 255;
     }
-    const r = measure(px, [FIRST_COLOR[c.first], SECOND_COLOR[c.second]], 1);
+    const m = measure(px, [FIRST_COLOR[c.first], SECOND_COLOR[c.second]], 1);
+    const v = verdict(m);
     const want2 = c.ratio * 100;
-    const near = Math.abs(r.pct[1] - want2) <= 3;
-    const verdict = r.pct[1] >= SECOND_MIN_PCT;
     const shouldPass = c.ratio > 0;
-    const good = near && verdict === shouldPass;
+    // 面積比が期待どおりで、かつ合否が期待どおりであること
+    const good = Math.abs(m.pct[1] - want2) <= 3 && Math.abs(m.leanPct - want2) <= 3 && v.pass === shouldPass;
     if (!good) ng++;
-    console.log(`  ${good ? "ok" : "NG"}  ${c.label}: 1色目 ${r.pct[0].toFixed(1)}% / 2色目 ${r.pct[1].toFixed(1)}% ` +
-                `(期待 ${want2.toFixed(0)}% ±3 / 判定 ${verdict ? "視認できる" : "視認できない"})`);
+    console.log(`  ${good ? "ok" : "NG"}  ${c.label}\n        ${line(m)}  期待 ${want2.toFixed(0)}% / ${shouldPass ? "合格" : "不合格"}`);
   }
   return ng;
 }
@@ -153,13 +193,11 @@ if (import.meta.url === pathToFileURL(process.argv[1] || "").href) {
   for (const f of files) {
     const p = resolve(ROOT, f);
     if (!existsSync(p)) { console.log(`  NG  ${f}: ファイルが無い`); ng++; continue; }
-    const img = await decode(page, p);
-    const r = measure(Uint8Array.from(img.px), targets, 2);
-    const pass = r.pct[1] >= SECOND_MIN_PCT;
-    if (!pass) ng++;
-    console.log(`  ${pass ? "ok" : "NG"}  ${basename(f)} (${img.w}x${img.h})  ` +
-      `1色目 ${r.pct[0].toFixed(1)}% / 2色目 ${r.pct[1].toFixed(1)}%  ` +
-      `[白背景を除く画素 ${r.ink}]  しきい値 2色目>=${SECOND_MIN_PCT}%`);
+    const img = await decodeB64(page, readFileSync(p).toString("base64"));
+    const m = measure(Uint8Array.from(img.px), targets, 2);
+    const v = verdict(m);
+    if (!v.pass) ng++;
+    console.log(`  ${v.pass ? "ok" : "NG"}  ${basename(f)} (${img.w}x${img.h})\n        ${line(m)}`);
   }
   await browser.close();
   console.log(`\n=== ${files.length - ng}/${files.length} 合格 ===`);

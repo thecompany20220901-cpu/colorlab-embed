@@ -13,12 +13,11 @@ import { fileURLToPath } from "url";
 import { dirname, resolve } from "path";
 import { chromium } from "playwright";
 import { buildPrompt, FIRST_COLOR, SECOND_COLOR } from "../worker/selfcard-worker.js";
-import { measure } from "./selfcard_color_detect.mjs";
+import { measure, verdict, line, decodeB64 } from "./selfcard_color_detect.mjs";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const ENDPOINT = "https://colorlab-selfcard.the-company-20220901.workers.dev/illustrate";
 const ORIGIN = "https://blubel.jp";
-const SECOND_MIN_PCT = 3.0;
 
 const argv = process.argv.slice(2);
 const photo = argv[0];
@@ -55,22 +54,17 @@ for (const [first, second] of pairs) {
   const out = resolve(HERE, `_live_colors_${first}_${second}.png`);
   writeFileSync(out, Buffer.from(j.image, "base64"));
 
-  const px = await page.evaluate(async (d) => {
-    const img = new Image();
-    await new Promise((ok, ng) => { img.onload = ok; img.onerror = ng; img.src = "data:image/png;base64," + d; });
-    const c = document.createElement("canvas");
-    c.width = img.naturalWidth; c.height = img.naturalHeight;
-    c.getContext("2d").drawImage(img, 0, 0);
-    return Array.from(c.getContext("2d").getImageData(0, 0, c.width, c.height).data);
-  }, j.image);
+  const img = await decodeB64(page, j.image);
 
-  const m = measure(Uint8Array.from(px), [FIRST_COLOR[first], SECOND_COLOR[second]], 2);
-  const pass = m.pct[1] >= SECOND_MIN_PCT;
+  const m = measure(Uint8Array.from(img.px), [FIRST_COLOR[first], SECOND_COLOR[second]], 2);
+  const pass = verdict(m).pass;
   rows.push({ first, second, ok: pass, p1: m.pct[0], p2: m.pct[1], out, sec: ((Date.now() - t0) / 1000).toFixed(1),
               remaining: j.remaining });
   console.log(`  ${pass ? "ok" : "NG"}  ${first}/${second}  ` +
-    `${FIRST_COLOR[first].en} ${m.pct[0].toFixed(1)}% / ${SECOND_COLOR[second].en} ${m.pct[1].toFixed(1)}%  ` +
-    `(${rows[rows.length - 1].sec}s, 残り枠 ${j.remaining})  -> ${out}`);
+    `${FIRST_COLOR[first].en} / ${SECOND_COLOR[second].en}  ` +
+    `(${rows[rows.length - 1].sec}s, 残り枠 ${j.remaining})
+        ${line(m)}
+        -> ${out}`);
 }
 await browser.close();
 
