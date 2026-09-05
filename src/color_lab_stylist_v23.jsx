@@ -867,7 +867,7 @@ const SELFCARD_ENDPOINT = "https://colorlab-selfcard.the-company-20220901.worker
 const SELFCARD_DAILY_LIMIT = 50;   // 中継側の実数。ここは表示用の控えでしかない
 const SELFCARD_CACHE_KEY = "colorlab-selfcard";
 // プロンプトを変えたらこの版番号も上げる。上げないと古い絵がキャッシュから返る。
-const SELFCARD_PROMPT_VERSION = "v1";
+const SELFCARD_PROMPT_VERSION = "v2";   // v2: 2色目を「2位シーズンの色」に直し、役割と置き場所を明示
 
 // 撮影・アップロード画面に出す告知。写真が端末の外に出る点を最初に書く
 // （既存の顔写真診断は端末内で色を測るだけで、写真は外に出ない）。

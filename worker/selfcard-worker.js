@@ -30,24 +30,47 @@ const SIZE = "1024x1536";
 const QUALITY = "medium";
 const MAX_PHOTO_BYTES = 8 * 1024 * 1024;
 
-// カード側のプロンプト。事前生成16種と画風を揃えるため文面を共通にしてある。
-// ドミナント色だけ1位シーズンで差し替える。眼鏡には触れない（写真に無いものを描き足させない）。
-const DOMINANT = {
-  spring: "peach pink", summer: "lavender", autumn: "terracotta orange", winter: "navy blue",
+// カード側のプロンプト。事前生成16種と画風を揃えるため文面は共通にしてある。
+// 眼鏡には触れない（写真に無いものを描き足させない）。
+//
+// ★2色はカードの表記（CARD_COPY[].cn / .ch）と一字一句そろえる。
+//   カードの色名は「1位の色 × 2位の色」で、1色目は【1位】シーズン、
+//   2色目は【2位】シーズンから決まる（src/card_data.js・出所は TYPES[].palette10）。
+//   v1 は 2色目を ACCENT[first] という別表から引いていたため、カードが
+//   「ネイビー×キャメル」でもプロンプトは "bordeaux red accent" になっていた
+//   ＝ 2色目が弱いのではなく、そもそも一度も指定されていなかった。
+//   新しい色は作らず、下の2表はカードの ch[0] / ch[1] をそのまま英名にしたもの。
+const FIRST_COLOR = {   // = CARD_COPY[].ch[0]（1位シーズンで決まる）
+  spring: { en: "peach", hex: "#EE8B7E" },
+  summer: { en: "lavender", hex: "#C9B8D8" },
+  autumn: { en: "terracotta", hex: "#A65A3A" },
+  winter: { en: "navy", hex: "#1E2A44" },
 };
-const ACCENT = {
-  spring: "light green", summer: "charcoal gray", autumn: "olive green", winter: "bordeaux red",
+const SECOND_COLOR = {  // = CARD_COPY[].ch[1]（2位シーズンで決まる）
+  spring: { en: "yellow", hex: "#F6D65B" },
+  summer: { en: "rose pink", hex: "#D4708E" },
+  autumn: { en: "camel", hex: "#B5734A" },
+  winter: { en: "magenta", hex: "#C2408B" },
 };
 
-const buildPrompt = (first) => {
-  const dom = DOMINANT[first] || DOMINANT.summer;
-  const acc = ACCENT[first] || ACCENT.summer;
+// 2色を並べるだけだと片方（特に2色目）が落ちる。役割と置き場所を名指しし、
+// 面積比まで書く。置き場所は「服のトリム2箇所＋背景のストローク」に限る
+// ——写真に無い持ち物（眼鏡・アクセサリー）を描き足させないため。
+const buildPrompt = (first, second) => {
+  const c1 = FIRST_COLOR[first] || FIRST_COLOR.summer;
+  const c2 = SECOND_COLOR[second] || SECOND_COLOR[first] || SECOND_COLOR.summer;
   return (
     "Editorial magazine-style illustrated portrait based on the reference photo. " +
     "Loose black ink linework with soft colored pencil shading. Keep the face and " +
-    "hairstyle accurately recognizable as the same person. Dominant " + dom +
-    " color wash on clothing, " + acc + " accent, white background with loose " + dom +
-    " brush strokes. Upper body, confident calm expression. No text."
+    "hairstyle accurately recognizable as the same person. " +
+    "Use a strict two-color palette and make BOTH colors clearly visible. " +
+    "MAIN COLOR is " + c1.en + " " + c1.hex + ": the body of the clothing, about 70% of the " +
+    "colored area, plus most of the loose brush strokes on the white background. " +
+    "SECOND COLOR is " + c2.en + " " + c2.hex + ": about 30% of the colored area, and it must be " +
+    "clearly visible in all three of these places - (1) the collar and neckline trim, " +
+    "(2) the cuffs or sleeve ends, (3) at least two brush strokes on the background. " +
+    "Keep the two colors distinct: do not tint " + c2.en + " toward " + c1.en + ", and do not omit it. " +
+    "Upper body, confident calm expression. No text."
   );
 };
 
@@ -126,13 +149,18 @@ export default {
 
     const photo = form.get("photo");
     const first = String(form.get("first") || "summer");
+    // 2色目は【2位】シーズンで決まる。カード側は最初から送っているが、v1 では
+    // 読んでいなかった。知らない値・未送信のときは 400 にせず 1位で代用する
+    // （古いクライアントが 2色目なしで叩いても、絵は出したいため）。
+    const secondRaw = String(form.get("second") || "");
+    const second = SECOND_COLOR[secondRaw] ? secondRaw : first;
     if (!photo || typeof photo.arrayBuffer !== "function") {
       return json({ ok: false, reason: "no_photo" }, 400, origin);
     }
     if (photo.size > MAX_PHOTO_BYTES) {
       return json({ ok: false, reason: "photo_too_large" }, 413, origin);
     }
-    if (!DOMINANT[first]) {
+    if (!FIRST_COLOR[first]) {
       return json({ ok: false, reason: "bad_type" }, 400, origin);
     }
 
@@ -150,7 +178,7 @@ export default {
 
     const upstream = new FormData();
     upstream.append("model", MODEL);
-    upstream.append("prompt", buildPrompt(first));
+    upstream.append("prompt", buildPrompt(first, second));
     upstream.append("size", SIZE);
     upstream.append("quality", QUALITY);
     upstream.append("n", "1");
@@ -191,3 +219,7 @@ export default {
     }, 200, origin);
   },
 };
+
+// テスト用の名前付きエクスポート。Workers ランタイムが見るのは default だけなので、
+// これを足しても本番の挙動は変わらない（test/selfcard_prompt_check.mjs から読む）。
+export { FIRST_COLOR, SECOND_COLOR, buildPrompt };

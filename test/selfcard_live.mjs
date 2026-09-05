@@ -3,20 +3,37 @@
 //   #2 同じ写真でもう一度押し、中継を叩かないか(キャッシュ) -> 課金0回
 //   #3 /health の used / remaining が動いたか            -> 課金0回
 // 課金は #1 の1回だけ。上限50回を使い切るテストはしない。
-// 実行: node test/selfcard_live.mjs <写真のパス>
+//
+// #1 のあとに、生成された絵にカードの2色が入っているかを selfcard_color_check.mjs で測る
+// （2色目が落ちる事象の確認用）。配色は 1位/2位 で決まるので、引数で選べるようにしてある。
+//
+// 実行: node test/selfcard_live.mjs <写真のパス> [1位] [2位]
+//   例: node test/selfcard_live.mjs me.jpg winter autumn   # ネイビー×キャメル
+//       node test/selfcard_live.mjs me.jpg spring summer   # ピーチ×ローズ
+//   1位/2位を省くと summer winter（ラベンダー×マゼンタ）。
 import { chromium } from "playwright";
 import { createServer } from "http";
 import { readFileSync, writeFileSync, existsSync } from "fs";
 import { fileURLToPath } from "url";
 import { dirname, resolve, join, extname } from "path";
+import { FIRST_COLOR, SECOND_COLOR } from "../worker/selfcard-worker.js";
+import { measureColors, report } from "./selfcard_color_check.mjs";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(HERE, "..");
 const PHOTO = process.argv[2];
+const FIRST = process.argv[3] || "summer";
+const SECOND = process.argv[4] || "winter";
 if (!PHOTO || !existsSync(PHOTO)) {
-  console.error("写真のパスを渡してください: node test/selfcard_live.mjs <path>");
+  console.error("写真のパスを渡してください: node test/selfcard_live.mjs <path> [1位] [2位]");
   process.exit(2);
 }
+if (!FIRST_COLOR[FIRST] || !SECOND_COLOR[SECOND] || FIRST === SECOND) {
+  console.error("1位/2位は spring|summer|autumn|winter の別々の値で指定してください");
+  process.exit(2);
+}
+console.log(`配色: ${FIRST_COLOR[FIRST].en} ${FIRST_COLOR[FIRST].hex}`
+  + ` × ${SECOND_COLOR[SECOND].en} ${SECOND_COLOR[SECOND].hex}  (${FIRST} > ${SECOND})`);
 const WORKER = "https://colorlab-selfcard.the-company-20220901.workers.dev";
 
 writeFileSync(resolve(HERE, "_card_harness.html"), `<!doctype html><html lang="ja"><head><meta charset="utf-8"></head>
@@ -70,11 +87,12 @@ await page.route(WORKER + "/illustrate", async (route) => {
 
 await page.goto(base + "/test/_card_harness.html");
 await page.waitForSelector("#colorlab-root button", { timeout: 15000 });
-await page.evaluate(() => localStorage.setItem("colorlab-profile",
-  JSON.stringify({ myType: "summer", mySecond: "winter", myFrame: null })));
+await page.evaluate((prof) => localStorage.setItem("colorlab-profile", prof),
+  JSON.stringify({ myType: FIRST, mySecond: SECOND, myFrame: null }));
 await page.reload();
 await page.waitForSelector("#colorlab-root button", { timeout: 15000 });
 await page.getByRole("button", { name: /あなたの個性色が分かる！/ }).first().click();
+await page.getByRole("button", { name: /アバターで見る/ }).first().click();   // v1.20.4: 診断前の選択
 await page.getByRole("button", { name: /^考えて選ぶ/ }).click();
 await page.getByRole("button", { name: /^聞き役になる/ }).click();
 await page.waitForTimeout(500);
@@ -108,6 +126,22 @@ console.log(`  中継への実リクエスト: ${hits} 回 / 所要 ${Math.round
 console.log(`  カードの画像: ${s1.src} (${s1.w}x${s1.h})`);
 console.log(`  判定: ${s1.src && s1.src.startsWith("data:image/png") && s1.w > 0 ? "成功・カードに反映された" : "失敗"}`);
 await page.screenshot({ path: resolve(HERE, "_selfcard_live.png"), fullPage: false });
+
+console.log("\n── #1の絵にカードの2色が入っているか（課金0回・測るだけ） ──");
+const genUrl = await page.evaluate(() => {
+  const i = [...document.querySelectorAll("#colorlab-root img")]
+    .find((x) => x.src.startsWith("data:image/png"));
+  return i ? i.src : null;
+});
+if (!genUrl) {
+  console.log("  生成画像が見つからないので測定を飛ばした");
+} else {
+  writeFileSync(resolve(HERE, "_selfcard_live_illust.png"),
+    Buffer.from(genUrl.split(",")[1], "base64"));
+  const m = await measureColors(page, genUrl, FIRST_COLOR[FIRST], SECOND_COLOR[SECOND]);
+  report("生成イラスト", FIRST, SECOND, m);
+  console.log("  ※ 目安です。_selfcard_live_illust.png を必ず目で確認してください。");
+}
 
 console.log("\n── #2 同じ写真でもう一度（キャッシュ・課金0回） ──");
 const hitsBefore = hits;
