@@ -1,4 +1,5 @@
-// 12タイプ結果画面に足した「色別 顔映りチェック表」(A案) と「アクセサリーの金属」(D案) の検証。
+// 12タイプ結果画面に足した4つの検証。
+//   A案 色別 顔映りチェック表 / B案 ベストカラーTOP6 / C案 苦手な色を着るときのポイント / D案 アクセサリーの金属
 //   ・4タイプすべてで表とチップが出る
 //   ・24色ぶんの4軸コメントが、Lab から計算した期待値と1件も違わない
 //   ・判定は既存の COLOR_CHECK と完全一致（チェッカー画面と食い違わない）
@@ -69,6 +70,51 @@ function expectMetal(hex, k) {
   for (const p of r.labs) d = Math.min(d, Math.sqrt((l.L - p.L) ** 2 + (l.a - p.a) ** 2 + (l.b - p.b) ** 2));
   return { d, rating: d <= 12 ? "◎" : d <= 22 ? "○" : d <= 40 ? "△" : "✕" };
 }
+// ── B案の期待値をテスト側で独立に組み立てる ──
+const cdata = readFileSync(join(__dirname, "..", "src", "color_data.js"), "utf8");
+const FAMILY_ORDER = JSON.parse(cdata.match(/export const FAMILY_ORDER = (\[[\s\S]*?\]);/)[1]);
+const COLOR_FAMILIES = JSON.parse(cdata.match(/export const COLOR_FAMILIES = (\{[\s\S]*?\n\});/)[1]);
+const SKU_COLORS = JSON.parse(readFileSync(join(__dirname, "..", "src", "sku_color_data.js"), "utf8")
+  .match(/export const SKU_COLORS = (\{[\s\S]*\});/)[1]);
+const SKUS = {};
+{
+  const body = src.match(/const SKUS = \{([\s\S]*?)\n\};/)[1];
+  let site = null;
+  for (const line of body.split("\n")) {
+    const m = line.match(/^\s*(blubel|iebel):\s*\[/);
+    if (m) { site = m[1]; SKUS[site] = []; continue; }
+    const g = line.match(/\{ id: (\d+), name: "([^"]+)", price: \d+, cat: "([^"]+)"/);
+    if (g) SKUS[site].push({ id: g[1], name: g[2], cat: g[3] });
+  }
+}
+const ALIAS = JSON.parse(src.match(/const MASTER_COLOR_ALIAS = (\{[\s\S]*?\n\};)/)[1]
+  .replace(/\/\/[^\n]*/g, "").replace(/,(\s*\})/g, "$1").replace(/\};$/, "}"));
+
+function expectTop6(k) {
+  const fam = COLOR_FAMILIES[k] || {};
+  const r = refOf(k);
+  const all = [];
+  for (const f of FAMILY_ORDER) for (const [name, hex, mark] of (fam[f] || [])) {
+    const l = lab(hex);
+    let d = Infinity;
+    for (const p of r.labs) d = Math.min(d, Math.sqrt((l.L - p.L) ** 2 + (l.a - p.a) ** 2 + (l.b - p.b) ** 2));
+    all.push({ name, hex, family: f, top: mark === "✓", d });
+  }
+  all.sort((x, y) => x.d - y.d);
+  const picked = [], used = new Set();
+  const take = (c) => { picked.push(c); used.add(c.family); };
+  all.filter((c) => c.top).forEach((c) => { if (picked.length < 6) take(c); });
+  all.filter((c) => !c.top && !used.has(c.family)).forEach((c) => { if (picked.length < 6 && !used.has(c.family)) take(c); });
+  all.forEach((c) => { if (picked.length < 6 && !picked.includes(c)) take(c); });
+  return picked.slice(0, 6);
+}
+function expectTop6Skus(site, k) {
+  const names = new Set(expectTop6(k).map((c) => c.name));
+  return (SKUS[site] || []).filter((sku) => ((SKU_COLORS[site] || {})[sku.id] || [])
+    .some((c) => (ALIAS[c] || []).some((n) => names.has(n))));
+}
+const SITE_OF = { spring: "iebel", autumn: "iebel", summer: "blubel", winter: "blubel" };
+
 const NAME2KEY = { "イエベ春": "spring", "ブルベ夏": "summer", "イエベ秋": "autumn", "ブルベ冬": "winter" };
 const PEARL = { spring: "アイボリー", summer: "オフホワイト", autumn: "ベージュパール", winter: "ピュアホワイト" };
 
@@ -123,10 +169,18 @@ const readResult = (page) => page.evaluate(() => {
     const cells = [...d.querySelectorAll(".grid.grid-cols-4 > div")].map((c) => c.textContent.trim());
     return { name: nm.textContent.trim(), cells };
   }).filter(Boolean) : [];
+  const t6 = [...root.querySelectorAll("div")].filter((d) => d.textContent.trim() === "Best Color TOP6").pop();
+  const t6sec = t6 ? t6.parentElement : null;
+  const top6 = t6sec ? [...t6sec.querySelectorAll(".grid.grid-cols-6 > div")].map((d) => d.textContent.trim()) : [];
+  const tipHead = [...root.querySelectorAll("div")].filter((d) => d.textContent.trim() === "避けたい色を着たいときは").pop();
+  const tips = tipHead ? [...tipHead.parentElement.querySelectorAll(".text-\\[11px\\].font-medium.leading-tight")].map((d) => d.textContent.trim()) : [];
+  const toggle = [...root.querySelectorAll("button")].filter((b) => /^TOP6の色だけ（\d+点）$/.test(b.textContent.trim())).pop();
   const mHeads = [...root.querySelectorAll("div")].filter((d) => d.textContent.trim() === "アクセサリーの金属");
   const msec = mHeads.length ? mHeads[mHeads.length - 1].parentElement : null;
   const metals = msec ? [...msec.querySelectorAll(".grid.grid-cols-3 > div")].map((d) => d.innerText.replace(/\s+/g, " ").trim()) : [];
-  return { title: sec ? sec.firstElementChild.textContent.trim() : null, rows, metals, text: root.innerText };
+  return { title: sec ? sec.firstElementChild.textContent.trim() : null, rows, metals, top6,
+    top6Title: t6sec ? t6sec.children[1].textContent.trim() : null,
+    tips, toggle: toggle ? toggle.textContent.trim() : null, text: root.innerText };
 });
 
 const seen = {};
@@ -170,6 +224,20 @@ for (const pat of ANSWER_PATTERNS) {
   ok(/シルバー/.test(r.metals[1]) && r.metals[1].includes(s2.rating), `シルバー ${s2.rating} (ΔE=${s2.d.toFixed(1)}) : ${r.metals[1]}`);
   ok(/パール/.test(r.metals[2]) && r.metals[2].includes(PEARL[key]) && r.metals[2].includes("◎"), `パール ◎ / ${PEARL[key]} : ${r.metals[2]}`);
   ok(/のアクセサリー/.test(r.text), "既存のアクセサリー在庫（SKUS）につながっている");
+
+  // ── B案：ベストカラーTOP6 ──
+  const want6 = expectTop6(key).map((c) => c.name);
+  ok(r.top6.length === 6, `TOP6の帯に6色ある (実測 ${r.top6.length})`);
+  ok(r.top6.join("・") === want6.join("・"), `TOP6が期待どおり: ${r.top6.join("・")}`);
+  ok(r.top6Title === "まずはこの6色から", `帯の見出し: ${r.top6Title}`);
+  const wantHit = expectTop6Skus(SITE_OF[key], key);
+  ok(r.toggle === `TOP6の色だけ（${wantHit.length}点）`, `絞り込みトグルの件数が在庫と一致: ${r.toggle} / 全${SKUS[SITE_OF[key]].length}点`);
+  ok(wantHit.length > 0 && wantHit.length < SKUS[SITE_OF[key]].length, `絞り込みが実際に効く件数になっている (${wantHit.length}/${SKUS[SITE_OF[key]].length})`);
+
+  // ── C案：苦手な色を着るときのポイント ──
+  ok(r.tips.length === 3, `苦手色の回避策が3点ある (実測 ${r.tips.length})`);
+  ok(r.tips.join("/") === "トップスは顔から離す/顔まわりは明るい色を入れる/メイクとアクセで明るさを足す",
+     `回避策の中身: ${r.tips.join(" / ")}`);
 
   // 既存機能に影響がないこと
   ok(/似合う色（勝ち色 \d+色）/.test(r.text), "既存の勝ち色ブロックが残っている");

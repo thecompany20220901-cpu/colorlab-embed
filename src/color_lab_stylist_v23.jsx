@@ -40,6 +40,8 @@ import FACE_AUTUMN from "./assets/cface_autumn.webp";
 import FACE_WINTER from "./assets/cface_winter.webp";
 // 勝ち色の体系化・英名・商品画像（test/build_color_data.py が既存データから生成）
 import { FAMILY_ORDER, COLOR_FAMILIES, COLOR_EN, CHIP_HEX, SKU_IMG } from "./color_data.js";
+// 商品マスタ item_{site}.csv の color 列（test/build_sku_colors.py が生成）
+import { SKU_COLORS } from "./sku_color_data.js";
 
 const TYPE_FACE_IMG = { spring: FACE_SPRING, summer: FACE_SUMMER, autumn: FACE_AUTUMN, winter: FACE_WINTER };
 
@@ -2858,6 +2860,126 @@ function MetalChips({ typeKey, accent, site, siteName }) {
 }
 
 // ════════════════════════════════════════════
+// 結果画面：ベストカラーTOP6（B案）／ 苦手な色を着るときのポイント（C案）
+// ────────────────────────────────────────────
+// TOP6 の選び方は新規ロジックではなく、既にあるものを2つ重ねるだけ:
+//   ① COLOR_FAMILIES の ✓（＝COLOR_CHECK で ◎ の最優先色）を先に取る
+//   ② 足りない分は palette10 への ΔE が近い順。ただし同じ色相ファミリーが
+//      並ばないよう、まだ使っていないファミリーを先に埋める
+//      （夏は ✓ が4色しかなく、ΔE順だけだとグレー3兄弟が並んでしまうため）
+// ════════════════════════════════════════════
+const TOP6_N = 6;
+
+function pickTop6(typeKey) {
+  const fam = COLOR_FAMILIES[typeKey] || {};
+  const ref = typeColorRef(typeKey);
+  const all = [];
+  FAMILY_ORDER.forEach((f) => (fam[f] || []).forEach(([name, hex, mark]) => {
+    const lab = hexToLab(hex);
+    const d = lab ? ref.labs.reduce((m, p) => Math.min(m, deltaE(lab, p)), Infinity) : Infinity;
+    all.push({ name, hex, family: f, top: mark === "✓", d });
+  }));
+  all.sort((x, y) => x.d - y.d);
+  const picked = [];
+  const used = new Set();
+  const take = (c) => { picked.push(c); used.add(c.family); };
+  // ① ✓ の色（ΔEが近い順）
+  all.filter((c) => c.top).forEach((c) => { if (picked.length < TOP6_N) take(c); });
+  // ② 未使用の色相ファミリーから（ΔEが近い順）
+  all.filter((c) => !c.top && !used.has(c.family)).forEach((c) => {
+    if (picked.length < TOP6_N && !used.has(c.family)) take(c);
+  });
+  // ③ それでも足りなければ ΔEが近い順で埋める
+  all.forEach((c) => { if (picked.length < TOP6_N && !picked.includes(c)) take(c); });
+  return picked.slice(0, TOP6_N);
+}
+
+// 商品マスタの color 列の言葉（SKU_COLORS）と、このアプリの色名を突き合わせる同義語表。
+// 新しい色は1つも作っていない。右側はすべて TYPES[].palette10 / COLOR_FAMILIES に実在する名前。
+const MASTER_COLOR_ALIAS = {
+  "ホワイト": ["ホワイト", "オフホワイト", "ピュアホワイト", "アイボリー", "ウォームホワイト"],
+  "ブラック": ["ブラック"],
+  "ブラックチェック": ["ブラック"],
+  "ブラックホワイト": ["ブラック", "ホワイト", "ピュアホワイト"],
+  "グレー": ["グレー", "ソフトグレー", "アイシーグレー", "ブルーグレー", "チャコールグレー"],
+  "ダークグレー": ["グレー", "チャコールグレー"],
+  "ベージュ": ["ベージュ", "エクリュ"],
+  "ライトベージュ": ["ベージュ", "エクリュ"],
+  "ブラウン": ["ブラウン", "キャメル", "ブロンズ", "ダークブラウン"],
+  "ネイビー": ["ネイビー"],
+  "ブルー": ["水色", "ロイヤルブルー", "パウダーブルー", "ペリウィンクル", "明るいターコイズ"],
+  "グリーン": ["ミントグリーン", "エメラルド", "カーキ", "オリーブ", "モスグリーン", "ライトグリーン", "ティールグリーン"],
+  "ピンク": ["コーラルピンク", "サーモンピンク", "青みピンク", "ビビッドピンク", "ローズピンク", "ピーチ", "ピンク"],
+  "ボルドー": ["ワインレッド", "ブラウンレッド", "ラズベリー", "レッド"],
+  "オレンジ": ["オレンジ", "テラコッタ", "アプリコット"],
+  "イエロー": ["イエロー", "マスタード", "ゴールデンイエロー"],
+  "パープル": ["パープル", "ラベンダー", "モーヴ"],
+  // ゴールド/シルバーは金属で服の色ではないので、ここには入れない（絞り込みの対象外）
+};
+
+/* この商品が TOP6 の色で買えるか。マスタの色展開のどれかが TOP6 の色名に当たれば true。 */
+function skuHasTop6(site, sku, top6) {
+  const names = new Set(top6.map((c) => c.name));
+  const colors = ((SKU_COLORS[site] || {})[String(sku.id)]) || [];
+  return colors.some((c) => (MASTER_COLOR_ALIAS[c] || []).some((n) => names.has(n)));
+}
+function top6ColorsOfSku(site, sku, top6) {
+  const names = new Set(top6.map((c) => c.name));
+  const colors = ((SKU_COLORS[site] || {})[String(sku.id)]) || [];
+  return colors.filter((c) => (MASTER_COLOR_ALIAS[c] || []).some((n) => names.has(n)));
+}
+
+/* ベストカラーTOP6 の帯。結果画面のいちばん上に置く。 */
+function Top6Band({ typeKey, accent }) {
+  const top6 = pickTop6(typeKey);
+  return (
+    <div className="rounded-2xl p-4 mb-5" style={{ background: accent + "0d", border: `1px solid ${accent}33` }}>
+      <div className="text-[10px] tracking-widest uppercase mb-0.5" style={{ color: accent }}>Best Color TOP6</div>
+      <div className="text-sm font-medium mb-2" style={{ color: C.ink }}>まずはこの6色から</div>
+      <div className="grid grid-cols-6 gap-1.5">
+        {top6.map((c) => (
+          <div key={c.name} className="text-center">
+            <div className="w-full rounded-lg" style={{ height: 34, background: c.hex, border: "1px solid #e3dce3" }} />
+            <span className="block text-[8.5px] mt-0.5 leading-tight" style={{ color: C.sub }}>{c.name}</span>
+          </div>
+        ))}
+      </div>
+      <p className="text-[10px] leading-relaxed mt-2" style={{ color: C.sub }}>
+        勝ち色30色のうち、いちばん得意な色から6色。買い物で迷ったらこの中から選べば外しません。
+      </p>
+    </div>
+  );
+}
+
+// ── C案：苦手な色を着るときのポイント ──
+// 苦手色を「着るな」で終わらせず、置き場所を変えれば使えることを出す。
+const NG_TIPS = [
+  { t: "トップスは顔から離す", d: "アウターやボトムスで使えば、顔うつりにはほとんど影響しません。" },
+  { t: "顔まわりは明るい色を入れる", d: "インナーやストールで得意色を挟むと、影が落ちるのを防げます。" },
+  { t: "メイクとアクセで明るさを足す", d: "チークとリップを得意色にするだけで、顔色の印象は戻ります。" },
+];
+
+function NgColorTips({ accent }) {
+  return (
+    <div className="rounded-2xl p-4 mb-7" style={{ border: "1px solid " + C.line, background: "#fbf9fb" }}>
+      <div className="text-xs font-medium mb-2" style={{ color: C.ink }}>避けたい色を着たいときは</div>
+      {NG_TIPS.map((x, i) => (
+        <div key={i} className="flex gap-2 mb-2 last:mb-0">
+          <span className="text-[10px] shrink-0 mt-0.5" style={{ color: accent }}>{i + 1}</span>
+          <div className="min-w-0">
+            <div className="text-[11px] font-medium leading-tight" style={{ color: C.ink }}>{x.t}</div>
+            <div className="text-[10px] leading-relaxed" style={{ color: C.sub }}>{x.d}</div>
+          </div>
+        </div>
+      ))}
+      <p className="text-[9.5px] leading-relaxed mt-2" style={{ color: C.faint }}>
+        避けたい色は「持っていても着られない色」ではありません。顔から離す・明るさを足す、の2つで使えます。
+      </p>
+    </div>
+  );
+}
+
+// ════════════════════════════════════════════
 // コーデ提案・採点：勝ち色を「実際に着た姿」で見せる人物SVG（対象3）
 // ────────────────────────────────────────────
 // 服の塗り領域（トップス／ボトムス／小物）を別レイヤーに分けてあり、色は
@@ -3143,6 +3265,8 @@ export default function App() {
   const [stHair, setStHair] = useState(null);
   const [stMeet, setStMeet] = useState(null);
   const [cosmeCat, setCosmeCat] = useState("すべて");
+  // 「似合う服はコレ！」を ベストカラーTOP6 の色展開がある商品だけに絞るか
+  const [top6Only, setTop6Only] = useState(false);
   const [stMood, setStMood] = useState("");
   const [stResult, setStResult] = useState(null);
   const [stLoading, setStLoading] = useState(false);
@@ -4119,6 +4243,7 @@ export default function App() {
 
               {/* 3軸バー（回答から算出したあなただけの数値） */}
               <div className="rounded-2xl p-5 mb-4" style={{ background: "#faf7f9", border: "1px solid #f0e9ef" }}>
+                <Top6Band typeKey={RT.key} accent={RT.accent} />
                 <div className="text-xs font-medium mb-4" style={{ color: C.ink }}>あなたの色相 / 明度 / 彩度</div>
                 {[
                   { no: "①", name: "色相", ax: quizResult.axes.hue },
@@ -4155,6 +4280,8 @@ export default function App() {
                   </div>
                 ))}
               </div>
+              {/* 苦手色は「着るな」で終わらせず、置き場所を変えれば使えることまで出す */}
+              <NgColorTips accent={RT.accent} />
               {/* 色別 顔映りチェック（勝ち色/苦手色の「なぜ」を4軸で言語化）＋ アクセサリーの金属 */}
               <FaceCheckTable typeKey={RT.key} accent={RT.accent} />
               <MetalChips typeKey={RT.key} accent={RT.accent} site={RT.site} siteName={RT.siteName} />
@@ -4165,7 +4292,36 @@ export default function App() {
               <p className="text-xs leading-relaxed mb-4" style={{ color: C.sub }}>
                 色相（Hue）・明度（Value）・彩度（Chroma）の3軸分析の結果から、{RT.name}のあなたの特性と調和するカラーのファッションアイテムをご紹介します。顔の透明感アップ、顔の引き締め効果、細見えのスリムアップ等の効果が期待できるカラーアイテムばかりなので、是非チェックしてみてください。
               </p>
-              {SKUS[RT.site].slice(0, 3).map((sku) => <SkuCard key={sku.id} sku={sku} site={RT.site} accent={RT.accent} />)}
+              {(() => {
+                // TOP6 の色で買える商品だけに絞れるようにする。色の出所は商品マスタの color 列。
+                const top6 = pickTop6(RT.key);
+                const hit = SKUS[RT.site].filter((sku) => skuHasTop6(RT.site, sku, top6));
+                const list = (top6Only ? hit : SKUS[RT.site]).slice(0, 3);
+                return (
+                  <>
+                    <div className="flex items-center gap-2 mb-3">
+                      <button onClick={() => setTop6Only(!top6Only)} className="px-3 py-1.5 rounded-full text-[11px] transition-all"
+                        style={{ border: top6Only ? `2px solid ${RT.accent}` : "1px solid " + C.line, color: top6Only ? RT.accent : C.sub, background: top6Only ? RT.accent + "0d" : "white" }}>
+                        TOP6の色だけ（{hit.length}点）
+                      </button>
+                      {top6Only && <span className="text-[10px]" style={{ color: C.faint }}>色展開にTOP6が入っている商品</span>}
+                    </div>
+                    {list.map((sku) => (
+                      <div key={sku.id}>
+                        <SkuCard sku={sku} site={RT.site} accent={RT.accent} />
+                        {top6Only && (
+                          <div className="text-[10px] -mt-1.5 mb-3 pl-1" style={{ color: C.faint }}>
+                            この商品のTOP6カラー: {top6ColorsOfSku(RT.site, sku, top6).join("・")}
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                    {top6Only && list.length === 0 && (
+                      <p className="text-xs mb-3" style={{ color: C.sub }}>いまの在庫にTOP6の色展開がありません。絞り込みを外すと全商品が出ます。</p>
+                    )}
+                  </>
+                );
+              })()}
 
               <h3 className="font-serif text-lg mt-6 mb-1" style={{ color: C.ink }}>仕上げのコスメはコレ！</h3>
               <p className="text-xs leading-relaxed mb-3" style={{ color: C.sub }}>{RT.name}の肌と調和する色番だけを選びました。</p>
