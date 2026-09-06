@@ -2664,6 +2664,200 @@ function ColorFamilies({ typeKey, accent }) {
 }
 
 // ════════════════════════════════════════════
+// 結果画面：色別 顔映りチェック（A案）／ アクセサリーの金属（D案）
+// ────────────────────────────────────────────
+// 新しい色判定ロジックは作っていない。使うのは既存の3つだけ:
+//   ・◎○△✕   … COLOR_CHECK（「この色、似合う？チェッカー」で稼働中の自社テーブル）
+//   ・Lab 変換  … hexToLab（顔写真診断・コーデ採点と同じ rgbToLab）
+//   ・ΔE 照合   … deltaE（コーデ採点と同じ式）で TYPES[].palette10 との距離を測る
+// 他社資料（MARROW / 16タイプカラーメソッド(R) / ICPA 等）の数値・パレット・分類体系は
+// 一切使っていない。借りたのは「何をどの順で見せるか」という情報設計だけ。
+// ════════════════════════════════════════════
+
+/* タイプの基準値。palette10 の中央値を使う（平均だと spring のアイボリー L*96 のような
+   端の色に引きずられて、ほぼ全色が「明るさ:下がる」になってしまう）。 */
+const TYPE_REF_CACHE = {};
+function typeColorRef(typeKey) {
+  if (TYPE_REF_CACHE[typeKey]) return TYPE_REF_CACHE[typeKey];
+  const labs = (TYPES[typeKey].palette10 || []).map(([, hex]) => hexToLab(hex)).filter(Boolean);
+  const med = (arr) => {
+    const v = [...arr].sort((p, q) => p - q), n = v.length;
+    return n % 2 ? v[(n - 1) / 2] : (v[n / 2 - 1] + v[n / 2]) / 2;
+  };
+  const ref = {
+    L: med(labs.map((l) => l.L)),
+    C: med(labs.map((l) => Math.sqrt(l.a * l.a + l.b * l.b))),
+    b: med(labs.map((l) => l.b)),
+    labs,
+  };
+  TYPE_REF_CACHE[typeKey] = ref;
+  return ref;
+}
+
+const AX_BRIGHT = ["下がる", "やや下がる", "変わらない", "やや上がる", "上がる"];
+const AX_SHADOW = ["されない", "弱い", "少し出る", "強調"];
+const AX_BLOOD = ["悪い", "やや落ちる", "普通", "良い"];
+
+/* 1色ぶんの顔映り4軸。数値はそのまま出さず、3〜5段階の日本語に落とす。 */
+function faceAxes(hex, typeKey) {
+  const lab = hexToLab(hex);
+  const ref = typeColorRef(typeKey);
+  if (!lab || !ref.labs.length) return null;
+  const C2 = Math.sqrt(lab.a * lab.a + lab.b * lab.b);
+  const dL = lab.L - ref.L, dC = C2 - ref.C, db = lab.b - ref.b;
+
+  // (1) 明るさ ← L*。タイプの基準明度より高いほど顔まわりが明るく見える。
+  const bright = AX_BRIGHT[dL < -18 ? 0 : dL < -6 ? 1 : dL < 6 ? 2 : dL < 18 ? 3 : 4];
+
+  // (2) くすみ ← C*（基準より彩度が低い）と、ベース（黄み/青み＝b*）のズレ。
+  //     白・黒に近い色は「くすんだ色」ではなく「クリアな無彩色」なので、ベースのズレは見ない。
+  const mid = lab.L > 25 && lab.L < 78;
+  const ut = C2 >= 12 ? Math.abs(db) : 0;
+  const dull = (mid && dC <= -22) || ut >= 30 ? "出る" : (mid && dC <= -8) || ut >= 18 ? "やや出る" : "出ない";
+
+  // (3) 影 ← 基準との明度差。暗い方向にずれたときだけ影が落ちる（明るい色で影は出ない）。
+  const dk = Math.max(0, -dL);
+  const shadow = AX_SHADOW[dk < 8 ? 0 : dk < 18 ? 1 : dk < 30 ? 2 : 3];
+
+  // (4) 血色 ← 勝ち色への ΔE。色み(a*b*)を主、明度は 1/2 の重みにする
+  //     （明度差は(1)(3)で既に見ているので、ここで二重に効かせない）。赤みで±1段だけ動かす。
+  const dW = ref.labs.reduce((m, p) => {
+    const d = Math.sqrt((lab.a - p.a) ** 2 + (lab.b - p.b) ** 2 + 0.25 * (lab.L - p.L) ** 2);
+    return d < m ? d : m;
+  }, Infinity);
+  let i = dW <= 14 ? 3 : dW <= 26 ? 2 : dW <= 38 ? 1 : 0;
+  if (lab.a >= 25) i = Math.min(3, i + 1);
+  else if (lab.a <= -25) i = Math.max(0, i - 1);
+
+  return { bright, dull, shadow, blood: AX_BLOOD[i] };
+}
+
+const AX_NEG = { bright: ["下がる", "やや下がる"], dull: ["出る", "やや出る"], shadow: ["少し出る", "強調"], blood: ["悪い", "やや落ちる"] };
+const RATING_ORDER = { "◎": 0, "○": 1, "△": 2, "✕": 3 };
+
+/* 色別 顔映りチェック表。COLOR_CHECK の24色を ◎→✕ の順に並べ、各色に4軸のコメントを出す。 */
+function FaceCheckTable({ typeKey, accent }) {
+  const rows = [...COLOR_CHECK]
+    .map((cc) => ({ cc, rating: cc.r[typeKey], ax: faceAxes(cc.hex, typeKey) }))
+    .filter((r) => r.ax)
+    .sort((x, y) => RATING_ORDER[x.rating] - RATING_ORDER[y.rating]);
+  let shown = null;
+  return (
+    <div className="mb-7">
+      <div className="text-xs font-medium mb-1" style={{ color: C.ink }}>色別 顔映りチェック（{rows.length}色）</div>
+      <p className="text-[10px] leading-relaxed mb-2.5" style={{ color: C.faint }}>
+        24色それぞれを顔まわりに置いたとき、肌がどう見えるかを4つの見え方で出しました。
+        判定はこのアプリの色マスター、コメントは色を CIELab に変換して、あなたのタイプの勝ち色と
+        照らし合わせた実測値から作っています。
+      </p>
+      {rows.map(({ cc, rating, ax }) => {
+        const head = shown !== rating ? (shown = rating) : null;
+        const good = rating === "◎" || rating === "○";
+        return (
+          <div key={cc.name}>
+            {head && (
+              <div className="flex items-baseline gap-1.5 mt-3 mb-0.5">
+                <span className="text-[11px] font-medium" style={{ color: good ? accent : C.sub }}>{rating}</span>
+                <span className="text-[10px]" style={{ color: C.sub }}>{RATING_LABEL[rating]}</span>
+              </div>
+            )}
+            <div className="flex gap-2.5 py-2" style={{ borderTop: "1px solid " + C.line }}>
+              <span className="rounded-lg shrink-0" style={{ width: 38, height: 38, background: cc.hex, border: "1px solid #e5dfe4" }} />
+              <div className="min-w-0 flex-1">
+                <div className="text-[11px] font-medium leading-tight" style={{ color: C.ink }}>{cc.name}</div>
+                <div className="grid grid-cols-4 gap-x-1 mt-1">
+                  {[["明るさ", ax.bright, "bright"], ["くすみ", ax.dull, "dull"], ["影", ax.shadow, "shadow"], ["血色", ax.blood, "blood"]].map(([label, val, key]) => (
+                    <div key={key} className="min-w-0">
+                      <div className="text-[8px] leading-tight" style={{ color: "#bdb4be" }}>{label}</div>
+                      <div className="text-[9.5px] leading-tight" style={{ color: AX_NEG[key].includes(val) ? "#b06a72" : C.sub }}>{val}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+      })}
+      <p className="text-[9px] leading-relaxed mt-2" style={{ color: "#c2b9c3" }}>
+        ※ネイビーやブラックのように、似合う色でも「明るさ:下がる／影:強調」と出ることがあります。
+        暗い色はコントラストで似合わせる色なので、顔まわりに置くなら明るい色を一緒に入れてください。
+      </p>
+    </div>
+  );
+}
+
+// ── D案：アクセサリーの金属 ──
+// ゴールド / シルバーは Q10（金属の設問イラスト）で使っている色をそのまま流用し、
+// 勝ち色への ΔE で判定する。パールは「どのタイプにも似合い、選ぶのは白みの方」なので、
+// タイプの palette10 に入っている白をそのまま出す（新しい色は作らない）。
+const METAL_BASE = [
+  { key: "gold", name: "ゴールド", hex: "#D4AF5A" },
+  { key: "silver", name: "シルバー", hex: "#B8BEC9" },
+];
+const PEARL_TONE = {
+  spring: { name: "アイボリー", hex: "#FFF3E2" },
+  summer: { name: "オフホワイト", hex: "#F3EEF5" },
+  autumn: { name: "ベージュパール", hex: "#E8D6B8" },
+  winter: { name: "ピュアホワイト", hex: "#FFFFFF" },
+};
+const METAL_TIP = {
+  "◎": "顔まわりで主役にできます。",
+  "○": "普段使いになじみます。",
+  "△": "小ぶり・重ねづけなら使えます。",
+  "✕": "顔から離して（バッグや靴の金具で）。",
+};
+
+function metalRating(hex, typeKey) {
+  const lab = hexToLab(hex);
+  const ref = typeColorRef(typeKey);
+  if (!lab || !ref.labs.length) return "○";
+  const d = ref.labs.reduce((m, p) => Math.min(m, deltaE(lab, p)), Infinity);
+  return d <= 12 ? "◎" : d <= 22 ? "○" : d <= 40 ? "△" : "✕";
+}
+
+function MetalChips({ typeKey, accent, site, siteName }) {
+  const pearl = PEARL_TONE[typeKey];
+  const best = METAL_BASE.map((m) => ({ ...m, rating: metalRating(m.hex, typeKey) }));
+  const items = [
+    ...best,
+    // パールは素材そのものがどのタイプにも似合う。差が出るのは「白みの選び方」なので◎固定。
+    { key: "pearl", name: "パール", hex: pearl.hex, rating: "◎", sub: pearl.name },
+  ];
+  // 得意な金属（◎の中でいちばん近い方）を文章で名指しして、既存のアクセサリー在庫へつなぐ。
+  const top = best.filter((m) => m.rating === "◎").map((m) => m.name).join("・") || best[0].name;
+  const accs = (SKUS[site] || []).filter((s) => s.cat === "アクセサリー").slice(0, 2);
+  return (
+    <div className="mb-7">
+      <div className="text-xs font-medium mb-1" style={{ color: C.ink }}>アクセサリーの金属</div>
+      <p className="text-[10px] leading-relaxed mb-2.5" style={{ color: C.faint }}>
+        金属も色です。ゴールド・シルバーはあなたの勝ち色との距離で判定しました。
+        パールはどのタイプにも似合うので、選ぶのは白みの方です。
+      </p>
+      <div className="grid grid-cols-3 gap-2">
+        {items.map((m) => {
+          const good = m.rating === "◎" || m.rating === "○";
+          return (
+            <div key={m.key} className="rounded-2xl p-2.5 text-center" style={{ border: "1px solid " + C.line }}>
+              <span className="block w-10 h-10 rounded-full mx-auto mb-1.5" style={{ background: m.hex, border: "1px solid #e0d9e0" }} />
+              <div className="text-[11px] font-medium leading-tight" style={{ color: C.ink }}>{m.name}</div>
+              {m.sub && <div className="text-[8.5px] leading-tight" style={{ color: C.faint }}>{m.sub}</div>}
+              <div className="text-sm font-serif mt-0.5" style={{ color: good ? accent : "#b0a7b2" }}>{m.rating}</div>
+              <div className="text-[8.5px] leading-tight mt-0.5" style={{ color: C.sub }}>{METAL_TIP[m.rating]}</div>
+            </div>
+          );
+        })}
+      </div>
+      {accs.length > 0 && (
+        <>
+          <div className="text-[10px] mt-3 mb-1.5" style={{ color: C.faint }}>{top}が得意なあなたに、{siteName}のアクセサリー</div>
+          {accs.map((sku) => <SkuCard key={sku.id} sku={sku} site={site} accent={accent} />)}
+        </>
+      )}
+    </div>
+  );
+}
+
+// ════════════════════════════════════════════
 // コーデ提案・採点：勝ち色を「実際に着た姿」で見せる人物SVG（対象3）
 // ────────────────────────────────────────────
 // 服の塗り領域（トップス／ボトムス／小物）を別レイヤーに分けてあり、色は
@@ -3961,6 +4155,9 @@ export default function App() {
                   </div>
                 ))}
               </div>
+              {/* 色別 顔映りチェック（勝ち色/苦手色の「なぜ」を4軸で言語化）＋ アクセサリーの金属 */}
+              <FaceCheckTable typeKey={RT.key} accent={RT.accent} />
+              <MetalChips typeKey={RT.key} accent={RT.accent} site={RT.site} siteName={RT.siteName} />
               {/* 公式フォーマット：似合う服セクション */}
               <h3 className="font-serif text-xl leading-snug mb-2" style={{ color: C.ink }}>
                 {RT.name}のあなたに似合う服はコレ！
