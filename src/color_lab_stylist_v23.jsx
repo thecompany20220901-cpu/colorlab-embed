@@ -204,6 +204,13 @@ const COSME_FULL = {
     { name: "セザンヌ 超細芯アイブロウ 03 ナチュラルブラウン", price: 550, cat: "アイブロウ", rakuten: RK("セザンヌ 超細芯アイブロウ 03"), amazon: AMZ("セザンヌ 超細芯アイブロウ 03"), note: "1本描きの明るいブラウン" },
     { name: "ヘビーローテーション カラーリングアイブロウ 05", price: 880, cat: "アイブロウ", rakuten: RK("ヘビーローテーション カラーリングアイブロウ 05"), amazon: AMZ("ヘビーローテーション カラーリングアイブロウ 05"), note: "髪色に合わせる眉マスカラ" },
     { name: "エクセル パウダー&ペンシルアイブロウEX PD01", price: 1595, cat: "アイブロウ", rakuten: RK("エクセル パウダーアンドペンシルアイブロウ PD01"), amazon: AMZ("エクセル パウダーアンドペンシルアイブロウ PD01"), note: "ふんわり明るい3in1" },
+    // ── デパコス（A8.net 経由・Qoo10）。isDepacosme の1点だけ CosmeCard が A8 の商品リンクで描画する。
+    // 末尾に置くのは、リップ試着画面の filter("リップ").slice(0, 3) を動かさないため。
+    { name: "Dior アディクト リップグロウバター 106 Pomelo", price: null, cat: "リップ", isDepacosme: true,
+      qoo10: "https://www.qoo10.jp/g/1166428287",
+      a8adId: "4An06KR-g7-vkg5yTm",
+      imu: "https://gd.image-qoo10.jp/li/869/756/8244756869.g_400-w_g.jpg",
+      note: "南国フルーツを思わせる艶やかカラー。イエベ春の肌を華やかに引き立てる限定色" },
   ],
   autumn: [
     { name: "KATE リップモンスター 03 ちょっと不機嫌なピンク", price: 1540, cat: "リップ", set: true, rakuten: RK("KATE リップモンスター 03"), amazon: AMZ("KATE リップモンスター 03"), note: "イエベ秋の最大人気色" },
@@ -236,6 +243,11 @@ const COSME_FULL = {
     { name: "セザンヌ 超細芯アイブロウ 02 オリーブブラウン", price: 550, cat: "アイブロウ", rakuten: RK("セザンヌ 超細芯アイブロウ 02"), amazon: AMZ("セザンヌ 超細芯アイブロウ 02"), note: "黄み映えのオリーブブラウン" },
     { name: "ヘビーローテーション カラーリングアイブロウ 03 オリーブブラウン", price: 880, cat: "アイブロウ", rakuten: RK("ヘビーローテーション カラーリングアイブロウ 03"), amazon: AMZ("ヘビーローテーション カラーリングアイブロウ 03"), note: "深みブラウンの眉マスカラ" },
     { name: "ヴィセ アイブロウパウダー ブラウン系", price: 1320, cat: "アイブロウ", rakuten: RK("ヴィセ アイブロウパウダー ブラウン"), amazon: AMZ("ヴィセ アイブロウパウダー ブラウン"), note: "ふんわり深みの3色パウダー" },
+    { name: "SUQQU シアーマット リップスティック 112 芳実（レフィル）", price: null, cat: "リップ", isDepacosme: true,
+      qoo10: "https://www.qoo10.jp/g/1117415069",
+      a8adId: "4An06KR-g7-vkg5h7u",
+      imu: "https://gd.image-qoo10.jp/li/623/166/6134166623.g_400-w_g.jpg",
+      note: "温かみのある赤みカラー。イエベ秋の肌に溶け込む上質な発色" },
   ],
   summer: [
     { name: "KATE リップモンスター 04 パンプキンワイン", price: 1540, cat: "リップ", set: true, rakuten: RK("KATE リップモンスター 04"), amazon: AMZ("KATE リップモンスター 04"), note: "ブルベ夏に寄り添う上品カラー" },
@@ -268,6 +280,11 @@ const COSME_FULL = {
     { name: "セザンヌ 超細芯アイブロウ 04 アッシュブラウン", price: 550, cat: "アイブロウ", rakuten: RK("セザンヌ 超細芯アイブロウ 04"), amazon: AMZ("セザンヌ 超細芯アイブロウ 04"), note: "くすみアッシュのプチプラ" },
     { name: "ヘビーローテーション カラーリングアイブロウ 01 アッシュブラウン", price: 880, cat: "アイブロウ", rakuten: RK("ヘビーローテーション カラーリングアイブロウ 01"), amazon: AMZ("ヘビーローテーション カラーリングアイブロウ 01"), note: "アッシュ系の眉マスカラ" },
     { name: "ヴィセ アイブロウパウダー グレイッシュブラウン", price: 1320, cat: "アイブロウ", rakuten: RK("ヴィセ アイブロウパウダー グレイッシュブラウン"), amazon: AMZ("ヴィセ アイブロウパウダー グレイッシュブラウン"), note: "くすみ感の3色パウダー" },
+    { name: "SUQQU シアーマット リップスティック 111 熟葡萄（レフィル）", price: null, cat: "リップ", isDepacosme: true,
+      qoo10: "https://www.qoo10.jp/g/1117415069",
+      a8adId: "4An06KR-g7-vkg5h7u",
+      imu: "https://gd.image-qoo10.jp/li/623/166/6134166623.g_400-w_g.jpg",
+      note: "青みのある深紫。ブルベ夏の透明感を引き立てる上品な一本" },
   ],
   winter: [
     { name: "KATE リップモンスター 06 2:00AM", price: 1540, cat: "リップ", set: true, rakuten: RK("KATE リップモンスター 06"), amazon: AMZ("KATE リップモンスター 06"), note: "ブルベ冬の鮮烈な深みレッド" },
@@ -300,6 +317,11 @@ const COSME_FULL = {
     { name: "セザンヌ 超細芯アイブロウ 04 アッシュブラウン", price: 550, cat: "アイブロウ", rakuten: RK("セザンヌ 超細芯アイブロウ 04"), amazon: AMZ("セザンヌ 超細芯アイブロウ 04"), note: "くすみアッシュのプチプラ" },
     { name: "ヘビーローテーション カラーリングアイブロウ 06 グレー系", price: 880, cat: "アイブロウ", rakuten: RK("ヘビーローテーション カラーリングアイブロウ 06"), amazon: AMZ("ヘビーローテーション カラーリングアイブロウ 06"), note: "暗髪に合うグレー眉マスカラ" },
     { name: "KATE デザイニングアイブロウ3D EX-5 アッシュ系", price: 1210, cat: "アイブロウ", rakuten: RK("KATE デザイニングアイブロウ3D EX-5"), amazon: AMZ("KATE デザイニングアイブロウ3D EX-5"), note: "クールな寒色ブラウン眉" },
+    { name: "SUQQU シアーマット リップスティック 111 熟葡萄（レフィル）", price: null, cat: "リップ", isDepacosme: true,
+      qoo10: "https://www.qoo10.jp/g/1117415069",
+      a8adId: "4An06KR-g7-vkg5h7u",
+      imu: "https://gd.image-qoo10.jp/li/623/166/6134166623.g_400-w_g.jpg",
+      note: "青みのある深紫。ブルベ冬の鮮烈な印象と好相性" },
   ],
 };
 
@@ -2326,14 +2348,105 @@ function HomeCardButton({ icon, label, accent, soon, onClick }) {
 }
 const LAB = (site) => (site === "iebel" ? "イエベ研究所" : "ブルベ研究所");
 
+// ══════════════════════════════════════════
+// デパコスの商品リンク（A8.net 経由・Qoo10）
+// ──────────────────────────────────────────
+// A8 の発行タグは <span class="a8ad {id}"> を置いて ad.js に innerHTML させる方式。
+// ただし設置先の blubel.jp / iebel.jp は Next.js の SPA なので、本文に貼った
+// <script> は実行されない（snippet_colorlab.html に既記）。よって ad.js は
+// カードの mount 時に JS で 1 回だけ動的ロードする。
+//
+// ad.js の中身（実物を読んで確認済み）で注意が要るのは 3 点。
+//   1. goods.imu は「商品名」ではなく「画像URL」。chkUrl(^https?://) を通らないと
+//      showAd() が false を返して何も描画されない。
+//   2. 差し込み先の探し方が $("." + req.id) の「最後の 1 件」なので、
+//      該当 span が DOM に無い状態で showAd() を呼ぶと TypeError になる。
+//   3. 差し込むのは <a><img></a> + 1x1 の計測 gif。React に触らせないよう
+//      span は子要素を持たないままにしておく（React は自分が作っていない子は消さない）。
+// ══════════════════════════════════════════
+const A8_MAT = "4B3VR9+GAG5TE+4QYG+BWGDT";
+const A8_AD_JS = "https://statics.a8.net/ad/ad.js";
+// ad.js が落ちたときの直リンク。ad.js が生成するのと同じ URL。
+const A8_DIRECT = (item) => "https://px.a8.net/svt/ejp?a8mat=" + A8_MAT + "&a8ejpredirect=" + encodeURIComponent(item.qoo10);
+
+let a8Loading = null;
+function loadA8() {
+  if (typeof window === "undefined" || typeof document === "undefined") return Promise.reject(new Error("no dom"));
+  if (typeof window.a8adscript === "function") return Promise.resolve();
+  if (a8Loading) return a8Loading;
+  a8Loading = new Promise((resolve, reject) => {
+    const el = document.createElement("script");
+    el.src = A8_AD_JS;
+    el.async = true;
+    el.onload = () => (typeof window.a8adscript === "function" ? resolve() : reject(new Error("a8adscript undefined")));
+    el.onerror = () => reject(new Error("ad.js load failed"));
+    document.head.appendChild(el);
+  });
+  // 失敗したら次のカードで再試行できるようキャッシュを捨てる。
+  a8Loading.catch(() => { a8Loading = null; });
+  return a8Loading;
+}
+
+// A8 の商品リンク枠。ad.js が span を埋められなかったら onFallback() を呼ぶ。
+function A8Ad({ item, onFallback }) {
+  const ref = useRef(null);
+  useEffect(() => {
+    let alive = true;
+    const fail = () => { if (alive) onFallback(); };
+    loadA8().then(() => {
+      if (!alive || !ref.current || !ref.current.isConnected) return fail();
+      try {
+        window.a8adscript("body").showAd({
+          req: { mat: A8_MAT, alt: item.name, id: item.a8adId },
+          goods: { ejp: item.qoo10, imu: item.imu },
+        });
+      } catch (e) { return fail(); }
+      // showAd() は ad-api.a8.net への問い合わせ（timeout 1s）後に差し込むので、
+      // 少し待っても空のままなら直リンクに切り替える。
+      setTimeout(() => { if (alive && ref.current && !ref.current.firstChild) fail(); }, 3000);
+    }, fail);
+    return () => { alive = false; };
+  }, [item.a8adId]);
+  // 子要素を JSX で持たないこと。ad.js が入れた中身を React が消してしまう。
+  return <span ref={ref} className={"a8ad-slot a8ad " + item.a8adId} />;
+}
+
+function DepacosCard({ item }) {
+  const [fallback, setFallback] = useState(false);
+  return (
+    <div className="rounded-2xl p-4 mb-3" style={{ border: "1px solid " + C.line, background: "#fbf8fa" }}>
+      <div className="mx-auto mb-3" style={{ maxWidth: 150 }}>
+        {fallback ? (
+          <a href={A8_DIRECT(item)} target="_blank" rel="noreferrer sponsored">
+            <img src={item.imu} alt={item.name} loading="lazy" style={{ width: "100%", borderRadius: 12, background: "#f4f0f4" }} />
+          </a>
+        ) : (
+          <A8Ad item={item} onFallback={() => setFallback(true)} />
+        )}
+      </div>
+      <div>
+        <span className="text-[10px] px-1.5 py-0.5 rounded mr-1.5 align-middle" style={{ background: "#f2eef1", color: C.sub }}>PR</span>
+        <span className="text-[10px] px-1.5 py-0.5 rounded mr-1.5 align-middle tracking-wider" style={{ background: "#3a3340", color: "#fff" }}>DEPACOS</span>
+        <span className="text-[10px] align-middle" style={{ color: C.faint }}>{item.cat}</span>
+        <div className="text-sm font-medium mt-1" style={{ color: C.ink }}>{item.name}</div>
+        <div className="text-xs mt-0.5" style={{ color: C.sub }}>{item.note}</div>
+      </div>
+      {/* 商品画像（A8の広告枠）だけだとリンクだと気づかれないので、テキストのCTAを常時出す。
+          遷移先は ad.js が画像に付けるのと同じ A8 の計測URL。 */}
+      <a href={A8_DIRECT(item)} target="_blank" rel="noreferrer sponsored" className="block text-center text-xs text-white py-2 rounded-full mt-3" style={{ background: "#e4007f" }}>Qoo10で見る</a>
+    </div>
+  );
+}
+
 function CosmeCard({ item }) {
+  if (item.isDepacosme) return <DepacosCard item={item} />;
   return (
     <div className="rounded-2xl p-4 mb-3" style={{ border: "1px solid " + C.line }}>
       <div>
         <span className="text-[10px] px-1.5 py-0.5 rounded mr-1.5 align-middle" style={{ background: "#f2eef1", color: C.sub }}>PR</span>
         <span className="text-[10px] align-middle" style={{ color: C.faint }}>{item.cat}</span>
         <div className="text-sm font-medium mt-1" style={{ color: C.ink }}>{item.name}</div>
-        <div className="text-xs mt-0.5" style={{ color: C.sub }}>{item.note}・¥{item.price.toLocaleString()}</div>
+        <div className="text-xs mt-0.5" style={{ color: C.sub }}>{item.note}{typeof item.price === "number" ? "・¥" + item.price.toLocaleString() : ""}</div>
       </div>
       <div className="flex gap-2 mt-3">
         <a href={item.rakuten} target="_blank" rel="noreferrer" className="flex-1 text-center text-xs text-white py-2 rounded-full" style={{ background: "#bf0000" }}>楽天で見る</a>

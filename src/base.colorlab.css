@@ -14,3 +14,9 @@
 #colorlab-root img, #colorlab-root canvas { max-width: 100%; display: block; }
 #colorlab-root input, #colorlab-root a { font: inherit; }
 #colorlab-root a { color: inherit; }
+
+/* A8.net の商品リンク枠（デパコスのコスメカード）。
+   ad.js は span の中に <a><img></a> と 1x1 の計測 gif を innerHTML で入れてくる。
+   商品画像だけ枠幅いっぱいにし、計測 gif（span の直下にある 1x1）は触らない。 */
+#colorlab-root .a8ad-slot a { display: block; }
+#colorlab-root .a8ad-slot a img { width: 100%; height: auto; border-radius: 12px; background: #f4f0f4; }
