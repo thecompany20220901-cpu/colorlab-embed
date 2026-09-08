@@ -19,6 +19,9 @@ S3 には次のゲートを全部通す(1つでも落ちたら不採用):
   G5 命名   … 修飾語と基準色の組み合わせが日本語として自然(NAMEABLE の許可表)。
               造語防止のため S3 は修飾語1語まで。
 
+✓(いちばん得意な色)は ベストカラーTOP6 の6色だけに付ける(2026-09-08 Keisuke確定)。
+COLOR_CHECK の ◎ とは切り離した。JSX は再計算せずこのフラグを読む。
+
 効果語は STYLING_DATA の勝ち色チップが実際に使っている語だけを、
 トーン分類(明清色/純色/濁色/暗清色/無彩)ごとに割り当てる。新しい語は作らない。
 
@@ -860,6 +863,49 @@ for t in TYPES:
 
 
 # ════════════════════════════════════════════
+# 9.5 ✓(いちばん得意な色) = ベストカラーTOP6 の6色だけに付ける
+# ════════════════════════════════════════════
+# 2026-09-08 Keisuke確定: ✓は TOP6 の6色のみ。COLOR_CHECK の ◎ とは切り離す。
+#
+# 30色版の JSX(pickTop6) は「① COLOR_FAMILIES の ✓ を先に取る → ② 未使用ファミリー
+# → ③ ΔE順」という3段だったが、✓ を TOP6 の結果として定義し直すと ①が自分自身を
+# 参照する循環になる。そこで ① を外し、残りの規則(ファミリーを散らす / palette10 への
+# ΔEが近い順)だけで6色を決める。JSX 側は再計算せずこのフラグを読むだけにするので、
+# 選定ロジックの正本はこのビルダー1箇所になる。
+TOP6_N = 6
+
+
+def pick_top6(t):
+    """palette10 への最小ΔEが近い順。色相ファミリーはできるだけ散らす。"""
+    ref = [hex2lab(h) for _, h in palette[t]]
+    cand = []
+    for i, r in enumerate(rows[t]):
+        lab = hex2lab(r["hex"])
+        d = min(de(lab, q) for q in ref)
+        cand.append((d, i, r["family"]))
+    cand.sort(key=lambda x: (x[0], x[1]))
+    picked, used = [], set()
+    for d, i, fam in cand:                      # ① 未使用の色相ファミリーから
+        if len(picked) >= TOP6_N:
+            break
+        if fam in used:
+            continue
+        picked.append(i); used.add(fam)
+    for d, i, fam in cand:                      # ② 足りなければ ΔEが近い順で埋める
+        if len(picked) >= TOP6_N:
+            break
+        if i not in picked:
+            picked.append(i)
+    return set(picked)
+
+
+top6_idx = {}
+for t in TYPES:
+    top6_idx[t] = pick_top6(t)
+    for i, r in enumerate(rows[t]):
+        r["mark"] = "✓" if i in top6_idx[t] else ""
+
+# ════════════════════════════════════════════
 # 10. 検収(ここで落ちたら出力しない)
 # ════════════════════════════════════════════
 errs, legacy = [], []
@@ -882,6 +928,12 @@ for t in TYPES:
     names = [r["name"] for r in rr]
     if len(set(names)) != len(names):
         errs.append("%s: 色名が重複" % t)
+    n_mark = sum(1 for r in rr if r.get("mark") == "✓")
+    if n_mark != TOP6_N:
+        errs.append("%s: ✓が%d色(TOP6=%d色でなければならない)" % (t, n_mark, TOP6_N))
+    fam_mark = {r["family"] for r in rr if r.get("mark") == "✓"}
+    if len(fam_mark) < min(TOP6_N, len({r["family"] for r in rr})):
+        errs.append("%s: ✓の色相ファミリーが重複 %s" % (t, sorted(fam_mark)))
     for r in rr:
         if r["effect"] not in eff_vocab[t]:
             errs.append("%s: 効果語が実データに無い %s" % (t, r["effect"]))
@@ -925,24 +977,27 @@ out = [
     "",
     "export const COLOR70_FAMILY_ORDER = " + json.dumps(ORDER, ensure_ascii=False, indent=1) + ";",
     "",
-    "// [色名, HEX, 英名, 効果語, 色相ファミリー, トーン, 出所]",
+    "// [色名, HEX, 英名, 効果語, 色相ファミリー, トーン, 出所, ✓]",
+    "//   ✓ = ベストカラーTOP6 の6色だけに付く(2026-09-08 確定)。COLOR_CHECK の ◎ とは無関係。",
     "export const COLOR70 = {",
 ]
 for t in TYPES:
     out.append(' "%s": [' % t)
     for r in rows[t]:
-        out.append('  ["%s","%s","%s","%s","%s","%s","%s"],'
-                   % (r["name"], r["hex"], r["en"], r["effect"], r["family"], r["tone"], r["tier"]))
+        out.append('  ["%s","%s","%s","%s","%s","%s","%s","%s"],'
+                   % (r["name"], r["hex"], r["en"], r["effect"], r["family"],
+                      r["tone"], r["tier"], r.get("mark", "")))
     out.append(" ],")
 out.append("};")
 io.open(OUT_JS, "w", encoding="utf-8").write("\n".join(out) + "\n")
 
 with io.open(OUT_CSV, "w", encoding="utf-8-sig", newline="") as f:
     w = csv.writer(f)
-    w.writerow(["type", "type_ja", "no", "tier", "family", "tone", "name", "hex", "en", "en_src", "effect", "L"])
+    w.writerow(["type", "type_ja", "no", "tier", "family", "tone", "name", "hex", "en", "en_src", "effect", "L", "top6"])
     for t in TYPES:
         for k, r in enumerate(rows[t], 1):
             w.writerow([t, TYPE_JA[t], k, r["tier"], r["family"], r["tone"],
-                        r["name"], r["hex"], r["en"], r["en_src"], r["effect"], r["L"]])
+                        r["name"], r["hex"], r["en"], r["en_src"], r["effect"], r["L"],
+                        r.get("mark", "")])
 print("→ %s" % OUT_JS)
 print("→ %s" % OUT_CSV)
