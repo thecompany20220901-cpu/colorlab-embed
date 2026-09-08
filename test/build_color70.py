@@ -874,27 +874,82 @@ for t in TYPES:
 # 選定ロジックの正本はこのビルダー1箇所になる。
 TOP6_N = 6
 
+# ── SKU在庫の突き合わせ ──────────────────────────────────────
+# 2026-09-08 Keisuke指示で優先順位を変更:
+#   旧: 色相ファミリーを散らす → ΔE順
+#   新: SKUが存在する色を優先 → 埋まらない枠だけ色相の多様性で補う
+# 判定はアプリ本体と同じ材料を使う(ここで別の基準を作らない):
+#   SKUS[site]            … 結果画面が実際に出す商品プール (jsx)
+#   SKU_COLORS[site][id]  … 商品マスタ color 列の言葉 (src/sku_color_data.js)
+#   MASTER_COLOR_ALIAS    … マスタの言葉 → アプリの色名 (jsx)
+SITE_OF = {"spring": "iebel", "autumn": "iebel", "summer": "blubel", "winter": "blubel"}
+
+_sku_blk = block("const SKUS = {")
+sku_ids = {}
+for _site in ("blubel", "iebel"):
+    _i = _sku_blk.index("\n  " + _site + ": [")
+    _j = _sku_blk.index("\n  ],", _i)
+    sku_ids[_site] = re.findall(r"\bid:\s*(\d+)", _sku_blk[_i:_j])
+
+_sc = io.open(os.path.join(REPO, "src", "sku_color_data.js"), encoding="utf-8").read()
+_sc = _sc[_sc.index("export const SKU_COLORS ="):]
+sku_colors = json.loads(re.sub(r",(\s*[}\]])", r"\1",
+                               _sc[_sc.index("{"):_sc.rindex("}") + 1]))
+
+_al = block("const MASTER_COLOR_ALIAS = {")
+alias = {}
+for _m in re.finditer(r'"([^"]+)":\s*\[([^\]]*)\]', _al):
+    alias[_m.group(1)] = re.findall(r'"([^"]+)"', _m.group(2))
+
+
+def sku_count(t, name):
+    """その色名を持つ商品が、結果画面のプールに何点あるか。skuHasTop6() と同じ判定。"""
+    site = SITE_OF[t]
+    n = 0
+    for sid in sku_ids[site]:
+        cols = (sku_colors.get(site, {}) or {}).get(str(sid), [])
+        if any(name in alias.get(c, []) for c in cols):
+            n += 1
+    return n
+
 
 def pick_top6(t):
-    """palette10 への最小ΔEが近い順。色相ファミリーはできるだけ散らす。"""
+    """① SKUが存在する色を ΔEが近い順に取る
+       ② 埋まらなかった枠だけ、未使用の色相ファミリーから ΔE順に補う
+       ③ それでも足りなければ ΔE順で埋める
+
+    どの段でも「既に採った色と ΔE < DE_MIN の色」は飛ばす。
+    2026-09-08 実測: 在庫優先だけにすると、夏の✓が同一HEX(#E8A9C0)の
+    ベビーピンク/ローズピンク/青みピンク で3枠埋まり、6色のうち3つが
+    見分けのつかないチップになった(冬も #FFFFFF が2つ)。
+    70色シリーズ本体と同じ「見分けがつかない色は入れない」を TOP6 にも効かせる。
+    既存30色マスターの重複そのものは据え置き(公開済みのため)。"""
     ref = [hex2lab(h) for _, h in palette[t]]
     cand = []
     for i, r in enumerate(rows[t]):
-        lab = hex2lab(r["hex"])
-        d = min(de(lab, q) for q in ref)
-        cand.append((d, i, r["family"]))
+        d = min(de(hex2lab(r["hex"]), q) for q in ref)
+        cand.append((d, i, r["family"], sku_count(t, r["name"])))
     cand.sort(key=lambda x: (x[0], x[1]))
     picked, used = [], set()
-    for d, i, fam in cand:                      # ① 未使用の色相ファミリーから
+
+    def distinct(i):
+        li = hex2lab(rows[t][i]["hex"])
+        return all(de(li, hex2lab(rows[t][j]["hex"])) >= DE_MIN for j in picked)
+
+    for d, i, fam, n in cand:                   # ① 在庫のある色を優先
         if len(picked) >= TOP6_N:
             break
-        if fam in used:
-            continue
-        picked.append(i); used.add(fam)
-    for d, i, fam in cand:                      # ② 足りなければ ΔEが近い順で埋める
+        if n > 0 and distinct(i):
+            picked.append(i); used.add(fam)
+    for d, i, fam, n in cand:                   # ② 残り枠は色相の多様性で補う
         if len(picked) >= TOP6_N:
             break
-        if i not in picked:
+        if i not in picked and fam not in used and distinct(i):
+            picked.append(i); used.add(fam)
+    for d, i, fam, n in cand:                   # ③ それでも足りなければ ΔE順
+        if len(picked) >= TOP6_N:
+            break
+        if i not in picked and distinct(i):
             picked.append(i)
     return set(picked)
 
@@ -931,9 +986,11 @@ for t in TYPES:
     n_mark = sum(1 for r in rr if r.get("mark") == "✓")
     if n_mark != TOP6_N:
         errs.append("%s: ✓が%d色(TOP6=%d色でなければならない)" % (t, n_mark, TOP6_N))
-    fam_mark = {r["family"] for r in rr if r.get("mark") == "✓"}
-    if len(fam_mark) < min(TOP6_N, len({r["family"] for r in rr})):
-        errs.append("%s: ✓の色相ファミリーが重複 %s" % (t, sorted(fam_mark)))
+    # 2026-09-08: 在庫優先に変えたので「✓のファミリーが全部違う」は要件から外した。
+    # 代わりに、在庫のある色が1色も入っていない事故だけを止める。
+    n_sku = sum(1 for r in rr if r.get("mark") == "✓" and sku_count(t, r["name"]) > 0)
+    if n_sku == 0:
+        errs.append("%s: ✓に在庫のある色が1色も無い" % t)
     for r in rr:
         if r["effect"] not in eff_vocab[t]:
             errs.append("%s: 効果語が実データに無い %s" % (t, r["effect"]))
