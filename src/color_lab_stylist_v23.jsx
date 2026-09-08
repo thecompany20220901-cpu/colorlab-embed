@@ -40,6 +40,9 @@ import FACE_AUTUMN from "./assets/cface_autumn.webp";
 import FACE_WINTER from "./assets/cface_winter.webp";
 // 勝ち色の体系化・英名・商品画像（test/build_color_data.py が既存データから生成）
 import { FAMILY_ORDER, COLOR_FAMILIES, COLOR_EN, CHIP_HEX, SKU_IMG } from "./color_data.js";
+// 勝ち色70色シリーズ (2026-09-08 本番切替)。COLOR_FAMILIES(30色) は CHIP_HEX 等の
+// 既存参照が残っているので import は外さない。結果画面のグリッドと TOP6 は 70色を見る。
+import { COLOR70, COLOR70_FAMILY_ORDER } from "./color70_data.js";
 // 商品マスタ item_{site}.csv の color 列（test/build_sku_colors.py が生成）
 import { SKU_COLORS } from "./sku_color_data.js";
 
@@ -2011,8 +2014,8 @@ async function aiStylist(type, secondKey, tpo, mood, sub, worries, hair, frame, 
     // 色名は記事のまま。HEX は CHIP_HEX（既存HEX優先・無いものは規則で機械解決）から引く。
     theme: hit.theme,
     scene_name: scene.n,
-    colors: win.map(([n, e]) => ({ name: n, effect: e, hex: CHIP_HEX[n] || null })).filter((c) => c.hex),
-    ng_color: ng.length ? { name: ng[0][0], effect: ng[0][1], hex: CHIP_HEX[ng[0][0]] || null } : null,
+    colors: win.map(([n, e]) => ({ name: n, effect: e, hex: chipHex(n, type.key) })).filter((c) => c.hex),
+    ng_color: ng.length ? { name: ng[0][0], effect: ng[0][1], hex: chipHex(ng[0][0], type.key) } : null,
   };
 }
 
@@ -2619,12 +2622,55 @@ function SpecBadges({ first, second, accent }) {
   );
 }
 
+/* 70色を色相ファミリー別にまとめる。行は
+   [色名, HEX, 英名, 効果語, 色相ファミリー, トーン, 出所, ✓]。
+   ✓ は test/build_color70.py がベストカラーTOP6の6色にだけ付ける。ここでは計算しない。 */
+const C70_NAME = 0, C70_HEX = 1, C70_EN = 2, C70_FAM = 4, C70_MARK = 7;
+
+/* ✓ の文字色。70色化で TOP6 に アイボリー / ピュアホワイト / エクリュ のような
+   淡い色が入るようになり、白の✓が地に溶けて見えなくなったので明度で切り替える
+   (2026-09-08 実測。#FFF3E2 の上の白✓は判読できなかった)。 */
+function checkInkOn(hex) {
+  const h = String(hex || "").replace("#", "");
+  if (h.length !== 6) return { color: "#fff", textShadow: "0 0 3px rgba(0,0,0,.45)" };
+  const lin = (v) => { const u = parseInt(v, 16) / 255; return u <= 0.03928 ? u / 12.92 : Math.pow((u + 0.055) / 1.055, 2.4); };
+  const Y = 0.2126 * lin(h.slice(0, 2)) + 0.7152 * lin(h.slice(2, 4)) + 0.0722 * lin(h.slice(4, 6));
+  return Y > 0.55
+    ? { color: "#4a4450", textShadow: "0 0 2px rgba(255,255,255,.85)" }
+    : { color: "#fff", textShadow: "0 0 3px rgba(0,0,0,.45)" };
+}
+
+/* 色名 → HEX。CHIP_HEX(30色時代の辞書)に無い名前は 70色データから引く。
+   70色化で TOP6 に新しい色名(ソフトワインレッド等)が入るため、
+   コーデ提案のチップが hex 無しで落ちないようにする(2026-09-08)。 */
+function chipHex(name, typeKey) {
+  if (CHIP_HEX[name]) return CHIP_HEX[name];
+  const rows = (typeKey && COLOR70[typeKey]) || [];
+  const hit = rows.find((r) => r[C70_NAME] === name);
+  if (hit) return hit[C70_HEX];
+  for (const t of Object.keys(COLOR70)) {
+    const h = COLOR70[t].find((r) => r[C70_NAME] === name);
+    if (h) return h[C70_HEX];
+  }
+  return null;
+}
+const COLOR70_BY_FAMILY = (() => {
+  const out = {};
+  Object.keys(COLOR70).forEach((t) => {
+    const fam = {};
+    COLOR70_FAMILY_ORDER.forEach((f) => { fam[f] = []; });
+    COLOR70[t].forEach((r) => { (fam[r[C70_FAM]] = fam[r[C70_FAM]] || []).push(r); });
+    out[t] = fam;
+  });
+  return out;
+})();
+
 /* 勝ち色を8つの色相ファミリー行で見せる。色・名前・✓ の出所は既存データだけ
    （TYPES.palette10 / COLOR_CHECK / NG_COLORS.alt / STYLING_DATA）。
    0色の行も消さずに「この色相はありません」と出す（空であること自体が情報）。 */
 function ColorFamilies({ typeKey, accent }) {
-  const fam = COLOR_FAMILIES[typeKey] || {};
-  const total = FAMILY_ORDER.reduce((n, k) => n + (fam[k] || []).length, 0);
+  const fam = COLOR70_BY_FAMILY[typeKey] || {};
+  const total = COLOR70_FAMILY_ORDER.reduce((n, k) => n + (fam[k] || []).length, 0);
   return (
     <div className="mb-6">
       <div className="flex items-baseline justify-between mb-1">
@@ -2634,7 +2680,7 @@ function ColorFamilies({ typeKey, accent }) {
       <p className="text-[10px] leading-relaxed mb-2.5" style={{ color: C.faint }}>
         プロ資料と同じ色相ファミリー別。日本語名／英名／HEXつきなので、そのまま買い物に持っていけます。
       </p>
-      {FAMILY_ORDER.map((k) => {
+      {COLOR70_FAMILY_ORDER.map((k) => {
         const items = fam[k] || [];
         return (
           <div key={k} className="mb-3">
@@ -2645,15 +2691,17 @@ function ColorFamilies({ typeKey, accent }) {
             {items.length === 0 ? (
               <div className="text-[10px] py-1" style={{ color: C.faint }}>この色相はこのタイプの勝ち色にありません</div>
             ) : (
-              <div className="grid grid-cols-4 gap-1.5">
-                {items.map(([name, hex, mark]) => (
-                  <div key={name} className="text-center">
-                    <div className="w-full rounded-md relative" style={{ height: 30, background: hex, border: "1px solid #e3dce3" }}>
-                      {mark === "✓" && <span className="absolute right-1 top-0 text-[11px]" style={{ color: "#fff", textShadow: "0 0 3px rgba(0,0,0,.45)" }}>✓</span>}
+              /* 70色なので4列だと縦が2倍以上になる。6列に詰めて、色名は2行ぶんの
+                 高さを固定して行の高さをそろえる（2026-09-08 確定）。 */
+              <div className="grid grid-cols-6 gap-1">
+                {items.map((r) => (
+                  <div key={r[C70_NAME]} className="text-center">
+                    <div className="w-full rounded relative" style={{ height: 26, background: r[C70_HEX], border: "1px solid #e3dce3" }}>
+                      {r[C70_MARK] === "✓" && <span className="absolute right-0.5 top-0 text-[10px]" style={checkInkOn(r[C70_HEX])}>✓</span>}
                     </div>
-                    <span className="block text-[9px] mt-0.5 leading-tight" style={{ color: C.sub }}>{name}</span>
-                    <span className="block text-[7.5px] leading-tight" style={{ color: C.faint }}>{COLOR_EN[name] || ""}</span>
-                    <span className="block text-[7px] leading-tight" style={{ color: "#c9c2cb", fontFamily: "ui-monospace, monospace" }}>{hex.toUpperCase()}</span>
+                    <span className="block text-[8px] mt-0.5 leading-[1.15]" style={{ color: C.sub, height: 19, overflow: "hidden" }}>{r[C70_NAME]}</span>
+                    <span className="block text-[6.5px] leading-tight" style={{ color: C.faint, height: 9, overflow: "hidden" }}>{r[C70_EN] || ""}</span>
+                    <span className="block text-[6.5px] leading-tight" style={{ color: "#c9c2cb", fontFamily: "ui-monospace, monospace" }}>{r[C70_HEX].toUpperCase()}</span>
                   </div>
                 ))}
               </div>
@@ -2871,31 +2919,19 @@ function MetalChips({ typeKey, accent, site, siteName }) {
 const TOP6_N = 6;
 
 function pickTop6(typeKey) {
-  const fam = COLOR_FAMILIES[typeKey] || {};
-  const ref = typeColorRef(typeKey);
-  const all = [];
-  FAMILY_ORDER.forEach((f) => (fam[f] || []).forEach(([name, hex, mark]) => {
-    const lab = hexToLab(hex);
-    const d = lab ? ref.labs.reduce((m, p) => Math.min(m, deltaE(lab, p)), Infinity) : Infinity;
-    all.push({ name, hex, family: f, top: mark === "✓", d });
-  }));
-  all.sort((x, y) => x.d - y.d);
-  const picked = [];
-  const used = new Set();
-  const take = (c) => { picked.push(c); used.add(c.family); };
-  // ① ✓ の色（ΔEが近い順）
-  all.filter((c) => c.top).forEach((c) => { if (picked.length < TOP6_N) take(c); });
-  // ② 未使用の色相ファミリーから（ΔEが近い順）
-  all.filter((c) => !c.top && !used.has(c.family)).forEach((c) => {
-    if (picked.length < TOP6_N && !used.has(c.family)) take(c);
-  });
-  // ③ それでも足りなければ ΔEが近い順で埋める
-  all.forEach((c) => { if (picked.length < TOP6_N && !picked.includes(c)) take(c); });
-  return picked.slice(0, TOP6_N);
+  // 選定はビルダー(test/build_color70.py)が済ませている。ここでは ✓ を読むだけ。
+  // 2026-09-08 以前は JSX 側で ΔE 順に選び直していたが、正本が2箇所になるのでやめた。
+  return (COLOR70[typeKey] || [])
+    .filter((r) => r[C70_MARK] === "✓")
+    .map((r) => ({ name: r[C70_NAME], hex: r[C70_HEX], family: r[C70_FAM], top: true }))
+    .slice(0, TOP6_N);
 }
 
 // 商品マスタの color 列の言葉（SKU_COLORS）と、このアプリの色名を突き合わせる同義語表。
-// 新しい色は1つも作っていない。右側はすべて TYPES[].palette10 / COLOR_FAMILIES に実在する名前。
+// 新しい色は1つも作っていない。右側はすべて TYPES[].palette10 / COLOR_FAMILIES /
+// COLOR70 に実在する名前。
+// 2026-09-08: 70色化で TOP6 に入った新しい色名7つを追加した。登録しないと
+// skuHasTop6() が当たらず「TOP6の色だけ」の商品リストが空になる。
 const MASTER_COLOR_ALIAS = {
   "ホワイト": ["ホワイト", "オフホワイト", "ピュアホワイト", "アイボリー", "ウォームホワイト"],
   "ブラック": ["ブラック"],
@@ -2905,15 +2941,15 @@ const MASTER_COLOR_ALIAS = {
   "ダークグレー": ["グレー", "チャコールグレー"],
   "ベージュ": ["ベージュ", "エクリュ"],
   "ライトベージュ": ["ベージュ", "エクリュ"],
-  "ブラウン": ["ブラウン", "キャメル", "ブロンズ", "ダークブラウン"],
+  "ブラウン": ["ブラウン", "キャメル", "ブロンズ", "ダークブラウン", "キャメルブラウン"],
   "ネイビー": ["ネイビー"],
   "ブルー": ["水色", "ロイヤルブルー", "パウダーブルー", "ペリウィンクル", "明るいターコイズ"],
   "グリーン": ["ミントグリーン", "エメラルド", "カーキ", "オリーブ", "モスグリーン", "ライトグリーン", "ティールグリーン"],
-  "ピンク": ["コーラルピンク", "サーモンピンク", "青みピンク", "ビビッドピンク", "ローズピンク", "ピーチ", "ピンク"],
-  "ボルドー": ["ワインレッド", "ブラウンレッド", "ラズベリー", "レッド"],
-  "オレンジ": ["オレンジ", "テラコッタ", "アプリコット"],
+  "ピンク": ["コーラルピンク", "サーモンピンク", "青みピンク", "ビビッドピンク", "ローズピンク", "ピーチ", "ピンク", "ピーチピンク", "ベビーピンク"],
+  "ボルドー": ["ワインレッド", "ブラウンレッド", "ラズベリー", "レッド", "ソフトワインレッド", "ミディアムワインレッド"],
+  "オレンジ": ["オレンジ", "テラコッタ", "アプリコット", "ライトコーラル"],
   "イエロー": ["イエロー", "マスタード", "ゴールデンイエロー"],
-  "パープル": ["パープル", "ラベンダー", "モーヴ"],
+  "パープル": ["パープル", "ラベンダー", "モーヴ", "ソフトラベンダー"],
   // ゴールド/シルバーは金属で服の色ではないので、ここには入れない（絞り込みの対象外）
 };
 
@@ -2945,7 +2981,7 @@ function Top6Band({ typeKey, accent }) {
         ))}
       </div>
       <p className="text-[10px] leading-relaxed mt-2" style={{ color: C.sub }}>
-        勝ち色30色のうち、いちばん得意な色から6色。買い物で迷ったらこの中から選べば外しません。
+        勝ち色70色のうち、いちばん得意な色から6色。買い物で迷ったらこの中から選べば外しません。
       </p>
     </div>
   );
