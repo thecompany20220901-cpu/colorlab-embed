@@ -7,12 +7,15 @@ import { mkdirSync, writeFileSync, readFileSync } from "fs";
 import { resolve, join } from "path";
 
 const PHASE = process.argv[2] || "1";
-const ONLY = process.argv[3] || null;
+const ONLY = process.argv[3] && process.argv[3] !== "-" ? process.argv[3] : null;
+// 第4引数=投入写真のパス / 第5引数=出力ファイル名のタグ（同じフォルダへ追加保存するため）
+const PHOTO_ARG = process.argv[4] || null;
+const TAG = process.argv[5] ? "_" + process.argv[5] : "";
 const OUT = "C:/Users/newfa/Downloads/colorlab_selfcard_20260908";
 mkdirSync(OUT, { recursive: true });
 mkdirSync(join(OUT, "_full"), { recursive: true });
 
-const PHOTO = "C:/Users/newfa/instagram/renderer/test_output/colorlab_card_test_20260904/selfcard/ref_keisuke.jpg";
+const PHOTO = PHOTO_ARG || "C:/Users/newfa/instagram/renderer/test_output/colorlab_card_test_20260904/selfcard/ref_keisuke.jpg";
 const WORKER = "https://colorlab-selfcard.the-company-20220901.workers.dev";
 const SITES = [
   { key: "BLUBEL", url: "https://www.blubel.jp/pages/personalcolor" },
@@ -56,13 +59,14 @@ for (const site of SITES) {
   // 画面はウィジェット(#colorlab-root)だけを切り出す。ページ全体は _full に別途残す。
   const shot = async (n) => {
     const el = await page.$("#colorlab-root");
-    if (el) await el.screenshot({ path: join(OUT, `${site.key}_${n}.png`) });
-    else await page.screenshot({ path: join(OUT, `${site.key}_${n}.png`) });
-    await page.screenshot({ path: join(OUT, "_full", `${site.key}_${n}_full.png`), fullPage: true });
+    if (el) await el.screenshot({ path: join(OUT, `${site.key}${TAG}_${n}.png`) });
+    else await page.screenshot({ path: join(OUT, `${site.key}${TAG}_${n}.png`) });
+    await page.screenshot({ path: join(OUT, "_full", `${site.key}${TAG}_${n}_full.png`), fullPage: true });
   };
   const txt = () => page.textContent("#colorlab-root");
 
   await open();
+  say(`  投入写真: ${PHOTO}`);
   say(`  バンドル: ${(bundles[0] || "なし").replace(/^.*colorlab-embed/, "…colorlab-embed")}`);
 
   // ── 操作ステップ計測（未診断ユーザー・入口B）──
@@ -71,14 +75,14 @@ for (const site of SITES) {
     await page.getByRole("button", { name: rx }).first().click();
     taps++; await page.waitForTimeout(waitMs);
   };
-  await shot("00_home");
+  if (!TAG) await shot("00_home");
 
   await tap(/あなたの個性色が分かる！/, 800);
   const chooseTxt = await txt();
   say(`  [1] 選択画面「あなたの結果をどう見る？」: ${chooseTxt.includes("あなたの結果をどう見る？") ? "OK" : "NG"}`);
   say(`      アバターで見る: ${chooseTxt.includes("無料・すぐに完成") ? "「無料・すぐに完成」" : "文言なし"}`);
   say(`      自分の顔で作る: ${chooseTxt.includes("写真から本人風イラストを生成") ? "「写真から本人風イラストを生成」" : chooseTxt.includes("本日の生成枠は終了") ? "★本日の枠終了で押せない" : "文言なし"}`);
-  await shot("01_choose_入口の選択画面");
+  if (!TAG) await shot("01_choose_入口の選択画面");
 
   await tap(/自分の顔で作る/);
   await tap(/^直感で選ぶ/);
@@ -91,7 +95,7 @@ for (const site of SITES) {
   say(`  [2] 撮影画面へ自動遷移: ${(await page.getByRole("button", { name: /写真を選ぶ/ }).count()) > 0 ? "OK（「写真を選ぶ」あり）" : "NG"}`);
   say(`      告知文（写真が端末外へ出る旨）: ${selfTxt.includes("画像生成AI") ? "OK" : "NG"}`);
   say(`  [4] 未診断ユーザーの操作ステップ: ${taps} タップ / ${tSelf} 秒（ホーム→撮影画面）`);
-  await shot("02_selfphoto_撮影画面");
+  if (!TAG) await shot("02_selfphoto_撮影画面");
 
   const rec = { site: site.key, bundle: bundles[0] || "", tapsToCamera: taps, secToCamera: tSelf, errs: errs.length };
 
@@ -136,7 +140,7 @@ for (const site of SITES) {
       if (box) {
         await page.evaluate((y) => window.scrollTo(0, Math.max(0, y - 20)), box.y);
         await page.waitForTimeout(400);
-        await page.screenshot({ path: join(OUT, `${site.key}_05_card_only.png`),
+        await page.screenshot({ path: join(OUT, `${site.key}${TAG}_05_card_only.png`),
           clip: { x: box.x, y: 0, width: box.w, height: Math.min(1800, box.h + 40) } });
       }
     } catch (e) { say(`      カード切り出し失敗: ${e.message}`); }
@@ -146,7 +150,7 @@ for (const site of SITES) {
       const dl = page.waitForEvent("download", { timeout: 30000 });
       await tap(/カードを画像で保存/, 1500);
       const d = await dl;
-      const p = join(OUT, `${site.key}_06_saved_card_1080x1920.png`);
+      const p = join(OUT, `${site.key}${TAG}_06_saved_card_1080x1920.png`);
       await d.saveAs(p);
       say(`  [3] 保存PNG: ${p}`);
     } catch (e) { say(`  [3] 保存PNGの取得に失敗: ${e.message}`); }
@@ -164,6 +168,6 @@ for (const site of SITES) {
 }
 
 await browser.close();
-writeFileSync(join(OUT, `_log_phase${PHASE}.txt`), log.join("\n"), "utf-8");
-writeFileSync(join(OUT, `_summary_phase${PHASE}.json`), JSON.stringify(summary, null, 2), "utf-8");
+writeFileSync(join(OUT, `_log_phase${PHASE}${TAG}.txt`), log.join("\n"), "utf-8");
+writeFileSync(join(OUT, `_summary_phase${PHASE}${TAG}.json`), JSON.stringify(summary, null, 2), "utf-8");
 console.log("\n保存先: " + OUT);
