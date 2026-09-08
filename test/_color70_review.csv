@@ -11,7 +11,7 @@ spring,イエベ春,9,S3,ピンク系,無彩,スモーキーモーヴ,#876F7C,Sm
 spring,イエベ春,10,S3,ピンク系,純色,ダークコーラルピンク,#D5374A,Dark Coral Pink,gen,可愛い,48.7,
 spring,イエベ春,11,S1,レッド系,純色,レッド,#C0242C,Red,std,華やか,42.2,
 spring,イエベ春,12,S3,レッド系,純色,ミディアムワインレッド,#A9253A,Medium Wine Red,gen,元気,38.0,
-spring,イエベ春,13,S1,オレンジ・コーラル系,明清色,アプリコット,#F7C9A0,Apricot,std,優しい,84.0,✓
+spring,イエベ春,13,S1,オレンジ・コーラル系,明清色,アプリコット,#F7C9A0,Apricot,std,優しい,84.0,
 spring,イエベ春,14,S2,オレンジ・コーラル系,濁色,ミルクティー,#C4A484,Milk Tea,std,柔らか,69.4,
 spring,イエベ春,15,S3,オレンジ・コーラル系,明清色,クリアコーラル,#FF8673,Clear Coral,gen,明るい,69.1,
 spring,イエベ春,16,S1,オレンジ・コーラル系,純色,ピーチ,#EE8B7E,Peach,std,血色,68.1,
@@ -31,7 +31,7 @@ spring,イエベ春,29,S3,オレンジ・コーラル系,濁色,アッシュブ�
 spring,イエベ春,30,S3,オレンジ・コーラル系,暗清色,ディープテラコッタ,#793A26,Deep Terracotta,gen,品格,32.3,
 spring,イエベ春,31,S1,オレンジ・コーラル系,暗清色,ブラウン,#6B4226,Brown,std,洗練,32.2,
 spring,イエベ春,32,S3,オレンジ・コーラル系,暗清色,ディープブラウン,#523522,Deep Brown,gen,誠実,25.1,
-spring,イエベ春,33,S1,イエロー系,純色,イエロー,#F2C94C,Yellow,std,華やか,82.5,
+spring,イエベ春,33,S1,イエロー系,純色,イエロー,#F2C94C,Yellow,std,華やか,82.5,✓
 spring,イエベ春,34,S1,イエロー系,純色,ゴールデンイエロー,#F2B94C,Golden Yellow,std,元気,78.5,✓
 spring,イエベ春,35,S3,イエロー系,濁色,くすみイエロー,#B5A255,Dusty Yellow,gen,穏やか,66.8,
 spring,イエベ春,36,S1,イエロー系,濁色,マスタード,#C89B3C,Mustard,std,落ち着き,66.6,
@@ -39,7 +39,7 @@ spring,イエベ春,37,S3,イエロー系,無彩,アッシュカーキ,#727160,A
 spring,イエベ春,38,S1,グリーン系,明清色,ミントグリーン,#9FD9C3,Mint Green,ref,フレッシュ,82.3,
 spring,イエベ春,39,S3,グリーン系,明清色,ペールミントグリーン,#B0C6B9,Pale Mint Green,gen,清潔感,77.9,
 spring,イエベ春,40,S1,グリーン系,濁色,ライトグリーン,#8FCB9B,Light Green,std,なじむ,76.6,✓
-spring,イエベ春,41,S1,グリーン系,濁色,明るいターコイズ,#67C7B0,Turquoise,std,柔らか,74.1,
+spring,イエベ春,41,S1,グリーン系,濁色,明るいターコイズ,#67C7B0,Turquoise,std,柔らか,74.1,✓
 spring,イエベ春,42,S3,グリーン系,純色,ビビッドエメラルド,#00B386,Vivid Emerald,gen,血色,64.9,
 spring,イエベ春,43,S1,グリーン系,純色,エメラルド,#1F9E8E,Emerald Green,ref,可愛い,58.7,
 spring,イエベ春,44,S3,グリーン系,濁色,アッシュブルーグリーン,#5B7470,Ash Blue Green,gen,穏やか,46.8,
@@ -50,7 +50,7 @@ spring,イエベ春,48,S3,グリーン系,暗清色,ダークティール,#132F2
 spring,イエベ春,49,S1,ブルー系,明清色,水色,#A9C4DE,Aqua Blue,ref,優しい,78.0,
 spring,イエベ春,50,S3,ブルー系,濁色,ペールターコイズブルー,#91AFBE,Pale Turquoise Blue,gen,落ち着き,69.8,
 spring,イエベ春,51,S3,ブルー系,暗清色,ダークティールブルー,#1F4254,Dark Teal Blue,gen,安定,26.2,
-spring,イエベ春,52,S3,パープル系,明清色,ソフトラベンダー,#C9BFD8,Soft Lavender,gen,明るい,78.8,✓
+spring,イエベ春,52,S3,パープル系,明清色,ソフトラベンダー,#C9BFD8,Soft Lavender,gen,明るい,78.8,
 spring,イエベ春,53,S1,ベーシック,無彩,ウォームホワイト,#FFFFFF,Warm White,std,マナー,100.0,
 spring,イエベ春,54,S1,ベーシック,無彩,ホワイト,#FFFFFF,White,std,清潔,100.0,
 spring,イエベ春,55,S1,ベーシック,明清色,アイボリー,#FFF3E2,Ivory,ref,フレッシュ,96.3,✓
@@ -84,14 +84,14 @@ summer,ブルベ夏,12,S1,ピンク系,濁色,ローズ,#D4708E,Rose,std,穏や�
 summer,ブルベ夏,13,S1,ピンク系,濁色,プラムピンク,#C1708E,Plum Pink,std,大人可愛い,57.0,
 summer,ブルベ夏,14,S1,ピンク系,濁色,ローズミスト,#C46A82,Rose Mist,std,上品,55.7,
 summer,ブルベ夏,15,S3,ピンク系,無彩,アッシュモーヴ,#8A7682,Ash Mauve,gen,清潔,51.8,
-summer,ブルベ夏,16,S1,ピンク系,濁色,ラズベリー,#B45A72,Raspberry,std,柔らか,49.8,
-summer,ブルベ夏,17,S1,ピンク系,濁色,モーヴ,#A05A78,Mauve,std,穏やか,47.2,
+summer,ブルベ夏,16,S1,ピンク系,濁色,ラズベリー,#B45A72,Raspberry,std,柔らか,49.8,✓
+summer,ブルベ夏,17,S1,ピンク系,濁色,モーヴ,#A05A78,Mauve,std,穏やか,47.2,✓
 summer,ブルベ夏,18,S3,ピンク系,濁色,ディープモーヴピンク,#B0456F,Deep Mauve Pink,gen,大人可愛い,45.1,
 summer,ブルベ夏,19,S3,ピンク系,濁色,ダークプラムピンク,#8C405B,Dark Plum Pink,gen,上品,37.8,
-summer,ブルベ夏,20,S3,レッド系,濁色,ソフトワインレッド,#A24655,Soft Wine Red,gen,柔らか,42.3,✓
+summer,ブルベ夏,20,S3,レッド系,濁色,ソフトワインレッド,#A24655,Soft Wine Red,gen,柔らか,42.3,
 summer,ブルベ夏,21,S3,レッド系,暗清色,ディープボルドー,#2F0C14,Deep Bordeaux,gen,品格,8.3,
 summer,ブルベ夏,22,S3,レッド系,暗清色,ダークボルドー,#1E090E,Dark Bordeaux,gen,知的,4.5,
-summer,ブルベ夏,23,S3,オレンジ・コーラル系,明清色,ライトコーラル,#F1BCB4,Light Coral,gen,透明感,80.7,✓
+summer,ブルベ夏,23,S3,オレンジ・コーラル系,明清色,ライトコーラル,#F1BCB4,Light Coral,gen,透明感,80.7,
 summer,ブルベ夏,24,S2,オレンジ・コーラル系,暗清色,ダークアッシュブラウン,#312925,Dark Ash Brown,gen,洗練,17.3,
 summer,ブルベ夏,25,S3,オレンジ・コーラル系,暗清色,ダークワインブラウン,#3C201C,Dark Wine Brown,gen,誠実,15.9,
 summer,ブルベ夏,26,S1,グリーン系,明清色,ミントグリーン,#9FD9C3,Mint Green,ref,清潔感,82.3,
@@ -108,7 +108,7 @@ summer,ブルベ夏,36,S1,ブルー系,濁色,ペールブルー,#92A8BF,Pale Bl
 summer,ブルベ夏,37,S3,ブルー系,濁色,ライトターコイズブルー,#73ACC8,Light Turquoise Blue,gen,上品,67.5,
 summer,ブルベ夏,38,S1,ブルー系,濁色,スカイブルー,#5E9BD1,Sky Blue,ref,柔らか,62.0,
 summer,ブルベ夏,39,S3,ブルー系,濁色,ペリウィンクルブルー,#5E8ACA,Periwinkle Blue,gen,穏やか,56.9,
-summer,ブルベ夏,40,S1,ブルー系,濁色,ペリウィンクル,#7A86B8,Periwinkle,std,大人可愛い,56.7,
+summer,ブルベ夏,40,S1,ブルー系,濁色,ペリウィンクル,#7A86B8,Periwinkle,std,大人可愛い,56.7,✓
 summer,ブルベ夏,41,S3,ブルー系,純色,クリアブルー,#3084D9,Clear Blue,gen,可愛い,54.2,
 summer,ブルベ夏,42,S1,ブルー系,濁色,グレイッシュブルー,#607A95,Grayish Blue,std,上品,50.2,
 summer,ブルベ夏,43,S3,ブルー系,濁色,ティールブルー,#387DA1,Teal Blue,gen,柔らか,49.6,
@@ -123,7 +123,7 @@ summer,ブルベ夏,51,S3,パープル系,暗清色,ダークプラムパープ�
 summer,ブルベ夏,52,S3,パープル系,暗清色,ダークプラム,#482836,Dark Plum,gen,洗練,20.7,
 summer,ブルベ夏,53,S1,ベーシック,無彩,ホワイト,#FFFFFF,White,std,清潔,100.0,
 summer,ブルベ夏,54,S1,ベーシック,無彩,青みオフ白,#F7F7F7,Cool Off White,std,冷静,97.2,
-summer,ブルベ夏,55,S1,ベーシック,明清色,オフホワイト,#F3EEF5,Off White,ref,涼しげ,94.7,✓
+summer,ブルベ夏,55,S1,ベーシック,明清色,オフホワイト,#F3EEF5,Off White,ref,涼しげ,94.7,
 summer,ブルベ夏,56,S3,ベーシック,明清色,ペールカーキベージュ,#CFCABF,Pale Khaki Beige,gen,明るい,81.4,
 summer,ブルベ夏,57,S1,ベーシック,無彩,ソフトグレー,#B7BCC4,Soft Gray,std,控えめ,76.1,
 summer,ブルベ夏,58,S3,ベーシック,濁色,ソフトキャメルベージュ,#C9B6A0,Soft Camel Beige,gen,上品,75.1,
@@ -140,7 +140,7 @@ summer,ブルベ夏,68,S1,ベーシック,暗清色,ソフトネイビー,#3D496
 summer,ブルベ夏,69,S3,ベーシック,暗清色,クリアネイビー,#243B6C,Clear Navy,gen,品格,25.5,
 summer,ブルベ夏,70,S1,ベーシック,暗清色,ネイビー,#1E2A44,Navy Blue,ref,知的,17.2,
 autumn,イエベ秋,1,S1,ピンク系,明清色,コーラルピンク,#F49A8C,Coral Pink,ref,あたたかい,72.4,
-autumn,イエベ秋,2,S1,ピンク系,純色,サーモンピンク,#E8927C,Salmon Pink,std,華やか,68.9,✓
+autumn,イエベ秋,2,S1,ピンク系,純色,サーモンピンク,#E8927C,Salmon Pink,std,華やか,68.9,
 autumn,イエベ秋,3,S3,ピンク系,明清色,ミディアムサーモンピンク,#E98E97,Medium Salmon Pink,gen,なじむ,68.7,
 autumn,イエベ秋,4,S1,レッド系,純色,ブリックレッド,#C8283C,Brick Red,std,元気,44.4,
 autumn,イエベ秋,5,S1,レッド系,純色,レッド,#C0242C,Red,std,印象的,42.2,
@@ -167,7 +167,7 @@ autumn,イエベ秋,25,S1,オレンジ・コーラル系,濁色,テラコッタ,
 autumn,イエベ秋,26,S2,オレンジ・コーラル系,濁色,ウォームブラウン,#8A633C,Warm Brown,gen,大人,45.2,
 autumn,イエベ秋,27,S3,オレンジ・コーラル系,濁色,アッシュゴールドブラウン,#796754,Ash Gold Brown,gen,こなれ,44.8,
 autumn,イエベ秋,28,S3,オレンジ・コーラル系,濁色,ウォームワインブラウン,#844C3A,Warm Wine Brown,gen,落ち着き,38.5,
-autumn,イエベ秋,29,S1,オレンジ・コーラル系,暗清色,ブラウン,#6B4226,Brown,std,深み,32.2,
+autumn,イエベ秋,29,S1,オレンジ・コーラル系,暗清色,ブラウン,#6B4226,Brown,std,深み,32.2,✓
 autumn,イエベ秋,30,S3,オレンジ・コーラル系,暗清色,ディープカーキブラウン,#554229,Deep Khaki Brown,gen,高貴,29.4,
 autumn,イエベ秋,31,S1,オレンジ・コーラル系,暗清色,チョコレート,#4A2C20,Chocolate Brown,ref,貫禄,21.4,
 autumn,イエベ秋,32,S1,オレンジ・コーラル系,暗清色,ダークブラウン,#422C1E,Dark Brown,ref,品格,20.3,
@@ -185,7 +185,7 @@ autumn,イエベ秋,43,S1,グリーン系,濁色,オリーブ,#7B8B45,Olive Gree
 autumn,イエベ秋,44,S3,グリーン系,濁色,くすみターコイズグリーン,#558074,Dusty Turquoise Green,gen,大人,50.3,
 autumn,イエベ秋,45,S3,グリーン系,濁色,ディープターコイズ,#287D83,Deep Turquoise,gen,こなれ,48.0,
 autumn,イエベ秋,46,S3,グリーン系,無彩,くすみオリーブグリーン,#5B715A,Dusty Olive Green,gen,清潔,45.3,
-autumn,イエベ秋,47,S1,グリーン系,濁色,モスグリーン,#5F6B3F,Moss Green,ref,落ち着き,43.2,
+autumn,イエベ秋,47,S1,グリーン系,濁色,モスグリーン,#5F6B3F,Moss Green,ref,落ち着き,43.2,✓
 autumn,イエベ秋,48,S1,グリーン系,暗清色,ティールグリーン,#2E6E63,Teal Green,ref,深み,42.2,
 autumn,イエベ秋,49,S3,グリーン系,濁色,ディープカーキグリーン,#446540,Deep Khaki Green,gen,上品,39.4,
 autumn,イエベ秋,50,S3,グリーン系,無彩,アッシュオリーブ,#5B5A4B,Ash Olive,gen,信頼,37.9,
@@ -195,7 +195,7 @@ autumn,イエベ秋,53,S3,グリーン系,暗清色,ダークオリーブ,#2E2F1
 autumn,イエベ秋,54,S3,ブルー系,濁色,アッシュティールブルー,#566F79,Ash Teal Blue,gen,大人,45.3,
 autumn,イエベ秋,55,S3,パープル系,無彩,アッシュパープル,#7D6E89,Ash Purple,gen,誠実,48.7,
 autumn,イエベ秋,56,S1,ベーシック,明清色,リッチアイボリー,#F4EBD8,Rich Ivory,std,あたたかい,93.3,
-autumn,イエベ秋,57,S1,ベーシック,明清色,エクリュ,#E8D6B8,Ecru,std,なじむ,86.4,✓
+autumn,イエベ秋,57,S1,ベーシック,明清色,エクリュ,#E8D6B8,Ecru,std,なじむ,86.4,
 autumn,イエベ秋,58,S2,ベーシック,明清色,ゴールドアイボリー,#E3CE91,Gold Ivory,gen,血色,83.2,
 autumn,イエベ秋,59,S1,ベーシック,明清色,ウォームベージュ,#D8C6A4,Warm Beige,std,安心,80.6,
 autumn,イエベ秋,60,S1,ベーシック,明清色,ベージュ,#D9C4A3,Beige,std,あたたかい,80.1,
@@ -230,7 +230,7 @@ winter,ブルベ冬,18,S3,ピンク系,濁色,ディープモーヴ,#72475F,Deep
 winter,ブルベ冬,19,S2,レッド系,純色,クリアレッド,#EE0D29,Clear Red,std,個性,50.2,
 winter,ブルベ冬,20,S1,レッド系,濁色,ローズレッド,#C64258,Rose Red,std,上品,47.8,
 winter,ブルベ冬,21,S1,レッド系,純色,レッド,#C0242C,Red,std,印象的,42.2,
-winter,ブルベ冬,22,S3,レッド系,純色,ミディアムワインレッド,#A9253A,Medium Wine Red,gen,華やか,38.0,✓
+winter,ブルベ冬,22,S3,レッド系,純色,ミディアムワインレッド,#A9253A,Medium Wine Red,gen,華やか,38.0,
 winter,ブルベ冬,23,S3,レッド系,暗清色,ディープレッド,#871826,Deep Red,gen,高貴,29.3,
 winter,ブルベ冬,24,S1,レッド系,暗清色,ワインレッド,#7A1E3C,Wine Red,ref,冴える,27.8,
 winter,ブルベ冬,25,S1,レッド系,暗清色,ボルドー,#6E1F30,Bordeaux,std,品格,25.3,
@@ -265,7 +265,7 @@ winter,ブルベ冬,53,S1,ベーシック,無彩,ピュアホワイト,#FFFFFF,P
 winter,ブルベ冬,54,S1,ベーシック,無彩,ホワイト,#FFFFFF,White,std,誠実,100.0,
 winter,ブルベ冬,55,S1,ベーシック,無彩,純白,#FFFFFF,Pure White,ref,冷静,100.0,
 winter,ブルベ冬,56,S1,ベーシック,明清色,ミントホワイト,#D9EFE7,Mint White,std,清楚,92.7,
-winter,ブルベ冬,57,S1,ベーシック,明清色,アイシーグレー,#C9CDD6,Icy Gray,std,明るい,82.3,
+winter,ブルベ冬,57,S1,ベーシック,明清色,アイシーグレー,#C9CDD6,Icy Gray,std,明るい,82.3,✓
 winter,ブルベ冬,58,S3,ベーシック,明清色,ペールカーキベージュ,#CFCABF,Pale Khaki Beige,gen,爽やか,81.4,
 winter,ブルベ冬,59,S1,ベーシック,無彩,クールグレー,#9A9A9A,Cool Gray,std,シャープ,63.6,
 winter,ブルベ冬,60,S1,ベーシック,無彩,グレー,#8C8C93,Gray,std,締まる,58.5,
