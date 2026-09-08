@@ -355,31 +355,55 @@ EN_SRC = {
 # 除外した修飾語: 淡い/淡/明るい/暗い/暗/濃/真っ/純/深み
 #   … 形容詞そのままか、既存色名でしか使われない接頭辞。合成すると造語になる。
 NAMEABLE = {
-    "アイス":       ["ピンク", "ブルー", "グリーン", "ラベンダー", "グレー", "パープル", "ミント", "イエロー"],
+    "アイス":       ["ピンク", "ブルー", "グリーン", "ラベンダー", "グレー", "パープル", "ミント",
+                     "イエロー", "ローズ", "モーヴ", "ターコイズ", "ペリウィンクル"],
     "ペール":       ["ピンク", "ブルー", "グリーン", "イエロー", "パープル", "ラベンダー", "オレンジ",
-                     "ミント", "ローズ", "アプリコット"],
+                     "ミント", "ローズ", "アプリコット", "コーラル", "サーモン", "ピーチ", "モーヴ",
+                     "ターコイズ"],
     "ライト":       ["ベージュ", "グレー", "ブルー", "グリーン", "ピンク", "ブラウン", "カーキ",
-                     "オリーブ", "ターコイズ", "ラベンダー", "キャメル", "モーヴ", "ローズ"],
+                     "オリーブ", "ターコイズ", "ラベンダー", "キャメル", "モーヴ", "ローズ",
+                     "ネイビー", "コーラル", "サーモン", "ピーチ", "アプリコット", "マスタード",
+                     "テラコッタ", "オークル"],
     "ソフト":       ["グレー", "ピンク", "ブルー", "グリーン", "ベージュ", "ネイビー", "パープル",
-                     "レッド", "モーヴ", "ローズ", "イエロー"],
-    "グレイッシュ": ["ブルー", "ピンク", "グリーン", "パープル", "ベージュ", "ラベンダー", "ローズ", "イエロー"],
-    "くすみ":       ["ピンク", "ブルー", "グリーン", "パープル", "ベージュ", "オレンジ", "イエロー", "ローズ"],
-    "スモーキー":   ["ピンク", "ブルー", "グレー", "グリーン", "パープル", "ベージュ", "ローズ"],
-    "ミディアム":   ["ブルー", "グレー", "ブラウン", "ネイビー", "グリーン"],
+                     "レッド", "モーヴ", "ローズ", "イエロー", "コーラル", "サーモン", "ピーチ",
+                     "ターコイズ", "ラベンダー", "カーキ", "オリーブ", "マスタード", "テラコッタ",
+                     "キャメル", "ブラウン"],
+    "グレイッシュ": ["ブルー", "ピンク", "グリーン", "パープル", "ベージュ", "ラベンダー", "ローズ",
+                     "イエロー", "モーヴ", "ミント", "ターコイズ", "カーキ", "オリーブ", "ネイビー"],
+    "くすみ":       ["ピンク", "ブルー", "グリーン", "パープル", "ベージュ", "オレンジ", "イエロー",
+                     "ローズ", "ラベンダー", "モーヴ", "コーラル", "サーモン", "ミント", "ターコイズ",
+                     "カーキ", "テラコッタ", "プラム"],
+    "スモーキー":   ["ピンク", "ブルー", "グレー", "グリーン", "パープル", "ベージュ", "ローズ",
+                     "ラベンダー", "モーヴ", "カーキ", "オリーブ", "ターコイズ", "ティール", "プラム"],
+    "ミディアム":   ["ブルー", "グレー", "ブラウン", "ネイビー", "グリーン", "パープル", "ピンク",
+                     "ローズ", "ターコイズ", "オリーブ", "カーキ", "ベージュ"],
     "ディープ":     ["ローズ", "グリーン", "ブルー", "レッド", "パープル", "ピンク", "ネイビー",
-                     "ブラウン", "ティール", "オレンジ"],
-    "ダーク":       ["ブラウン", "グレー", "グリーン", "ネイビー", "ブルー", "パープル", "レッド"],
-    "ビビッド":     ["ピンク", "レッド", "ブルー", "グリーン", "オレンジ", "イエロー", "パープル"],
+                     "ブラウン", "ティール", "オレンジ", "ワイン", "ボルドー", "プラム", "モーヴ",
+                     "オリーブ", "カーキ", "テラコッタ", "キャメル", "ターコイズ"],
+    "ダーク":       ["ブラウン", "グレー", "グリーン", "ネイビー", "ブルー", "パープル", "レッド",
+                     "オリーブ", "カーキ", "ボルドー", "ワイン", "プラム", "モーヴ", "ターコイズ",
+                     "ティール", "ローズ"],
+    "ビビッド":     ["ピンク", "レッド", "ブルー", "グリーン", "オレンジ", "イエロー", "パープル",
+                     "マゼンタ", "ターコイズ", "エメラルド", "フューシャ", "コーラル"],
     "ショッキング": ["ピンク"],
-    "クリア":       ["レッド", "グリーン", "ブルー", "ピンク", "イエロー", "オレンジ"],
+    "クリア":       ["レッド", "グリーン", "ブルー", "ピンク", "イエロー", "オレンジ", "ターコイズ",
+                     "エメラルド", "ラベンダー", "ミント", "コーラル", "ネイビー"],
     "ロイヤル":     ["ブルー", "パープル"],
-    "ウォーム":     ["グレー", "ベージュ", "ピンク", "ブラウン"],
-    "クール":       ["グレー", "ピンク", "ベージュ", "ブルー"],
-    "青み":         ["ピンク", "レッド", "パープル", "グレー", "ベージュ"],
-    "黄み":         ["グリーン", "ベージュ", "ピンク", "ホワイト"],
+    "ウォーム":     ["グレー", "ベージュ", "ピンク", "ブラウン", "ホワイト", "アイボリー", "ローズ",
+                     "レッド", "オレンジ", "イエロー", "グリーン", "カーキ", "ボルドー"],
+    "クール":       ["グレー", "ピンク", "ベージュ", "ブルー", "ホワイト", "レッド", "ローズ",
+                     "モーヴ", "ラベンダー", "ネイビー", "グリーン", "ミント"],
+    "青み":         ["ピンク", "レッド", "パープル", "グレー", "ベージュ", "ローズ", "ラベンダー",
+                     "ホワイト", "グリーン", "モーヴ", "プラム"],
+    "黄み":         ["グリーン", "ベージュ", "ピンク", "ホワイト", "グレー", "カーキ", "オリーブ"],
     "オフ":         ["ホワイト"],
-    "アッシュ":     ["ブラウン", "グレー", "ピンク", "ベージュ", "ブルー", "グリーン", "パープル"],
+    "アッシュ":     ["ブラウン", "グレー", "ピンク", "ベージュ", "ブルー", "グリーン", "パープル",
+                     "ローズ", "モーヴ", "ラベンダー", "カーキ", "オリーブ", "ネイビー", "ミント"],
 }
+
+# 複合色名に前置できる修飾語(トーンを動かすものだけ。ビビッド/ロイヤル等は複合名に付けない)
+MOD_ON_COMPOUND = ["アイス", "ペール", "ライト", "ソフト", "グレイッシュ", "くすみ",
+                   "スモーキー", "ミディアム", "ディープ", "ダーク", "ウォーム", "クール", "アッシュ"]
 
 # 複合色名(A+B)。resolve() が「最後が主役・前が色相の修飾」として解釈する。
 # 日本語の色名として実在する並びだけを列挙する。
@@ -404,6 +428,76 @@ COMPOUND = [
     ("ティール", "ブルー"), ("ティール", "グリーン"), ("アメジスト", "パープル"),
 ]
 COMPOUND = [(a, b) for a, b in COMPOUND if a in BASE and b in BASE]
+
+# ── G5b 造語防止: 基準色が元から持っている「明度」と「温度」を宣言し、
+#    修飾語がそれと矛盾する / 意味が重複する組み合わせを禁止する。
+#    L=元から明るい / M=中間 / D=元から暗い、W=確定暖色 / C=確定寒色 / N=どちらにも振れる
+BASE_ATTR = {
+    "ホワイト": ("L", "N"), "白": ("L", "N"), "黒": ("D", "N"), "ブラック": ("D", "N"),
+    "グレー": ("M", "N"), "グレイ": ("M", "N"), "チャコール": ("D", "N"),
+    "ネイビー": ("D", "C"), "紺": ("D", "C"), "シルバー": ("L", "N"), "アッシュ": ("M", "N"),
+    "ピンク": ("M", "N"), "ローズ": ("M", "N"), "グリーン": ("M", "N"), "緑": ("M", "N"),
+    "ベージュ": ("L", "N"), "ブラウン": ("D", "N"), "茶": ("D", "N"), "グレージュ": ("M", "N"),
+    "ワイン": ("D", "N"), "ボルドー": ("D", "N"),
+    "レッド": ("M", "W"), "赤": ("M", "W"), "オレンジ": ("M", "W"),
+    "イエロー": ("L", "W"), "黄": ("L", "W"), "ピーチ": ("L", "W"), "アプリコット": ("L", "W"),
+    "コーラル": ("M", "W"), "サーモン": ("M", "W"), "キャメル": ("M", "W"), "カーキ": ("M", "W"),
+    "オリーブ": ("M", "W"), "マスタード": ("M", "W"), "テラコッタ": ("M", "W"),
+    "オークル": ("M", "W"), "ゴールド": ("L", "W"), "ブロンズ": ("D", "W"), "カカオ": ("D", "W"),
+    "キャラメル": ("M", "W"), "モス": ("D", "W"), "チョコレート": ("D", "W"),
+    "パンプキン": ("M", "W"), "マロン": ("D", "W"), "ミルクティー": ("L", "W"),
+    "アイボリー": ("L", "W"), "クリーム": ("L", "W"), "生成り": ("L", "W"),
+    "エクリュ": ("L", "W"), "ヘーゼル": ("M", "W"),
+    "ブルー": ("M", "C"), "青": ("M", "C"), "パープル": ("M", "C"), "紫": ("M", "C"),
+    "ラベンダー": ("L", "C"), "モーヴ": ("M", "C"), "プラム": ("D", "C"),
+    "エメラルド": ("M", "C"), "ミント": ("L", "C"), "ターコイズ": ("M", "C"),
+    "スカイ": ("L", "C"), "ペリウィンクル": ("M", "C"), "ラズベリー": ("M", "C"),
+    "マゼンタ": ("M", "C"), "ティール": ("D", "C"), "フューシャ": ("M", "C"),
+    "アメジスト": ("M", "C"),
+}
+GRAYISH = {"グレー", "グレイ", "グレージュ", "シルバー", "アッシュ", "チャコール"}
+LIGHT_ORDER = {"L": 0, "M": 1, "D": 2}
+
+
+def base_attr(head, pre=None):
+    """複合色名の実効属性。明度は明るいほうに引かれ、温度は主役(head)を優先する。"""
+    hl, ht = BASE_ATTR.get(head, ("M", "N"))
+    if pre is None:
+        return hl, ht, {head}
+    pl, pt = BASE_ATTR.get(pre, ("M", "N"))
+    lightness = hl if LIGHT_ORDER[hl] <= LIGHT_ORDER[pl] else pl
+    temp = ht if ht != "N" else pt
+    return lightness, temp, {head, pre}
+
+
+def nameable(mod, head, pre=None):
+    """修飾語と基準色が日本語として噛み合うか。噛み合わなければ False(=作らない)。"""
+    if mod is None:
+        return True
+    light, temp, parts = base_attr(head, pre)
+    # 温度をわざわざ指定する修飾語は、温度が確定していない基準色にだけ付ける
+    if mod in ("ウォーム", "クール", "青み", "黄み"):
+        return temp == "N"
+    # 明度を下げる修飾語は、元から明るい色には付けない
+    if mod in ("ディープ", "ダーク") and light == "L":
+        return False
+    # 明度を上げる修飾語は、元から暗い色には付けない
+    if mod in ("アイス", "ペール") and light == "D":
+        return False
+    if mod == "アイス" and temp == "W":            # 氷+暖色は矛盾
+        return False
+    if mod == "ミディアム" and light == "L":
+        return False
+    # くすませる修飾語を、元からグレーの色に重ねない(意味の重複)
+    if mod in ("グレイッシュ", "くすみ", "スモーキー") and (parts & GRAYISH):
+        return False
+    if mod == "アッシュ" and (parts & (GRAYISH - {"グレー", "グレイ"})):
+        return False
+    # 彩度を上げる修飾語を、無彩色寄り/淡い色に付けない
+    if mod in ("ビビッド", "ショッキング", "クリア") and ((parts & GRAYISH) or light == "L"):
+        return False
+    return True
+
 
 EN_MOD = {
     "アイス": "Icy", "ペール": "Pale", "ライト": "Light", "ソフト": "Soft",
@@ -460,6 +554,25 @@ def parse_name(name):
             break
     f.sort(key=lambda x: x[1])
     return mods, [k for k, _p in f]
+
+
+# タイプと逆の温度を名乗る接頭辞は使わない(イエベに「アイス」、ブルベに「ウォーム」等)。
+# 色そのものの適性ではなく、色名がタイプを誤って示唆するのを防ぐための命名ルール。
+WARM_TYPES = ("spring", "autumn")
+COOL_TYPES = ("summer", "winter")
+MOD_TYPE_OK = {
+    "アイス": COOL_TYPES, "青み": COOL_TYPES, "クール": COOL_TYPES,
+    "黄み": WARM_TYPES, "ウォーム": WARM_TYPES,
+}
+NAME_MAX = 12          # 色チップに載る上限。これより長い色名は作らない
+
+
+def name_ok_for_type(mod, ja, t):
+    if len(ja) > NAME_MAX:
+        return False
+    if mod in MOD_TYPE_OK and t not in MOD_TYPE_OK[mod]:
+        return False
+    return True
 
 
 def en_name(ja, mod=None, head=None, pre=None):
@@ -564,7 +677,32 @@ for n in sorted(chip_names):
     if h:
         chip_hex[n] = h
 
+# STYLING_DATA のチップ名は記事の文脈語を抱えている(「アプリコット(控えめ)」
+# 「ミルクティー暗め」「ウォームブラウンリップ」等)。色チップの名前として正規化する。
+CTX_TAIL = ["暗め", "明るめ", "控えめ", "リップ", "チーク", "暗髪", "髪", "トップス", "タートル"]
+
+
+def normalize_chip_name(n):
+    n = re.sub(r"[（(][^)）]*[)）]", "", n).strip()
+    changed = True
+    while changed:
+        changed = False
+        for w in CTX_TAIL:
+            if n.endswith(w) and len(n) > len(w):
+                n = n[:-len(w)]
+                changed = True
+    if n.endswith("茶") and len(n) > 1:
+        n = n[:-1] + "ブラウン"
+    return n
+
+
 S2 = {t: [] for t in TYPES}
+# 色名は全タイプを通して1つの HEX にしか対応させない。
+# (同じ「ブルーグレー」が夏と冬で別の色になっていると、読む側が混乱する)
+NAME2HEX = {}
+for t in TYPES:
+    for n, h, _m in S1[t]:
+        NAME2HEX.setdefault(n, h)
 for t in TYPES:
     have = {n for n, _h, _m in S1[t]}
     labs = [hex2lab(h) for _n, h, _m in S1[t]]
@@ -580,12 +718,16 @@ for t in TYPES:
         if n in chip_hex:
             pool.append((n, chip_hex[n], ""))
     for n, h, mk in pool:
-        if n in have:
+        n = normalize_chip_name(n)
+        if not n or len(n) > NAME_MAX or n in have:   # 正規化で既存名と衝突したものは捨てる
+            continue
+        if NAME2HEX.get(n, h) != h:                   # 同名で別の HEX になるものは捨てる
             continue
         L = hex2lab(h)
         if min(de(L, x) for x in labs) < DE_MIN:      # G2 識別ゲート
             continue
         have.add(n)
+        NAME2HEX.setdefault(n, h)
         labs.append(L)
         S2[t].append((n, h, mk))
 
@@ -601,8 +743,12 @@ def compose(mod, head, pre=None):
 
 
 cands = {}                                   # 日本語名 -> (hex, mod, head, pre)
+rejected = []
 for mod, heads in NAMEABLE.items():
     for head in heads:
+        if not nameable(mod, head):                   # G5b 造語ゲート
+            rejected.append(mod + head)
+            continue
         ja, h, _how = compose(mod, head)
         if h:
             cands.setdefault(ja, (h, mod, head, None))
@@ -610,51 +756,78 @@ for pre, head in COMPOUND:
     ja, h, _how = compose(None, head, pre)
     if h:
         cands.setdefault(ja, (h, None, head, pre))
+    for mod in MOD_ON_COMPOUND:                       # 修飾語 + 複合色名
+        if not nameable(mod, head, pre):              # G5b 造語ゲート
+            rejected.append(mod + pre + head)
+            continue
+        ja, h, _how = compose(mod, head, pre)
+        if h:
+            cands.setdefault(ja, (h, mod, head, pre))
+print("G5b 造語ゲートで不採用にした組み合わせ: %d件" % len(rejected))
 
-# 生成色は「そのタイプの勝ち色に最も近い」タイプにだけ配属する(G3)。
-win_lab = {}
-ng_lab = {}
+# 帰属は排他にしない。既存マスターでも1つの色名が複数タイプの勝ち色になっている
+# (色名93個で4タイプ x 30枠 = 120枠を埋めている)ため、排他にすると実態と食い違う。
+win_lab, ng_lab = {}, {}
 for t in TYPES:
     win_lab[t] = [hex2lab(h) for _n, h, _m in S1[t] + S2[t]]
     ng_lab[t] = [hex2lab(h) for _n, h, _w in ngbad[t]] or None
 
 S3 = {t: [] for t in TYPES}
 stats = {t: {"cand": 0, "g1": 0, "g3": 0, "g3b": 0, "g2": 0} for t in TYPES}
-taken_names = set()
-for t in TYPES:
-    taken_names |= {n for n, _h, _m in S1[t] + S2[t]}
+taken = {t: {n for n, _h, _m in S1[t] + S2[t]} for t in TYPES}
 
 scored = {t: [] for t in TYPES}
 for ja, (h, mod, head, pre) in cands.items():
-    if ja in taken_names:
-        continue
     L = hex2lab(h)
     dmin = {t: min(de(L, x) for x in win_lab[t]) for t in TYPES}
-    owner = min(TYPES, key=lambda t: dmin[t])
-    stats[owner]["cand"] += 1
-    if dmin[owner] > CEIL:                                   # G1 同系
-        continue
-    stats[owner]["g1"] += 1
-    if sorted(dmin.values())[1] - dmin[owner] < 1.0:          # G3 帰属が曖昧なものは捨てる
-        continue
-    stats[owner]["g3"] += 1
-    if ng_lab[owner] and min(de(L, x) for x in ng_lab[owner]) <= dmin[owner]:   # G3b 苦手色寄り
-        continue
-    stats[owner]["g3b"] += 1
-    scored[owner].append((dmin[owner], ja, h, mod, head, pre))
+    best = min(dmin.values())
+    for t in TYPES:
+        if ja in taken[t]:
+            continue
+        if not name_ok_for_type(mod, ja, t):                      # G5c 命名(タイプ整合/長さ)
+            continue
+        if NAME2HEX.get(ja, h) != h:                              # 同名で別の HEX は作らない
+            continue
+        stats[t]["cand"] += 1
+        if dmin[t] > CEIL:                                        # G1 同系(タイプの色域から出ない)
+            continue
+        stats[t]["g1"] += 1
+        if dmin[t] > best + 8.0:                                  # G3 他タイプ寄りすぎる色は入れない
+            continue
+        stats[t]["g3"] += 1
+        if ng_lab[t] and min(de(L, x) for x in ng_lab[t]) <= dmin[t]:   # G3b 苦手色のほうが近い
+            continue
+        stats[t]["g3b"] += 1
+        scored[t].append((dmin[t], ja, h, mod, head, pre))
 
+TONE_ORDER = ["明清色", "純色", "濁色", "暗清色", "無彩"]
 for t in TYPES:
     labs = [hex2lab(h) for _n, h, _m in S1[t] + S2[t]]
     need = TARGET - len(S1[t]) - len(S2[t])
-    for dm, ja, h, mod, head, pre in sorted(scored[t]):
-        if len(S3[t]) >= need:
+    # トーン別に分けてラウンドロビンで採る。1つのトーン(たいてい濁色)に
+    # 偏らせないため。ゲートは緩めない。
+    buckets = {tc: [] for tc in TONE_ORDER}
+    for item in sorted(scored[t]):
+        buckets[tone_class(item[2])].append(item)
+    idx = {tc: 0 for tc in TONE_ORDER}
+    while len(S3[t]) < need:
+        moved = False
+        for tc in TONE_ORDER:
+            if len(S3[t]) >= need:
+                break
+            while idx[tc] < len(buckets[tc]):
+                dm, ja, h, mod, head, pre = buckets[tc][idx[tc]]
+                idx[tc] += 1
+                L = hex2lab(h)
+                if min(de(L, x) for x in labs) < DE_MIN:          # G2 識別
+                    continue
+                labs.append(L)
+                stats[t]["g2"] += 1
+                S3[t].append((ja, h, mod, head, pre))
+                moved = True
+                break
+        if not moved:
             break
-        L = hex2lab(h)
-        if min(de(L, x) for x in labs) < DE_MIN:              # G2 識別
-            continue
-        labs.append(L)
-        stats[t]["g2"] += 1
-        S3[t].append((ja, h, mod, head, pre))
 
 
 # ════════════════════════════════════════════
@@ -689,22 +862,31 @@ for t in TYPES:
 # ════════════════════════════════════════════
 # 10. 検収(ここで落ちたら出力しない)
 # ════════════════════════════════════════════
-errs = []
+errs, legacy = [], []
 for t in TYPES:
     if len(rows[t]) != TARGET:
         errs.append("%s: %d色(目標%d)" % (t, len(rows[t]), TARGET))
-    labs = [(r["name"], hex2lab(r["hex"])) for r in rows[t]]
-    for a in range(len(labs)):
-        for b in range(a + 1, len(labs)):
-            dd = de(labs[a][1], labs[b][1])
-            if dd < DE_MIN:
-                errs.append("%s: ΔE%.1f < %s  %s / %s" % (t, dd, DE_MIN, labs[a][0], labs[b][0]))
-    names = [r["name"] for r in rows[t]]
+    rr = rows[t]
+    labs = [(r["name"], r["tier"], hex2lab(r["hex"])) for r in rr]
+    for a_ in range(len(labs)):
+        for b_ in range(a_ + 1, len(labs)):
+            dd = de(labs[a_][2], labs[b_][2])
+            if dd >= DE_MIN:
+                continue
+            # 既存確定30色どうしの近接は「公開済みのため据え置き」。落とさず別枠で報告する。
+            if labs[a_][1] == "S1" and labs[b_][1] == "S1":
+                legacy.append((t, round(dd, 1), labs[a_][0], labs[b_][0]))
+            else:
+                errs.append("%s: ΔE%.1f < %s  %s(%s) / %s(%s)"
+                            % (t, dd, DE_MIN, labs[a_][0], labs[a_][1], labs[b_][0], labs[b_][1]))
+    names = [r["name"] for r in rr]
     if len(set(names)) != len(names):
         errs.append("%s: 色名が重複" % t)
-    for r in rows[t]:
+    for r in rr:
         if r["effect"] not in eff_vocab[t]:
             errs.append("%s: 効果語が実データに無い %s" % (t, r["effect"]))
+        if r["tier"] != "S1" and not r["en"]:
+            errs.append("%s: 英名が付かない %s" % (t, r["name"]))
 
 print("=" * 78)
 for t in TYPES:
@@ -720,7 +902,12 @@ if errs:
     for e_ in errs[:40]:
         print("   " + e_)
     raise SystemExit(1)
-print("検収OK: 各70色 / 同一タイプ内の最小ΔE >= %s / 効果語は全て実データ由来" % DE_MIN)
+print("検収OK: 各70色 / 新規色は全て最小ΔE >= %s / 効果語は全て実データ由来" % DE_MIN)
+if legacy:
+    print()
+    print("!! 申し送り: 既存確定30色どうしで ΔE < %s のペアが %d 件ある(公開済みのため据え置いた) !!" % (DE_MIN, len(legacy)))
+    for t, dd, n1, n2 in sorted(legacy):
+        print("   %-7s ΔE%5.1f  %s / %s" % (t, dd, n1, n2))
 
 
 # ════════════════════════════════════════════
