@@ -11,6 +11,13 @@ const ONLY = process.argv[3] && process.argv[3] !== "-" ? process.argv[3] : null
 // 第4引数=投入写真のパス / 第5引数=出力ファイル名のタグ（同じフォルダへ追加保存するため）
 const PHOTO_ARG = process.argv[4] || null;
 const TAG = process.argv[5] ? "_" + process.argv[5] : "";
+// 第6引数=Q3(6ペア)の回答パターン。前半3問が 黄み(A)/青み(B)、後半3問が 明るい(A)/深い(B)。
+// "AAAAAA"(既定)=1位イエベ春 / "BBBBBB"=1位ブルベ冬・2位ブルベ夏 / "BBBAAA"=1位ブルベ夏。
+const Q3PAT = (process.argv[6] || "AAAAAA").toUpperCase();
+if (!/^[AB]{6}$/.test(Q3PAT)) { console.error("Q3パターンはA/B6文字で: " + Q3PAT); process.exit(2); }
+// 第7引数=期待する1位タイプ。指定すると、違ったときに生成せず中止する（課金前ゲート）。
+const EXPECT = process.argv[7] || null;
+const TYPE_RE = /1st\s*(イエベ春|ブルベ夏|イエベ秋|ブルベ冬)\s*2nd\s*(イエベ春|ブルベ夏|イエベ秋|ブルベ冬)/;
 const OUT = "C:/Users/newfa/Downloads/colorlab_selfcard_20260908";
 mkdirSync(OUT, { recursive: true });
 mkdirSync(join(OUT, "_full"), { recursive: true });
@@ -87,8 +94,12 @@ for (const site of SITES) {
   await tap(/自分の顔で作る/);
   await tap(/^直感で選ぶ/);
   await tap(/^自分から話しかける/, 600);
-  // 未診断なので Q3(6ペア)。先頭ボタン=戻る、その次がA選択肢。
-  for (let i = 0; i < 6; i++) { await page.locator("#colorlab-root button").nth(1).click(); taps++; await page.waitForTimeout(280); }
+  // 未診断なので Q3(6ペア)。先頭ボタン=戻る、その次がA選択肢、さらに次がB選択肢。
+  for (let i = 0; i < 6; i++) {
+    await page.locator("#colorlab-root button").nth(Q3PAT[i] === "B" ? 2 : 1).click();
+    taps++; await page.waitForTimeout(280);
+  }
+  say(`  Q3の回答パターン: ${Q3PAT}`);
   await page.waitForTimeout(1500);
   const tSelf = Math.round((Date.now() - t0) / 1000);
   const selfTxt = await txt();
@@ -100,6 +111,19 @@ for (const site of SITES) {
   const rec = { site: site.key, bundle: bundles[0] || "", tapsToCamera: taps, secToCamera: tSelf, errs: errs.length };
 
   if (PHASE === "2") {
+    // ★課金前ゲート: いったん結果画面へ戻って 1st/2nd を確認し、期待と違えば生成しない。
+    await page.locator("#colorlab-root button").first().click();
+    await page.waitForTimeout(1000);
+    const preM = (await txt()).match(TYPE_RE);
+    say(`  [課金前ゲート] 判定タイプ: ${preM ? `1st ${preM[1]} / 2nd ${preM[2]}` : "★読めず"}`);
+    if (EXPECT && !(preM && preM[1] === EXPECT)) {
+      say(`  ★1位が「${EXPECT}」ではないため、生成せず中止する`);
+      await ctx.close();
+      continue;
+    }
+    await page.getByRole("button", { name: /別の写真で作り直す|自分の顔で作る/ }).first().click();
+    await page.waitForTimeout(700);
+
     say(`\n  ── 生成を実行（課金1回）──`);
     const h0 = await health("before");
     const t1 = Date.now();
@@ -121,7 +145,7 @@ for (const site of SITES) {
       const i = document.querySelector("#colorlab-root img");
       return i ? { head: i.src.slice(0, 30), w: i.naturalWidth, h: i.naturalHeight } : null;
     });
-    const m = body.match(/1st\s*(\S+)\s*2nd\s*(\S+)/);
+    const m = body.match(TYPE_RE);
     say(`  [3] 生成 ${done ? "完了" : "★未完了"} / 所要 ${genSec} 秒`);
     say(`      カード画像: ${img ? `${img.head}… ${img.w}x${img.h}` : "なし"}`);
     say(`      1st/2nd 表示: ${m ? `1st ${m[1]} / 2nd ${m[2]}` : "★見つからず"}`);
