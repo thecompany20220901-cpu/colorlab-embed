@@ -563,8 +563,8 @@ colorlab は設置先ごとに参照タグが違うので、**サイト別に書
 
 | アプリ / 設置先 | 参照タグ | 設置方式 | jsDelivr |
 |---|---|---|---|
-| colorlab / **IEBEL** | `@v1.20.7` | GTM（GTM-WVFLHTNW） | `https://cdn.jsdelivr.net/gh/thecompany20220901-cpu/colorlab-embed@v1.20.7/dist/colorlab.iife.js` |
-| colorlab / **BLUBEL** | `@v1.20.7` | 本文HTML（GTM招待待ち） | `https://cdn.jsdelivr.net/gh/thecompany20220901-cpu/colorlab-embed@v1.20.7/dist/colorlab.iife.js` |
+| colorlab / **IEBEL** | `@v1.21.0` | GTM（GTM-WVFLHTNW） | `https://cdn.jsdelivr.net/gh/thecompany20220901-cpu/colorlab-embed@v1.21.0/dist/colorlab.iife.js` |
+| colorlab / **BLUBEL** | `@v1.21.0` | 本文HTML（GTM招待待ち） | `https://cdn.jsdelivr.net/gh/thecompany20220901-cpu/colorlab-embed@v1.21.0/dist/colorlab.iife.js` |
 | ngpolice | `@v1.3.0` | 本文HTML | `https://cdn.jsdelivr.net/gh/thecompany20220901-cpu/colorlab-embed@v1.3.0/dist/ngpolice.iife.js` |
 | mens | `@v1.6.1` | 本文HTML | `https://cdn.jsdelivr.net/gh/thecompany20220901-cpu/colorlab-embed@v1.6.1/dist/mens.iife.js` |
 
@@ -576,6 +576,14 @@ colorlab は設置先ごとに参照タグが違うので、**サイト別に書
   した瞬間に本番へ出る。バンドル（`dist/colorlab.iife.js`）は1バイトも変わらないので、
   **プロンプトを直してもタグは上げない**（上げても中身が同じで、切替の判断を誤らせる）。
   デプロイ済みの Worker バージョン: `b2ff9dd7-0362-4758-8361-59e573af38dd`（2色配色の修正込み）。
+- **v1.21.0 はタグ発行・jsDelivr配信確認済み。2サイトの貼り替えは未実施**（2026-09-08）。
+  勝ち色を 30色 → **70色**（4タイプ×70色）に拡張し、結果画面のグリッドを6列に詰めた
+  （実測 516x1073 → 520x1349 CSS＝1.26倍）。✓は**ベストカラーTOP6の6色だけ**に付く。
+  TOP6は「在庫のある色を、その色で買える商品が多い順・同一色相ファミリーは1色まで・ΔE<10は排除」。
+  実測「TOP6の色だけ（N点）」= 春9 / 夏6 / 秋9 / 冬9。バンドルは 865,231B（gzip 387.08KB）。
+  CDN実物とローカルビルドがバイト一致することを確認済み。
+  **貼り替えは IEBEL=GTM（GTM-WVFLHTNW）／ BLUBEL=ページ本文HTML の2箇所（Keisuke作業）。**
+  ロールバックはタグを `@v1.20.7` に戻すだけ（purge不要・即時）。
 - **v1.20.7 は両サイトとも本番切替済み・実測確認済み**（2026-09-06）。12タイプ結果画面に
   「色別 顔映りチェック表」「ベストカラーTOP6（＋TOP6の色で商品を絞り込み）」
   「避けたい色を着たいときは」「アクセサリーの金属」を追加した。詳細は
