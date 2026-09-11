@@ -564,25 +564,39 @@ colorlab は設置先ごとに参照タグが違うので、**サイト別に書
 | アプリ / 設置先 | 参照タグ | 設置方式 | jsDelivr |
 |---|---|---|---|
 | colorlab / **IEBEL** | `@v1.21.0` | GTM（GTM-WVFLHTNW） | `https://cdn.jsdelivr.net/gh/thecompany20220901-cpu/colorlab-embed@v1.21.0/dist/colorlab.iife.js` |
-| colorlab / **BLUBEL** | `@v1.21.0` | 本文HTML（GTM招待待ち） | `https://cdn.jsdelivr.net/gh/thecompany20220901-cpu/colorlab-embed@v1.21.0/dist/colorlab.iife.js` |
+| colorlab / **BLUBEL** | `@v1.21.0` | GTM（GTM-NN7QDLCH） | `https://cdn.jsdelivr.net/gh/thecompany20220901-cpu/colorlab-embed@v1.21.0/dist/colorlab.iife.js` |
 | ngpolice | `@v1.3.0` | 本文HTML | `https://cdn.jsdelivr.net/gh/thecompany20220901-cpu/colorlab-embed@v1.3.0/dist/ngpolice.iife.js` |
 | mens | `@v1.6.1` | 本文HTML | `https://cdn.jsdelivr.net/gh/thecompany20220901-cpu/colorlab-embed@v1.6.1/dist/mens.iife.js` |
 
-- 上の表は **2026-09-06 に実物を測った値**（BLUBEL＝ページ本文HTML、IEBEL＝GTM コンテナ `gtm.js` を取得して確認）。
+- colorlab の2行は **2026-09-11 に実物を測った値**（両サイトとも GTM コンテナ `gtm.js?id=…` を取得して確認。
+  カスタムHTMLタグの中身は `<script src="…@v1.21.0/dist/colorlab.iife.js" defer>`。ページ本文HTMLには
+  `<div id="colorlab-root">` だけが残り、スクリプトは無い）。ngpolice / mens の行は 2026-09-06 の値のまま。
   推測で書かず、切替のたびに実測して書き換えること。
-- BLUBEL は GTM コンテナ（`GTM-NN7QDLCH`）の招待が届くまで、本文HTMLのバージョン番号を書き換えて上げる。
+- ~~BLUBEL は GTM コンテナ（`GTM-NN7QDLCH`）の招待が届くまで、本文HTMLのバージョン番号を書き換えて上げる。~~
+  → 2026-09-11 実測で **BLUBEL も GTM（`GTM-NN7QDLCH`）に移行済み**。切替は両サイトとも GTM のタグ1行で行う。
 - **「自分の顔で作る」の生成プロンプトは jsDelivr のタグとは無関係**（2026-09-05）。
   文面は Cloudflare Worker (`worker/selfcard-worker.js`) の中だけにあり、`wrangler deploy`
   した瞬間に本番へ出る。バンドル（`dist/colorlab.iife.js`）は1バイトも変わらないので、
   **プロンプトを直してもタグは上げない**（上げても中身が同じで、切替の判断を誤らせる）。
-  デプロイ済みの Worker バージョン: `b2ff9dd7-0362-4758-8361-59e573af38dd`（2色配色の修正込み）。
-- **v1.21.0 はタグ発行・jsDelivr配信確認済み。2サイトの貼り替えは未実施**（2026-09-08）。
+  デプロイ済みの Worker バージョン: `cbeaaaae-1d11-480a-91e3-0dc078ccec3d`（2026-09-11・`GET /quota` 追加）。
+  1つ前は `b2ff9dd7-0362-4758-8361-59e573af38dd`（2色配色の修正込み）で、戻すときは
+  `wrangler rollback b2ff9dd7-0362-4758-8361-59e573af38dd`。`/quota` を消してもアプリは数字を出さないだけで壊れない。
+- **v1.21.1 はタグ発行・jsDelivr配信確認済み。2サイトの切替は未実施**（2026-09-11）。
+  「自分の顔で作る」の入口の選択画面（診断前）に **「本日残り◯回」** を出す。入口を開くたびに Worker の
+  `GET /quota`（残数だけを返す軽量版。`/health` は社内用で画面からは呼ばない）を1回取得する。
+  残り0なら選択画面の時点でボタンを無効にして「本日の生成枠は終了しました」を出す（それまでは写真を送るまで
+  終了に気づけなかった）。取得に失敗したら数字を出さないだけで押せるまま（上限は Worker の POST 側が数える）。
+  KV の反映ラグで数十秒ずれるのは許容。バンドルは 865,736B（gzip 387.24KB）で、CDN実物とローカルビルドが
+  バイト一致することを確認済み。**Worker は先にデプロイ済み**（上記 `cbeaaaae`）なので、タグを切り替えるだけで表示が出る。
+  **切替は IEBEL＝`GTM-WVFLHTNW` ／ BLUBEL＝`GTM-NN7QDLCH` の GTM カスタムHTMLタグ内 `@v1.21.0` → `@v1.21.1`（Keisuke作業）。**
+  ロールバックはタグを `@v1.21.0` に戻すだけ（purge不要・即時）。
+- **v1.21.0 は両サイトとも本番切替済み・実測確認済み**（2026-09-11 実測。IEBEL＝`GTM-WVFLHTNW`、
+  BLUBEL＝`GTM-NN7QDLCH` の `gtm.js` を取得し、どちらも `@v1.21.0`）。2026-09-08 時点では貼り替え未実施だった。
   勝ち色を 30色 → **70色**（4タイプ×70色）に拡張し、結果画面のグリッドを6列に詰めた
   （実測 516x1073 → 520x1349 CSS＝1.26倍）。✓は**ベストカラーTOP6の6色だけ**に付く。
   TOP6は「在庫のある色を、その色で買える商品が多い順・同一色相ファミリーは1色まで・ΔE<10は排除」。
   実測「TOP6の色だけ（N点）」= 春9 / 夏6 / 秋9 / 冬9。バンドルは 865,231B（gzip 387.08KB）。
   CDN実物とローカルビルドがバイト一致することを確認済み。
-  **貼り替えは IEBEL=GTM（GTM-WVFLHTNW）／ BLUBEL=ページ本文HTML の2箇所（Keisuke作業）。**
   ロールバックはタグを `@v1.20.7` に戻すだけ（purge不要・即時）。
 - **v1.20.7 は両サイトとも本番切替済み・実測確認済み**（2026-09-06）。12タイプ結果画面に
   「色別 顔映りチェック表」「ベストカラーTOP6（＋TOP6の色で商品を絞り込み）」

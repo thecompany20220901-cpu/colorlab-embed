@@ -45,6 +45,12 @@ curl -s -X POST https://colorlab-selfcard.<account>.workers.dev/illustrate \
 ```
 
 ```bash
+# 残数（ユーザー向け・課金ゼロ）。/health の remaining と同じ値になること
+curl -s -H "Origin: https://www.blubel.jp" https://colorlab-selfcard.<account>.workers.dev/quota
+#   → {"ok":true,"remaining":41}
+```
+
+```bash
 # 生成プロンプトの実測（OpenAI は叩かない・課金ゼロ）
 node test/selfcard_prompt_check.mjs
 
@@ -57,7 +63,10 @@ node test/selfcard_color_detect.mjs --first=winter --second=autumn <生成PNG...
 
 | 項目 | 内容 |
 |---|---|
-| 受け付け | `POST` / `multipart/form-data`（`photo`, `first`, `second`） |
+| 受け付け | `POST`（アプリは `/illustrate` に送る） / `multipart/form-data`（`photo`, `first`, `second`） |
+| 残数（ユーザー向け） | `GET /quota` → `{"ok":true,"remaining":N}`。KV を1回読むだけで、OpenAI は叩かず、使用数・鍵の状態は返さない。入口の選択画面の「本日残り◯回」に使う（2026-09-11〜 / アプリ v1.21.1〜）。KV 読み取り失敗時は 503 `kv_unavailable` |
+| 状態確認（社内用） | `GET /health` → 鍵の有効性・`used`・`remaining`。OpenAI の `/v1/models` を叩く（課金なし）。**画面からは呼ばない** |
+| CORS | `Access-Control-Allow-Methods: GET, POST, OPTIONS`（許可オリジンは上の4つ） |
 | 配色 | カードの2色配色と一致させる。1色目=1位シーズン、2色目=**2位シーズン**（`second`） |
 | 許可オリジン | blubel.jp / iebel.jp（www 有無の4つ）。それ以外は 403 |
 | 生成 | `images.edit` / `gpt-image-1.5` / medium / 1024x1536 |
@@ -71,6 +80,11 @@ node test/selfcard_color_detect.mjs --first=winter --second=autumn <生成PNG...
 - KV は結果整合なので、同時アクセスが重なると 50 をわずかに超えることがある。
   暴走を止めるのが目的で、厳密な会計ではない。
 - 生成に失敗した回も枠を1消費する。上限の意味（課金の上限）を守るための割り切り。
+- `GET /quota` の残数も KV 由来なので数十秒ずれることがある（表示用として許容）。枠が尽きる直前は
+  「残り1回」と出ていても実際は0のことがあり、その場合は写真を送った後に従来どおり 429
+  （画面は「本日の生成枠は終了しました」）になる。
+- `GET /quota` は `/health` と同じくオリジンを見ない。ブラウザから読めるのは許可オリジンだけだが、
+  curl なら誰でも残数を取れる（返すのは残数だけ）。
 - サイズは 1024x1536 固定。1024x1024 なら出力画像トークンが 1584 → 1056 に減るが、
   事前生成16種アバターと画角が揃わなくなるため採用していない（2026-09-05 実測・判断）。
 
