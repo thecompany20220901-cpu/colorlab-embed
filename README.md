@@ -563,13 +563,14 @@ colorlab は設置先ごとに参照タグが違うので、**サイト別に書
 
 | アプリ / 設置先 | 参照タグ | 設置方式 | jsDelivr |
 |---|---|---|---|
-| colorlab / **IEBEL** | `@v1.21.0` | GTM（GTM-WVFLHTNW） | `https://cdn.jsdelivr.net/gh/thecompany20220901-cpu/colorlab-embed@v1.21.0/dist/colorlab.iife.js` |
-| colorlab / **BLUBEL** | `@v1.21.0` | GTM（GTM-NN7QDLCH） | `https://cdn.jsdelivr.net/gh/thecompany20220901-cpu/colorlab-embed@v1.21.0/dist/colorlab.iife.js` |
+| colorlab / **IEBEL** | `@v1.21.1` | GTM（GTM-WVFLHTNW） | `https://cdn.jsdelivr.net/gh/thecompany20220901-cpu/colorlab-embed@v1.21.1/dist/colorlab.iife.js` |
+| colorlab / **BLUBEL** | `@v1.21.1` | GTM（GTM-NN7QDLCH） | `https://cdn.jsdelivr.net/gh/thecompany20220901-cpu/colorlab-embed@v1.21.1/dist/colorlab.iife.js` |
 | ngpolice | `@v1.3.0` | 本文HTML | `https://cdn.jsdelivr.net/gh/thecompany20220901-cpu/colorlab-embed@v1.3.0/dist/ngpolice.iife.js` |
 | mens | `@v1.6.1` | 本文HTML | `https://cdn.jsdelivr.net/gh/thecompany20220901-cpu/colorlab-embed@v1.6.1/dist/mens.iife.js` |
 
-- colorlab の2行は **2026-09-11 に実物を測った値**（両サイトとも GTM コンテナ `gtm.js?id=…` を取得して確認。
-  カスタムHTMLタグの中身は `<script src="…@v1.21.0/dist/colorlab.iife.js" defer>`。ページ本文HTMLには
+- colorlab の2行は **2026-09-11 13:47 に v1.21.1 切替後の実物を測った値**（両サイトとも GTM コンテナ `gtm.js?id=…` を取得し、
+  さらに実ページを開いて読み込まれたバンドルが `@v1.21.1`（`x-jsd-version: 1.21.1`）であることを確認。
+  カスタムHTMLタグの中身は `<script src="…@v1.21.1/dist/colorlab.iife.js" defer>`。ページ本文HTMLには
   `<div id="colorlab-root">` だけが残り、スクリプトは無い）。ngpolice / mens の行は 2026-09-06 の値のまま。
   推測で書かず、切替のたびに実測して書き換えること。
 - ~~BLUBEL は GTM コンテナ（`GTM-NN7QDLCH`）の招待が届くまで、本文HTMLのバージョン番号を書き換えて上げる。~~
@@ -581,7 +582,12 @@ colorlab は設置先ごとに参照タグが違うので、**サイト別に書
   デプロイ済みの Worker バージョン: `cbeaaaae-1d11-480a-91e3-0dc078ccec3d`（2026-09-11・`GET /quota` 追加）。
   1つ前は `b2ff9dd7-0362-4758-8361-59e573af38dd`（2色配色の修正込み）で、戻すときは
   `wrangler rollback b2ff9dd7-0362-4758-8361-59e573af38dd`。`/quota` を消してもアプリは数字を出さないだけで壊れない。
-- **v1.21.1 はタグ発行・jsDelivr配信確認済み。2サイトの切替は未実施**（2026-09-11）。
+- **v1.21.1 は両サイトとも本番切替済み・実測確認済み**（2026-09-11。Keisuke が GTM で切替 → 13:47 に実測）。
+  実測の中身: ①IEBEL・BLUBEL とも GTM と実ページの両方で `@v1.21.1` を読み込み（`x-jsd-version: 1.21.1`）
+  ②選択画面に「本日残り38回」、`/health` の remaining（38）と一致 ③`/quota` の応答だけを残り0に差し替えると、
+  ボタンが無効になり「本日の生成枠は終了しました」、強制クリックしても選択画面のまま（本番KVは触らず・生成もしていない）
+  ④pageerror 0件（console.error はテストでアクセス解析の送信を遮断した `ERR_BLOCKED_BY_CLIENT` のみ）。
+  スクリーンショット: `Downloads/colorlab_selfcard_quota_20260911/09_本番サイト_*.png`。
   「自分の顔で作る」の入口の選択画面（診断前）に **「本日残り◯回」** を出す。入口を開くたびに Worker の
   `GET /quota`（残数だけを返す軽量版。`/health` は社内用で画面からは呼ばない）を1回取得する。
   残り0なら選択画面の時点でボタンを無効にして「本日の生成枠は終了しました」を出す（それまでは写真を送るまで
