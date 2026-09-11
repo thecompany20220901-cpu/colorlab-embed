@@ -891,6 +891,8 @@ const SEASON_AVATAR_PERSONA = {
 // この定数を false にしておくこと（入口ごと出さない）。
 const SELFCARD_ENABLED = true;
 const SELFCARD_ENDPOINT = "https://colorlab-selfcard.the-company-20220901.workers.dev/illustrate";
+// 入口の選択画面の「本日残り◯回」の取得先。残数だけを返す軽量版（/health は社内用なので使わない）。
+const SELFCARD_QUOTA_ENDPOINT = "https://colorlab-selfcard.the-company-20220901.workers.dev/quota";
 const SELFCARD_DAILY_LIMIT = 50;   // 中継側の実数。ここは表示用の控えでしかない
 const SELFCARD_CACHE_KEY = "colorlab-selfcard";
 // プロンプトを変えたらこの版番号も上げる。上げないと古い絵がキャッシュから返る。
@@ -3326,6 +3328,7 @@ export default function App() {
   const [selfBusy, setSelfBusy] = useState(false);
   const [selfError, setSelfError] = useState(null);
   const [selfSoldOut, setSelfSoldOut] = useState(false);  // 本日の枠が終了
+  const [selfRemaining, setSelfRemaining] = useState(null);  // 本日の残り回数。null=未取得（数字を出さない）
   const selfFileRef = useRef(null);
 
   // pair
@@ -3521,6 +3524,18 @@ export default function App() {
     // 先に「どう見る？」を聞く。中継が止まっている間は選ばせても仕方ないので Q1 から始める。
     setCardMedium("avatar");
     setCardStep(SELFCARD_ENABLED ? "choose" : "q1"); setMode("card");
+    // 選択画面の「本日残り◯回」。取れなければ数字を出さないだけで、ボタンは押せるままにする
+    // （本当の上限は中継の POST 側が数える）。KV の反映ラグで数十秒ずれるのは許容。
+    if (SELFCARD_ENABLED) {
+      fetch(SELFCARD_QUOTA_ENDPOINT)
+        .then((r) => (r.ok ? r.json() : null))
+        .then((j) => {
+          if (!j || typeof j.remaining !== "number") return;
+          setSelfRemaining(j.remaining);
+          if (j.remaining <= 0) setSelfSoldOut(true);
+        })
+        .catch(() => { /* 取得失敗は表示なしで続行 */ });
+    }
   };
 
   const finishCard = (q1, q2, q3answers) => {
@@ -3995,6 +4010,12 @@ export default function App() {
                   : { background: "#fdfcfd", border: "1px solid " + C.line }}>
                 <span className="flex items-center gap-2 font-serif text-base" style={{ color: selfSoldOut ? "#a49daa" : C.ink }}>
                   <Camera size={16} /> 自分の顔で作る
+                  {!selfSoldOut && selfRemaining !== null && (
+                    <span className="ml-auto font-sans text-[11px] leading-4 px-2.5 py-0.5 rounded-full"
+                      style={{ background: "#efedf0", color: C.ink }}>
+                      本日残り{selfRemaining}回
+                    </span>
+                  )}
                 </span>
                 <span className="block text-xs mt-1" style={{ color: selfSoldOut ? "#a49daa" : C.sub }}>
                   {selfSoldOut ? "本日の生成枠は終了しました" : "写真から本人風イラストを生成"}

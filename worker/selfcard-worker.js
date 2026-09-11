@@ -157,7 +157,7 @@ function cors(origin) {
   const allow = ALLOW_ORIGINS.includes(origin) ? origin : ALLOW_ORIGINS[0];
   return {
     "Access-Control-Allow-Origin": allow,
-    "Access-Control-Allow-Methods": "POST, OPTIONS",
+    "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
     "Access-Control-Allow-Headers": "Content-Type",
     "Vary": "Origin",
   };
@@ -202,6 +202,19 @@ export default {
         used: used,
         remaining: Math.max(0, DAILY_LIMIT - used),
       }, st === 200 ? 200 : 502, origin);
+    }
+    // GET /quota — ユーザー向け。入口の選択画面に「本日残り◯回」を出すためだけに使う。
+    // 画面を開くたびに呼ばれるので、/health と違って OpenAI を叩かず、鍵の状態も
+    // 使用数も返さない（KV を1回読んで残数だけ返す）。KV は結果整合なので数十秒
+    // ずれることがあるが表示用として許容する。本当の上限は下の POST 側で数える。
+    if (request.method === "GET" && new URL(request.url).pathname === "/quota") {
+      let used;
+      try {
+        used = parseInt((await env.SELFCARD_KV.get("count:" + jstDateKey())) || "0", 10);
+      } catch (e) {
+        return json({ ok: false, reason: "kv_unavailable" }, 503, origin);
+      }
+      return json({ ok: true, remaining: Math.max(0, DAILY_LIMIT - used) }, 200, origin);
     }
     if (request.method !== "POST") {
       return json({ ok: false, reason: "method_not_allowed" }, 405, origin);
