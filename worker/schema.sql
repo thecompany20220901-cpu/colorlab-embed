@@ -19,7 +19,7 @@ CREATE TABLE IF NOT EXISTS users (
   email                  TEXT    NOT NULL UNIQUE,          -- 小文字・前後空白除去で正規化して保存
   magic_link_token       TEXT,                             -- 送ったリンクのトークンの SHA-256（生値は保存しない）
   token_expires_at       INTEGER,                          -- UNIX 秒。使い切ったら NULL に戻す
-  is_ec_purchaser        INTEGER NOT NULL DEFAULT 0,       -- 1 = EC購入者（無料会員）。判定方式は未確定（README 参照）
+  is_ec_purchaser        INTEGER NOT NULL DEFAULT 0,       -- 1 = EC購入者（無料会員）。管理者が ec_applications を承認すると立つ
   subscription_status    TEXT    NOT NULL DEFAULT 'none',  -- none / active / trialing / past_due / canceled / unpaid / incomplete
   stripe_customer_id     TEXT    UNIQUE,
   stripe_subscription_id TEXT,                             -- Webhook で更新。解約・再開の突き合わせ用
@@ -61,3 +61,22 @@ CREATE TABLE IF NOT EXISTS kotae_answers (
   UNIQUE (campaign, device_id)
 );
 CREATE INDEX IF NOT EXISTS idx_kotae_campaign ON kotae_answers(campaign);
+
+-- EC購入者の無料会員申請（C案: 手動申請 + 管理者承認・2026-09-19 keisuke 決定）。
+-- スクショ（購入完了メール）は承認・却下した時点で NULL にする（氏名・住所が写るため持ち続けない）。
+CREATE TABLE IF NOT EXISTS ec_applications (
+  id            INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id       INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  site          TEXT    NOT NULL,                          -- blubel / iebel（どちらで買ったか）
+  order_email   TEXT,                                      -- 注文時のアドレス（ログイン用と違う場合だけ）
+  order_number  TEXT,
+  note          TEXT,
+  image         BLOB,                                      -- 画面側で長辺1600pxに縮めた JPEG/PNG/WebP（1.5MB まで）
+  image_type    TEXT,
+  status        TEXT    NOT NULL DEFAULT 'pending',        -- pending / approved / rejected
+  reject_reason TEXT,
+  created_at    INTEGER NOT NULL,
+  reviewed_at   INTEGER
+);
+CREATE INDEX IF NOT EXISTS idx_ec_app_status ON ec_applications(status, id);
+CREATE INDEX IF NOT EXISTS idx_ec_app_user ON ec_applications(user_id, id);

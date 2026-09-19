@@ -52,6 +52,7 @@ async function routeWorker(route) {
 }
 
 // ── ハーネス（本番と同じく、先にスクリプト → 本文の div を自動マウント）──
+// 入口は /pages/personalcolor?campaign=kotaeawase（2026-09-19 決定: GTM は変えない）
 const lpBody = readFileSync(join(HERE, "../lp/kotaeawase_lp.html"), "utf8");
 const harness = (name, body) => {
   const p = join(tmpdir(), `_kotae_${name}.html`);
@@ -61,6 +62,7 @@ const harness = (name, body) => {
 };
 const LP = harness("lp", lpBody);
 const PLAIN = harness("plain", `<div id="colorlab-root">アプリを読み込み中…</div>`);
+const CAMP = PLAIN + "?campaign=kotaeawase";
 
 console.log("■ 名前・色が本体の TYPES と一致");
 {
@@ -82,7 +84,8 @@ console.log("■ LP（Fulmo 貼り付け用 HTML）の機械ゲート");
   const sels = [...css.matchAll(/([^{}]+)\{/g)].flatMap((m) => m[1].split(",").map((s) => s.trim())).filter(Boolean);
   check(`CSS のセレクタ ${sels.length} 個がすべて .kt 配下`, sels.every((s) => s.startsWith(".kt")));
   check("サイト内リンクは相対パス・target なし", /<a href="\/pages\/personalcolor">/.test(lpBody) && !/target=/.test(lpBody));
-  check("アプリと集計のマウント先がある", lpBody.includes('id="colorlab-root" data-mode="kotaeawase"') && lpBody.includes('id="colorlab-kotae-stats"'));
+  check("参加ボタンは /pages/personalcolor?campaign=kotaeawase（GTM を変えない方式）", (lpBody.match(/href="\/pages\/personalcolor\?campaign=kotaeawase"/g) || []).length === 2);
+  check("LP にアプリのマウント先を置かない（GTM が読み込まないページでは動かないため）", !/id="colorlab-root"|colorlab-kotae-stats/.test(lpBody));
 }
 
 const browser = await chromium.launch();
@@ -91,6 +94,14 @@ await ctx.route(ENDPOINT + "/**", routeWorker);
 const page = await ctx.newPage();
 const errors = [];
 page.on("pageerror", (e) => errors.push(String(e)));
+
+console.log("■ LP（静的ページ）の表示");
+{
+  await page.goto(LP, { waitUntil: "load" });
+  await page.waitForTimeout(500);
+  check("LP: 390px 幅で横スクロールが出ない", await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth));
+  await page.screenshot({ path: join(SHOTS, "k00_lp.png"), fullPage: true });
+}
 
 console.log("■ 通常ページは今までどおり（キャンペーン画面を出さない）");
 {
@@ -113,15 +124,15 @@ async function runPhoto() {
   await page.locator("#colorlab-root input[type=file]").setInputFiles({ name: "ok.png", mimeType: "image/png", buffer: PHOTO_OK });
 }
 
-console.log("■ LP：入力 → 写真で診断 → 一致");
+console.log("■ ?campaign=kotaeawase：入力 → 写真で診断 → 一致");
 {
-  await page.goto(LP, { waitUntil: "load" });
+  await page.goto(CAMP, { waitUntil: "load" });
   await page.waitForSelector("#colorlab-root >> text=プロ診断の結果（1st）", { timeout: 15000 });
-  await page.waitForSelector("#colorlab-kotae-stats >> text=まだ回答がありません", { timeout: 10000 });
-  check("LP の集計欄が単独でマウントされる（0件表示）", true);
-  const noScroll = await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth);
-  check("390px 幅で横スクロールが出ない", noScroll);
-  await page.screenshot({ path: join(SHOTS, "k01_lp_top.png"), fullPage: true });
+  await page.waitForSelector("#colorlab-root >> text=まだ回答がありません", { timeout: 10000 });
+  check("入力画面の下にリアルタイム集計が出る（0件表示）", true);
+  check("390px 幅で横スクロールが出ない", await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth));
+  await page.waitForTimeout(800);
+  await page.screenshot({ path: join(SHOTS, "k01_campaign_input.png"), fullPage: true });
 
   const start = page.getByRole("button", { name: /結果の選択と確認をしてください/ });
   check("未入力のうちは開始ボタンが無効", await start.isDisabled());
@@ -133,7 +144,7 @@ console.log("■ LP：入力 → 写真で診断 → 一致");
   check("2nd の選択肢から 1st（イエベ春）が外れる", labels.filter((l) => l === "イエベ春").length === 1 && labels.includes("言われていない"));
   await secondBtns.nth(5).click(); // 1st の4つ + 言われていない の次 = ブルベ夏
   await page.locator("#colorlab-root input[type=checkbox]").check();
-  await page.waitForTimeout(800);
+  await page.waitForTimeout(300);
   await page.screenshot({ path: join(SHOTS, "k02_input_filled.png"), fullPage: true });
   await page.getByRole("button", { name: /写真で診断して答え合わせする/ }).click();
 
@@ -142,14 +153,12 @@ console.log("■ LP：入力 → 写真で診断 → 一致");
   await page.waitForSelector("#colorlab-root >> text=みんなの答え合わせ", { timeout: 10000 });
   const t = await page.locator("#colorlab-root").innerText();
   check("アプリの結果は既存エンジンの判定（イエベ春 / 2nd ブルベ夏）", /アプリ（写真で診断）\s*イエベ春\s*2nd：ブルベ夏/.test(t));
-  check("2nd まで一致と表示", /2nd まで一致です/.test(t));
+  check("1st 一致の表示", /1st（いちばん似合うシーズン）が一致しました/.test(t));
   check("通常の結果ページ（タイプです！）には行かない", !/タイプです！/.test(t));
   check("送信内容はタイプ名だけ（写真なし）", posted.length === 1 && Object.keys(posted[0]).sort().join() === "app_first,app_second,campaign,device_id,pro_first,pro_second,site" && posted[0].pro_first === "spring" && posted[0].pro_second === "summer" && posted[0].app_first === "spring");
   check("集計は 1件・1st 一致率 100%", /100%/.test(t) && /1 \/ 1 人/.test(t));
   const cells = await page.locator("#colorlab-root table tbody td").count();
   check("集計表は 4行 x (見出し+4列) = 20セル", cells === 20);
-  await page.waitForSelector("#colorlab-kotae-stats >> text=1 / 1 人", { timeout: 3000 }).catch(() => {});
-  check("LP の集計欄も回答直後に 1件へ更新（30秒待たない）", /1 \/ 1 人/.test(await page.locator("#colorlab-kotae-stats").innerText()));
   await page.waitForTimeout(800); // fade-up（0.5秒）が終わってから撮る
   await page.screenshot({ path: join(SHOTS, "k03_result_match.png"), fullPage: true });
 
@@ -163,6 +172,8 @@ console.log("■ LP：入力 → 写真で診断 → 一致");
 console.log("■ 同じ端末の2回目（不一致）は集計に入れない");
 {
   await page.getByRole("button", { name: /プロ診断の入力に戻る/ }).click();
+  await page.waitForSelector("#colorlab-root >> text=1 / 1 人", { timeout: 10000 });
+  check("入力画面に戻ると集計（1 / 1 人）が見える", true);
   await page.locator("#colorlab-root").getByRole("button", { name: "ブルベ冬", exact: true }).first().click();
   await page.locator("#colorlab-root input[type=checkbox]").check();
   await page.getByRole("button", { name: /写真で診断して答え合わせする/ }).click();
@@ -183,7 +194,7 @@ console.log("■ 別の端末の不一致は集計に入り、外れも表に残
   const ctx2 = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2 });
   await ctx2.route(ENDPOINT + "/**", routeWorker);
   const p2 = await ctx2.newPage();
-  await p2.goto(LP, { waitUntil: "load" });
+  await p2.goto(CAMP, { waitUntil: "load" });
   await p2.waitForSelector("#colorlab-root >> text=プロ診断の結果（1st）", { timeout: 15000 });
   await p2.locator("#colorlab-root").getByRole("button", { name: "ブルベ夏", exact: true }).first().click();
   await p2.locator("#colorlab-root input[type=checkbox]").check();
@@ -201,19 +212,19 @@ console.log("■ 別の端末の不一致は集計に入り、外れも表に残
   const cell = await p2.locator("#colorlab-root table tbody tr").nth(1).locator("td").nth(1).innerText();
   check("2件目で 1st 一致率 50%（1/2）", /50%/.test(await p2.locator("#colorlab-root").innerText()));
   check("外れ（プロ ブルベ夏 → アプリ イエベ春）のセルが 1", cell.trim() === "1");
-  // LP の集計欄（30秒ごと更新）を読み直して同じ数字になること
+  // 開き直した人にも同じ数字が見えること（入力画面の集計）
   await p2.reload({ waitUntil: "load" });
-  await p2.waitForSelector("#colorlab-kotae-stats >> text=1 / 2 人", { timeout: 10000 });
-  check("LP の集計欄にも反映（1 / 2 人）", true);
-  await p2.locator("#colorlab-kotae-stats").screenshot({ path: join(SHOTS, "k07_lp_stats_after_2.png") });
+  await p2.waitForSelector("#colorlab-root >> text=1 / 2 人", { timeout: 10000 });
+  check("開き直した入力画面の集計にも反映（1 / 2 人）", true);
+  await p2.waitForTimeout(800);
+  await p2.screenshot({ path: join(SHOTS, "k07_campaign_input_after_2.png"), fullPage: true });
   await ctx2.close();
 }
 
-console.log("■ GTM を変えない入口（/pages/personalcolor?campaign=kotaeawase 相当）");
+console.log("■ 写真画面の戻る");
 {
-  await page.goto(PLAIN + "?campaign=kotaeawase", { waitUntil: "load" });
+  await page.goto(CAMP, { waitUntil: "load" });
   await page.waitForSelector("#colorlab-root >> text=プロ診断の結果（1st）", { timeout: 15000 });
-  check("?campaign=kotaeawase で答え合わせの入力画面から始まる", true);
   await page.getByRole("button", { name: "イエベ秋", exact: true }).first().click();
   await page.locator("#colorlab-root input[type=checkbox]").check();
   await page.getByRole("button", { name: /写真で診断して答え合わせする/ }).click();

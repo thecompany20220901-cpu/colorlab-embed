@@ -14,12 +14,18 @@
      POST /stripe/webhook    Stripe Webhook 受信（署名検証つき）
      POST /campaign/answer   答え合わせの結果を1端末1回だけ記録
      GET  /campaign/stats    一致率の集計（全セルを返す・外れ値も隠さない）
+     POST /ec/apply          EC購入者の無料会員申請（購入完了メールのスクショ添付）
+     GET  /ec/status         自分の申請の状態
+     GET  /admin             申請の承認画面（HTML）
+     *    /admin/api/*       承認画面の API（ADMIN_TOKEN 必須）
 
    秘密情報は OpenAI キーと同じく Workers Secret に置く（wrangler.toml に書かない）:
-     STRIPE_SECRET_KEY / STRIPE_WEBHOOK_SECRET / メール送信サービスのキー（選定待ち）
+     STRIPE_SECRET_KEY / STRIPE_WEBHOOK_SECRET / RESEND_API_KEY / ADMIN_TOKEN
 
    写真は受け取らない・保存しない。キャンペーンもタイプ名（春夏秋冬）だけを持つ。
    ══════════════════════════════════════════════════════════ */
+
+import { ADMIN_PAGE } from "./admin_page.js";
 
 const SEASONS = ["spring", "summer", "autumn", "winter"];
 
@@ -39,10 +45,32 @@ export const PLANS = {
 // Stripe の購読状態のうち「使える」とみなすもの。past_due（引き落とし再試行中）は含めない。
 const PAID_STATUSES = ["active", "trialing"];
 
-// メール送信。サービスは選定待ち（既存の送信サービスがこのPC上に無いため）。
-// 決まったらここに1つ足す: MAIL_SENDERS.resend = async (env, msg) => { ... }
-// env.MAIL_PROVIDER が未設定・未登録なら 503 mail_not_configured を返し、黙って成功扱いにしない。
-export const MAIL_SENDERS = {};
+// メール送信。env.MAIL_PROVIDER で選ぶ（2026-09-19 keisuke 決定: Resend）。
+// 未設定・未登録・キーや差出人が無いときは 503 mail_not_configured を返し、黙って成功扱いにしない。
+const configError = () => Object.assign(new Error("mail_not_configured"), { code: "not_configured" });
+export const MAIL_SENDERS = {
+  // https://resend.com/docs/api-reference/emails/send-email
+  // 差出人はサイトごと（BLUBEL の利用者に IEBEL 名義で届かないように）。
+  // ドメイン認証（SPF/DKIM）が済むまでは onboarding@resend.dev しか使えず、宛先も Resend アカウントの本人だけ。
+  resend: async (env, msg) => {
+    const from = msg.site === "iebel" ? env.MAIL_FROM_IEBEL : env.MAIL_FROM_BLUBEL;
+    if (!env.RESEND_API_KEY || !from) throw configError();
+    const r = await fetch("https://api.resend.com/emails", {
+      method: "POST",
+      headers: { Authorization: "Bearer " + env.RESEND_API_KEY, "Content-Type": "application/json" },
+      body: JSON.stringify({ from, to: [msg.to], subject: msg.subject, text: msg.text }),
+    });
+    if (!r.ok) {
+      // 上流の本文は外に出さない（宛先アドレス等が混ざるため）
+      console.log("resend_error status=" + r.status);
+      throw new Error("resend_error");
+    }
+  },
+};
+
+// EC購入者の申請（C案: 手動申請 + 管理者承認）
+const EC_IMAGE_MAX_BYTES = 1_500_000;        // D1 の1行上限(2MB)より小さく。画面側で長辺1600pxに縮めて送る
+const ADMIN_FAIL_LIMIT = 10;                 // 承認APIの認証失敗は IP ごとに 1時間10回まで
 
 const now = () => Math.floor(Date.now() / 1000);
 
@@ -157,8 +185,10 @@ export async function routeMine(request, env, allowOrigins) {
   const url = new URL(request.url);
   const path = url.pathname;
   const origin = request.headers.get("Origin") || "";
-  const allowed = allowOrigins.includes(origin);
-  const mine = /^\/(auth\/|me$|billing\/|stripe\/webhook$|campaign\/)/.test(path);
+  // ステージングだけ、ローカルの検証ページ等を EXTRA_ALLOW_ORIGINS（カンマ区切り）で足せる。本番は空
+  const extra = String(env.EXTRA_ALLOW_ORIGINS || "").split(",").map((s) => s.trim()).filter(Boolean);
+  const allowed = allowOrigins.includes(origin) || extra.includes(origin);
+  const mine = /^\/(auth\/|me$|billing\/|stripe\/webhook$|campaign\/|ec\/|admin$|admin\/)/.test(path);
   if (!mine) return null;
 
   const json = (body, status = 200) => new Response(JSON.stringify(body), {
@@ -185,6 +215,9 @@ export async function routeMine(request, env, allowOrigins) {
     return json({ ok: true });
   }
 
+  // ── 承認画面。Worker 自身のドメインで配る同一オリジンのページなので Origin 検査の前に置く ──
+  if (path === "/admin" || path.startsWith("/admin/")) return routeAdmin(request, env, path);
+
   if (request.method === "OPTIONS") return new Response(null, { status: 204, headers: cors(origin, allowed) });
   if (!allowed) return json({ ok: false, reason: "forbidden_origin" }, 403);
   if (!env.DB) return json({ ok: false, reason: "db_not_configured" }, 503);
@@ -196,6 +229,7 @@ export async function routeMine(request, env, allowOrigins) {
     if (!email) return json({ ok: false, reason: "bad_email" }, 400);
     const send = MAIL_SENDERS[env.MAIL_PROVIDER || ""];
     if (!send) return json({ ok: false, reason: "mail_not_configured" }, 503);
+    const site = /iebel\.jp$/.test(new URL(origin).hostname) ? "iebel" : "blubel";
 
     const rk = "ml:" + (await sha256hex(email));
     if (env.SELFCARD_KV && (await env.SELFCARD_KV.get(rk))) return json({ ok: false, reason: "too_soon" }, 429);
@@ -211,12 +245,14 @@ export async function routeMine(request, env, allowOrigins) {
     const link = origin + safeReturnPath(body.return_path) + "?mine_token=" + token;
     try {
       await send(env, {
+        site,
         to: email,
         subject: "Color Lab MINE ログインリンク",
         text: "下のリンクを15分以内に開くとログインできます。\n\n" + link +
           "\n\n心当たりがない場合は、このメールを破棄してください。",
       });
     } catch (e) {
+      if (e.code === "not_configured") return json({ ok: false, reason: "mail_not_configured" }, 503);
       console.log("mail_error provider=" + env.MAIL_PROVIDER);
       return json({ ok: false, reason: "mail_failed" }, 502);
     }
@@ -339,6 +375,43 @@ export async function routeMine(request, env, allowOrigins) {
     });
   }
 
+  // ── EC購入者の無料会員申請 ──
+  if (path === "/ec/apply" && request.method === "POST") {
+    const u = await userFromSession(request, env);
+    if (!u) return json({ ok: false, reason: "not_logged_in" }, 401);
+    if (u.is_ec_purchaser) return json({ ok: false, reason: "already_ec_free" }, 409);
+    const pending = await env.DB.prepare("SELECT id FROM ec_applications WHERE user_id = ? AND status = 'pending'").bind(u.id).first();
+    if (pending) return json({ ok: false, reason: "pending_exists" }, 409);
+
+    let form;
+    try { form = await request.formData(); } catch (e) { return json({ ok: false, reason: "bad_request" }, 400); }
+    const img = form.get("image");
+    if (!img || typeof img.arrayBuffer !== "function") return json({ ok: false, reason: "no_image" }, 400);
+    if (img.size > EC_IMAGE_MAX_BYTES) return json({ ok: false, reason: "image_too_large" }, 413);
+    const ab = await img.arrayBuffer();
+    const bytes = new Uint8Array(ab);
+    const type = imageTypeOf(bytes);
+    if (!type) return json({ ok: false, reason: "bad_image" }, 400);
+    const site = form.get("site") === "iebel" ? "iebel" : "blubel";
+    const orderEmail = form.get("order_email") ? normalizeEmail(form.get("order_email")) : null;
+    if (form.get("order_email") && !orderEmail) return json({ ok: false, reason: "bad_email" }, 400);
+    const orderNumber = String(form.get("order_number") || "").trim().slice(0, 64) || null;
+    const note = String(form.get("note") || "").trim().slice(0, 500) || null;
+    await env.DB.prepare(
+      "INSERT INTO ec_applications (user_id, site, order_email, order_number, note, image, image_type, status, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, 'pending', ?)"
+    ).bind(u.id, site, orderEmail, orderNumber, note, ab, type, now()).run();
+    return json({ ok: true, status: "pending" });
+  }
+
+  if (path === "/ec/status" && request.method === "GET") {
+    const u = await userFromSession(request, env);
+    if (!u) return json({ ok: false, reason: "not_logged_in" }, 401);
+    const a = await env.DB.prepare(
+      "SELECT status, site, created_at, reviewed_at, reject_reason FROM ec_applications WHERE user_id = ? ORDER BY id DESC LIMIT 1"
+    ).bind(u.id).first();
+    return json({ ok: true, application: a || null, user: publicUser(u) });
+  }
+
   if (path === "/campaign/stats" && request.method === "GET") {
     const c = url.searchParams.get("campaign") || "";
     if (!env.KOTAE_CAMPAIGN || c !== env.KOTAE_CAMPAIGN) return json({ ok: false, reason: "no_campaign" }, 404);
@@ -396,4 +469,90 @@ async function handleStripeEvent(env, ev) {
     await env.DB.prepare("UPDATE users SET subscription_status = ?, stripe_subscription_id = ?, updated_at = ? WHERE stripe_customer_id = ?")
       .bind(status, o.id, now(), o.customer).run();
   }
+}
+
+// 先頭バイトで画像の種類を決める（Content-Type の申告は信用しない）
+export function imageTypeOf(b) {
+  if (b.length > 3 && b[0] === 0xff && b[1] === 0xd8 && b[2] === 0xff) return "image/jpeg";
+  if (b.length > 8 && b[0] === 0x89 && b[1] === 0x50 && b[2] === 0x4e && b[3] === 0x47) return "image/png";
+  if (b.length > 12 && String.fromCharCode(...b.slice(0, 4)) === "RIFF" && String.fromCharCode(...b.slice(8, 12)) === "WEBP") return "image/webp";
+  return null;
+}
+
+// ── 承認画面（GET /admin）と API（/admin/api/*）──
+// 認証は Workers Secret の ADMIN_TOKEN（32文字以上）を Bearer で送る方式。
+// 担当者ごとの ID は持たない（v1 は keisuke 1名運用の想定）。複数人にするなら Cloudflare Access へ。
+async function routeAdmin(request, env, path) {
+  const sec = {
+    "Cache-Control": "no-store",
+    "X-Frame-Options": "DENY",
+    "Referrer-Policy": "no-referrer",
+    "X-Robots-Tag": "noindex, nofollow",
+  };
+  const json = (body, status = 200) => new Response(JSON.stringify(body), { status, headers: Object.assign({ "Content-Type": "application/json" }, sec) });
+
+  if (path === "/admin" && request.method === "GET") {
+    return new Response(ADMIN_PAGE, {
+      headers: Object.assign({
+        "Content-Type": "text/html; charset=utf-8",
+        "Content-Security-Policy": "default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src blob:; connect-src 'self'; base-uri 'none'; form-action 'none'",
+      }, sec),
+    });
+  }
+  if (!path.startsWith("/admin/api/")) return json({ ok: false, reason: "not_found" }, 404);
+  if (!env.ADMIN_TOKEN || String(env.ADMIN_TOKEN).length < 32) return json({ ok: false, reason: "admin_not_configured" }, 503);
+
+  // 失敗回数の上限（総当たりよけ）
+  const failKey = "admin_fail:" + (await sha256hex(request.headers.get("CF-Connecting-IP") || "none"));
+  const fails = env.SELFCARD_KV ? parseInt((await env.SELFCARD_KV.get(failKey)) || "0", 10) : 0;
+  if (fails >= ADMIN_FAIL_LIMIT) return json({ ok: false, reason: "rate_limited" }, 429);
+  const given = (request.headers.get("Authorization") || "").replace(/^Bearer\s+/, "");
+  // 両方をハッシュしてから比べる（長さの違いで早抜けしない）
+  if ((await sha256hex(given)) !== (await sha256hex(String(env.ADMIN_TOKEN)))) {
+    if (env.SELFCARD_KV) await env.SELFCARD_KV.put(failKey, String(fails + 1), { expirationTtl: 3600 });
+    return json({ ok: false, reason: "unauthorized" }, 401);
+  }
+
+  // GET /admin/api/applications?status=pending|approved|rejected
+  if (path === "/admin/api/applications" && request.method === "GET") {
+    const st = new URL(request.url).searchParams.get("status") || "pending";
+    if (!["pending", "approved", "rejected"].includes(st)) return json({ ok: false, reason: "bad_status" }, 400);
+    const rows = (await env.DB.prepare(
+      "SELECT a.id, a.status, a.site, u.email AS login_email, a.order_email, a.order_number, a.note, a.created_at, a.reviewed_at, a.reject_reason, " +
+      "CASE WHEN a.image IS NULL THEN 0 ELSE 1 END AS has_image, u.is_ec_purchaser " +
+      "FROM ec_applications a JOIN users u ON u.id = a.user_id WHERE a.status = ? ORDER BY a.id " + (st === "pending" ? "ASC" : "DESC") + " LIMIT 200"
+    ).bind(st).all()).results || [];
+    return json({ ok: true, applications: rows });
+  }
+
+  let m;
+  // GET /admin/api/applications/:id/image
+  if ((m = path.match(/^\/admin\/api\/applications\/(\d+)\/image$/)) && request.method === "GET") {
+    const a = await env.DB.prepare("SELECT image, image_type FROM ec_applications WHERE id = ?").bind(+m[1]).first();
+    if (!a || !a.image) return json({ ok: false, reason: "no_image" }, 404);
+    return new Response(new Uint8Array(a.image), { headers: Object.assign({ "Content-Type": a.image_type }, sec) });
+  }
+
+  // POST /admin/api/applications/:id/decide {decision: "approve"|"reject", reason?}
+  if ((m = path.match(/^\/admin\/api\/applications\/(\d+)\/decide$/)) && request.method === "POST") {
+    const b = await readJson(request);
+    const decision = b && b.decision;
+    if (decision !== "approve" && decision !== "reject") return json({ ok: false, reason: "bad_decision" }, 400);
+    const reason = decision === "reject" ? String((b && b.reason) || "").trim().slice(0, 300) : null;
+    if (decision === "reject" && !reason) return json({ ok: false, reason: "reason_required" }, 400);
+    const a = await env.DB.prepare("SELECT id, user_id, status FROM ec_applications WHERE id = ?").bind(+m[1]).first();
+    if (!a) return json({ ok: false, reason: "not_found" }, 404);
+    if (a.status !== "pending") return json({ ok: false, reason: "already_decided" }, 409);
+    const t = now();
+    // 判断が済んだらスクショは消す（購入完了メールには氏名・住所が写るため、持ち続けない）
+    await env.DB.prepare(
+      "UPDATE ec_applications SET status = ?, reject_reason = ?, reviewed_at = ?, image = NULL WHERE id = ? AND status = 'pending'"
+    ).bind(decision === "approve" ? "approved" : "rejected", reason, t, a.id).run();
+    if (decision === "approve") {
+      await env.DB.prepare("UPDATE users SET is_ec_purchaser = 1, updated_at = ? WHERE id = ?").bind(t, a.user_id).run();
+    }
+    return json({ ok: true });
+  }
+
+  return json({ ok: false, reason: "not_found" }, 404);
 }

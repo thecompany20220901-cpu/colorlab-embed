@@ -17,8 +17,10 @@ const check = (name, ok) => { ok ? pass++ : fail++; console.log((ok ? "  OK  " :
 function d1() {
   const db = new DatabaseSync(":memory:");
   db.exec(readFileSync(join(HERE, "../worker/schema.sql"), "utf8"));
+  // D1 は ArrayBuffer を BLOB として受ける。node:sqlite は TypedArray しか受けないので変換する
+  const conv = (a) => a.map((v) => (v instanceof ArrayBuffer ? new Uint8Array(v) : v));
   const stmt = (sql, args = []) => ({
-    bind: (...a) => stmt(sql, a),
+    bind: (...a) => stmt(sql, conv(a)),
     first: async () => db.prepare(sql).get(...args) ?? null,
     all: async () => ({ results: db.prepare(sql).all(...args) }),
     run: async () => { const r = db.prepare(sql).run(...args); return { meta: { changes: Number(r.changes) } }; },
@@ -43,8 +45,14 @@ const stripeState = { prices: {
   price_year: { id: "price_year", active: true, currency: "jpy", unit_amount: 3980, recurring: { interval: "year", interval_count: 1 } },
 }, subs: {}, calls: [] };
 const realFetch = globalThis.fetch;
+const resendSent = [];
+let resendStatus = 200;
 globalThis.fetch = async (url, init = {}) => {
   const u = String(url);
+  if (u === "https://api.resend.com/emails") {
+    resendSent.push({ auth: init.headers.Authorization, body: JSON.parse(init.body) });
+    return new Response(JSON.stringify(resendStatus === 200 ? { id: "re_1" } : { message: "x" }), { status: resendStatus });
+  }
   if (!u.startsWith("https://api.stripe.com/")) throw new Error("外部通信は禁止: " + u);
   stripeState.calls.push((init.method || "GET") + " " + u.replace("https://api.stripe.com/v1/", ""));
   const res = (b, s = 200) => new Response(JSON.stringify(b), { status: s });
@@ -210,6 +218,117 @@ console.log("■ 答え合わせキャンペーン");
   check("キャンペーン期間外（KOTAE_CAMPAIGN 空）は 404", off.status === 404);
 }
 
+console.log("■ Resend（2026-09-19 採用）");
+{
+  env.MAIL_PROVIDER = "resend";
+  env.SELFCARD_KV._m.clear();
+  const r0 = await call("POST", "/auth/request", { body: { email: "r1@example.com" } });
+  check("RESEND_API_KEY・差出人が無ければ 503 mail_not_configured", r0.status === 503 && r0.j.reason === "mail_not_configured" && resendSent.length === 0);
+  env.RESEND_API_KEY = "re_test_dummy";
+  env.MAIL_FROM_BLUBEL = "BLUBEL Color Lab <noreply@send.blubel.jp>";
+  env.MAIL_FROM_IEBEL = "IEBEL Color Lab <noreply@send.iebel.jp>";
+  const r1 = await call("POST", "/auth/request", { body: { email: "r1@example.com" } });
+  const s1 = resendSent[0];
+  check("blubel から頼むと BLUBEL 名義で送る", r1.status === 200 && s1.body.from === env.MAIL_FROM_BLUBEL && s1.body.to[0] === "r1@example.com");
+  check("Resend へは Bearer キーで送る", s1.auth === "Bearer re_test_dummy");
+  check("本文にログインリンク（blubel.jp）", /https:\/\/www\.blubel\.jp\/pages\/personalcolor\?mine_token=/.test(s1.body.text));
+  const r2 = await call("POST", "/auth/request", { body: { email: "r2@example.com" }, origin: "https://www.iebel.jp" });
+  check("iebel から頼むと IEBEL 名義・iebel.jp のリンク", r2.status === 200 && resendSent[1].body.from === env.MAIL_FROM_IEBEL && /https:\/\/www\.iebel\.jp\//.test(resendSent[1].body.text));
+  resendStatus = 422;
+  const r3 = await call("POST", "/auth/request", { body: { email: "r3@example.com" } });
+  check("Resend がエラーなら 502 mail_failed（成功扱いにしない）", r3.status === 502 && r3.j.reason === "mail_failed");
+  resendStatus = 200;
+}
+
+console.log("■ ステージング用の追加オリジン");
+{
+  const a = await call("GET", "/me", { origin: "http://localhost:4173" });
+  check("EXTRA_ALLOW_ORIGINS が空なら localhost は 403", a.status === 403);
+  env.EXTRA_ALLOW_ORIGINS = "http://localhost:4173";
+  const b = await call("GET", "/me", { origin: "http://localhost:4173" });
+  check("EXTRA_ALLOW_ORIGINS に入れた localhost は通る（未ログインで 401）", b.status === 401);
+  env.EXTRA_ALLOW_ORIGINS = "";
+}
+
+console.log("■ EC購入者の申請（C案）と承認");
+{
+  const outbox = [];
+  MAIL_SENDERS.test = async (e, msg) => { outbox.push(msg); };
+  env.MAIL_PROVIDER = "test";
+  env.SELFCARD_KV._m.clear();
+  await call("POST", "/auth/request", { body: { email: "ec@example.com" } });
+  const tok = outbox[0].text.match(/mine_token=(\S+)/)[1];
+  const sess = (await call("POST", "/auth/verify", { body: { token: tok } })).j.session;
+  const auth = { Authorization: "Bearer " + sess };
+  const JPEG = new Uint8Array([0xff, 0xd8, 0xff, 0xe0, 1, 2, 3, 4, 5, 6, 7, 8]);
+  const apply = async (fields, img = JPEG, headers = auth) => {
+    const fd = new FormData();
+    for (const [k, v] of Object.entries(fields)) fd.append(k, v);
+    if (img) fd.append("image", new Blob([img], { type: "image/jpeg" }), "shot.jpg");
+    const r = await worker.fetch(new Request("https://w.example/ec/apply", { method: "POST", headers: Object.assign({ Origin: O }, headers), body: fd }), env);
+    return { status: r.status, j: await r.json() };
+  };
+  const n0 = await apply({ site: "blubel" }, JPEG, {});
+  check("未ログインの申請は 401", n0.status === 401);
+  const n1 = await apply({ site: "blubel" }, null);
+  check("スクショ無しは 400 no_image", n1.status === 400 && n1.j.reason === "no_image");
+  const n2 = await apply({ site: "blubel" }, new TextEncoder().encode("<svg onload=alert(1)>"));
+  check("画像でないファイル（先頭バイトで判定）は 400 bad_image", n2.status === 400 && n2.j.reason === "bad_image");
+  const n3 = await apply({ site: "blubel" }, new Uint8Array(1_500_001).fill(0xff));
+  check("1.5MB を超える画像は 413", n3.status === 413);
+  const ok = await apply({ site: "iebel", order_email: " Buyer@Example.com ", order_number: "A-1001", note: "別アドレスで購入" });
+  check("申請 → pending", ok.status === 200 && ok.j.status === "pending");
+  const dup = await apply({ site: "iebel" });
+  check("確認待ちの間は二重申請できない（409 pending_exists）", dup.status === 409 && dup.j.reason === "pending_exists");
+  const st = await call("GET", "/ec/status", { headers: auth });
+  check("GET /ec/status で pending が見える・まだ無料会員ではない", st.j.application.status === "pending" && st.j.user.plan === "none");
+
+  const adm = (method, path, opt = {}) => call(method, path, Object.assign({ origin: null }, opt));
+  const page = await worker.fetch(new Request("https://w.example/admin"), env);
+  const html = await page.text();
+  check("GET /admin は HTML・CSP で外部通信禁止・noindex", page.status === 200 && /MINE EC購入者申請の承認/.test(html) && /connect-src 'self'/.test(page.headers.get("Content-Security-Policy")) && /noindex/.test(page.headers.get("X-Robots-Tag")));
+  const a0 = await adm("GET", "/admin/api/applications");
+  check("ADMIN_TOKEN 未設定なら API は 503", a0.status === 503);
+  env.ADMIN_TOKEN = "t".repeat(40);
+  const good = { Authorization: "Bearer " + env.ADMIN_TOKEN };
+  const a1 = await adm("GET", "/admin/api/applications", { headers: { Authorization: "Bearer wrong" } });
+  check("トークン違いは 401", a1.status === 401);
+  const list = await adm("GET", "/admin/api/applications?status=pending", { headers: good });
+  const app = list.j.applications[0];
+  check("確認待ち一覧に申請が出る（ログイン用・注文時メール・注文番号）", list.status === 200 && app.login_email === "ec@example.com" && app.order_email === "buyer@example.com" && app.order_number === "A-1001" && app.site === "iebel" && app.has_image === 1);
+  const img = await worker.fetch(new Request("https://w.example/admin/api/applications/" + app.id + "/image", { headers: good }), env);
+  const ib = new Uint8Array(await img.arrayBuffer());
+  check("スクショを取り出せる（送ったバイト列そのまま・image/jpeg）", img.headers.get("Content-Type") === "image/jpeg" && ib.length === JPEG.length && ib.every((v, i) => v === JPEG[i]));
+  const noimg = await worker.fetch(new Request("https://w.example/admin/api/applications/" + app.id + "/image"), env);
+  check("トークン無しではスクショを取れない", noimg.status === 401);
+  const rj0 = await adm("POST", "/admin/api/applications/" + app.id + "/decide", { headers: good, body: { decision: "reject" } });
+  check("却下は理由が必須", rj0.status === 400 && rj0.j.reason === "reason_required");
+  const rj = await adm("POST", "/admin/api/applications/" + app.id + "/decide", { headers: good, body: { decision: "reject", reason: "注文番号が確認できませんでした" } });
+  check("却下 → 200", rj.status === 200);
+  const st2 = await call("GET", "/ec/status", { headers: auth });
+  check("申請者に却下と理由が見える・無料会員にはならない", st2.j.application.status === "rejected" && st2.j.application.reject_reason === "注文番号が確認できませんでした" && st2.j.user.plan === "none");
+  check("却下した時点でスクショは削除", env.DB.raw.prepare("SELECT image FROM ec_applications WHERE id = ?").get(app.id).image === null);
+  const again = await adm("POST", "/admin/api/applications/" + app.id + "/decide", { headers: good, body: { decision: "approve" } });
+  check("判断済みの申請は変えられない（409）", again.status === 409);
+
+  const re = await apply({ site: "iebel", order_number: "A-1001" });
+  check("却下のあとは申請し直せる", re.status === 200);
+  const id2 = (await adm("GET", "/admin/api/applications", { headers: good })).j.applications[0].id;
+  const ap = await adm("POST", "/admin/api/applications/" + id2 + "/decide", { headers: good, body: { decision: "approve" } });
+  const me = await call("GET", "/me", { headers: auth });
+  check("承認 → 無料会員（ec_free）", ap.status === 200 && me.j.user.plan === "ec_free" && me.j.user.is_ec_purchaser === true);
+  check("承認した時点でスクショは削除", env.DB.raw.prepare("SELECT image FROM ec_applications WHERE id = ?").get(id2).image === null);
+  const after = await apply({ site: "iebel" });
+  check("無料会員になった後の申請は 409 already_ec_free", after.status === 409 && after.j.reason === "already_ec_free");
+  const hist = await adm("GET", "/admin/api/applications?status=approved", { headers: good });
+  check("承認済みタブに出る（スクショ無し表示）", hist.j.applications.length === 1 && hist.j.applications[0].has_image === 0);
+
+  for (let i = 0; i < 10; i++) await adm("GET", "/admin/api/applications", { headers: { Authorization: "Bearer bad" + i } });
+  const locked = await adm("GET", "/admin/api/applications", { headers: good });
+  check("トークン違いが10回続くと正しいトークンでも1時間 429", locked.status === 429);
+}
+
 globalThis.fetch = realFetch;
 console.log(`\n${pass} OK / ${fail} NG`);
+
 process.exit(fail ? 1 : 0);

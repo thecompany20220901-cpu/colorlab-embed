@@ -2,14 +2,14 @@
      答え合わせキャンペーン LP（Fulmo「ページ一覧 → HTML要素」に貼る）
 
      - JS は書かない（SPA 遷移では本文の script タグは実行されない）
-     - 入力フォーム・写真診断・集計は、GTM が読み込む colorlab.iife.js が
-       下の2つの div を見つけて描く。**この LP の URL を GTM の読み込み対象
-       （現在は /pages/personalcolor のみ）に足さないと、アプリは出ない。**
+     - アプリは GTM が /pages/personalcolor にしか読み込まないため、この LP には置かない
+       （2026-09-19 keisuke 決定: GTM は変えない）。参加ボタンで
+       /pages/personalcolor?campaign=kotaeawase へ送り、入力・写真診断・集計はそちらで出す
      - CSS は .kt 配下にスコープ（サイトのヘッダー・フッターを巻き込まない）
      - 【未定】の3か所（期間・ハッシュタグ・メンション）は確定後に差し替える
      ══════════════════════════════════════════════════════════ -->
 <style>
-/* リセットは LP 自身の文面（.kt-s）だけ。アプリ（#colorlab-root）と集計欄には掛けない */
+/* リセットは LP の文面（.kt-s）の中だけ。サイト側の要素には掛けない */
 .kt .kt-s,.kt .kt-s *,.kt .kt-s *::before,.kt .kt-s *::after{box-sizing:border-box;margin:0;padding:0}
 .kt{box-sizing:border-box}
 .kt{max-width:640px;margin:0 auto;padding:0 16px 40px;color:#3a3340;font-family:'Hiragino Sans','Noto Sans JP','Yu Gothic',sans-serif;line-height:1.75}
@@ -24,7 +24,7 @@
 .kt .kt-s h2{font-size:17px;margin:30px 0 10px;padding-left:10px;border-left:4px solid #7D2E46}
 .kt .kt-s ol{padding-left:1.4em;font-size:14px}
 .kt .kt-s ol li{margin:6px 0}
-.kt .kt-app{margin:14px -16px 0;min-height:320px}
+.kt .kt-cta{display:block;margin:22px 0 6px;padding:17px 0;border-radius:999px;background:#7D2E46;color:#fff;text-align:center;font-size:17px;font-weight:700;text-decoration:none}
 .kt .kt-note{font-size:12px;color:#7d7580}
 .kt .kt-todo{color:#C0392B;font-weight:700}
 .kt .kt-s dl{font-size:13px;display:grid;grid-template-columns:7em 1fr;gap:6px 10px}
@@ -44,22 +44,17 @@
 
   <h2>参加のしかた</h2>
   <ol>
-    <li>下の画面で、プロ診断の結果を選ぶ</li>
+    <li>下のボタンから答え合わせのページへ進み、プロ診断の結果を選ぶ</li>
     <li>そのまま「写真で診断」をする（写真は端末の中だけで解析・送信しません）</li>
     <li>一致・不一致がすぐ出ます。ストーリー用の画像を保存</li>
     <li>画像をストーリーに投稿し、<span class="kt-todo">【未定：ハッシュタグ】</span>を付けて<span class="kt-todo">【未定：メンション先】</span>をメンション</li>
   </ol>
-  </div>
 
-  <div class="kt-app">
-    <div id="colorlab-root" data-mode="kotaeawase">アプリを読み込み中…</div>
-  </div>
+  <a class="kt-cta" href="/pages/personalcolor?campaign=kotaeawase">答え合わせをはじめる</a>
 
-  <div class="kt-s">
   <h2>みんなの一致率（リアルタイム）</h2>
-  <p class="kt-note">参加した人の結果をそのまま集計しています。外れた組み合わせも含めて、すべて表示しています。</p>
+  <p class="kt-note">参加した人の結果をそのまま集計し、答え合わせのページで公開しています。外れた組み合わせも含めて、すべて表示しています。</p>
   </div>
-  <div id="colorlab-kotae-stats" style="margin-top:10px">集計を読み込み中…</div>
 
   <div class="kt-s">
   <h2>応募要項</h2>
@@ -71,6 +66,7 @@
     <dt>当選発表</dt><dd><span class="kt-todo">【未定】</span></dd>
   </dl>
   <p class="kt-note" style="margin-top:14px">写真診断はこの端末の中だけで行い、写真は送信・保存しません。集計に使うのはタイプ名だけで、1台の端末につき最初の1回だけを数えます。</p>
+  <a class="kt-cta" href="/pages/personalcolor?campaign=kotaeawase">答え合わせをはじめる</a>
   <p style="margin-top:18px;font-size:14px"><a href="/pages/personalcolor">パーソナルカラー診断のトップへ</a></p>
   </div>
 </div>

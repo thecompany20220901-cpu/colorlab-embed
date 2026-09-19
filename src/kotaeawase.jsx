@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
+import { MINE_ENDPOINT as ENDPOINT } from "./mine_api.js";
 
 /* ════════════════════════════════════════════
    答え合わせキャンペーン（MINE v1）
@@ -8,11 +9,11 @@ import React, { useState, useEffect, useRef } from "react";
    判定ロジックは新しく作らない。写真診断は color_lab_stylist_v23.jsx の
    既存エンジン（白基準補正 + CIELab・端末内）の結果 {first, second} を受け取るだけ。
 
-   Tailwind は #colorlab-root 配下にしか効かないため（tailwind.colorlab.config.cjs）、
-   別のマウント先（#colorlab-kotae-stats）でも崩れないよう、ここはインラインスタイルだけで書く。
-   ════════════════════════════════════════════ */
+   入口は /pages/personalcolor?campaign=kotaeawase（2026-09-19 keisuke 決定: GTM は変えない）。
+   Fulmo の LP は JS が動かないため、リアルタイム集計はこの入力画面の下に出す。
 
-const ENDPOINT = "https://colorlab-selfcard.the-company-20220901.workers.dev";
+   Tailwind 側の見た目に左右されないよう、ここはインラインスタイルだけで書く。
+   ════════════════════════════════════════════ */
 
 // 【未定】keisuke 確定待ち。null のあいだ画面と画像には「未定」と出す（黙って仮の値を入れない）。
 export const KOTAE = {
@@ -30,7 +31,6 @@ export const SEASON = {
   winter: { name: "ブルベ冬", accent: "#3B5BA5" },
 };
 const ORDER = ["spring", "summer", "autumn", "winter"];
-const STATS_EVENT = "colorlab-kotae-stats";   // 回答を記録したら最新の集計を載せて投げる
 
 const INK = "#3a3340", SUB = "#7d7580", FAINT = "#a99fa8", LINE = "#e7dfe6";
 const SERIF = "'Noto Serif JP','Hiragino Mincho ProN','Yu Mincho',serif";
@@ -112,6 +112,9 @@ export function KotaeInput({ onStart }) {
       <p style={{ fontSize: 11, color: FAINT, lineHeight: 1.7, marginTop: 12 }}>
         写真はこの端末の中だけで解析し、送信・保存しません。集計に使うのはタイプ名（プロの結果とアプリの結果）だけで、1台の端末につき最初の1回だけを数えます。
       </p>
+      <div style={{ marginTop: 22 }}>
+        <KotaeStats />
+      </div>
     </div>
   );
 }
@@ -131,12 +134,7 @@ export function KotaeResult({ pro, app, site, onRetry }) {
       body: JSON.stringify({ campaign: KOTAE.id, device_id: deviceId(), site, pro_first: pro.first, pro_second: pro.second, app_first: app.first, app_second: app.second }),
     })
       .then((r) => r.json().then((j) => ({ ok: r.ok, j })))
-      .then(({ ok, j }) => {
-        if (!(ok && j.ok)) { setPost({ state: "error" }); return; }
-        setPost({ state: "done", recorded: j.recorded, stats: j.stats });
-        // 同じページの LP 集計欄（KotaeStats）にも30秒待たせずに反映する
-        try { window.dispatchEvent(new CustomEvent(STATS_EVENT, { detail: j.stats })); } catch (e) {}
-      })
+      .then(({ ok, j }) => setPost(ok && j.ok ? { state: "done", recorded: j.recorded, stats: j.stats } : { state: "error" }))
       .catch(() => setPost({ state: "error" }));
   }, []);
 
@@ -242,7 +240,7 @@ export function KotaeStatsView({ stats }) {
   );
 }
 
-// LP 用の単独マウント。30秒ごとに取り直す。
+// 入力画面の下に出す集計。30秒ごとに取り直す。
 export function KotaeStats() {
   const [s, setS] = useState({ state: "loading" });
   useEffect(() => {
@@ -253,9 +251,7 @@ export function KotaeStats() {
       .catch(() => alive && setS({ state: "error" }));
     load();
     const t = setInterval(load, 30000);
-    const onUpdate = (e) => { if (alive && e.detail) setS({ state: "ok", stats: e.detail }); };
-    window.addEventListener(STATS_EVENT, onUpdate);
-    return () => { alive = false; clearInterval(t); window.removeEventListener(STATS_EVENT, onUpdate); };
+    return () => { alive = false; clearInterval(t); };
   }, []);
   if (s.state === "loading") return <div style={{ fontSize: 12, color: FAINT, padding: 12 }}>集計を読み込み中…</div>;
   if (s.state === "error") return <div style={{ fontSize: 12, color: FAINT, padding: 12 }}>集計を読み込めませんでした。時間をおいて開き直してください。</div>;

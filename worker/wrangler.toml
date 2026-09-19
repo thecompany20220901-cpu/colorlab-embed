@@ -27,14 +27,49 @@ binding = "DB"
 database_name = "colorlab-mine"
 database_id = "REPLACE_WITH_D1_DATABASE_ID"
 
-# Stripe の鍵とメール送信サービスのキーは Secret で入れる（ここに書かない）:
+# Stripe・Resend の鍵と承認画面のトークンは Secret で入れる（ここに書かない）:
 #   wrangler secret put STRIPE_SECRET_KEY
 #   wrangler secret put STRIPE_WEBHOOK_SECRET
+#   wrangler secret put RESEND_API_KEY
+#   wrangler secret put ADMIN_TOKEN          # 32文字以上。/admin（EC購入者申請の承認画面）で使う
 [vars]
 # ダッシュボードで作った Price ID。金額・周期は mine.js の PLANS と毎回照合する
 STRIPE_PRICE_MONTHLY = ""   # ¥480 / 月
 STRIPE_PRICE_YEARLY = ""    # ¥3,980 / 年
-# メール送信サービス（選定待ち）。空のあいだ /auth/request は 503 mail_not_configured
-MAIL_PROVIDER = ""
+# メール送信は Resend（2026-09-19 決定）。差出人は DNS（SPF/DKIM）の認証が済んでから入れる。
+# 空のあいだ /auth/request は 503 mail_not_configured
+MAIL_PROVIDER = "resend"
+MAIL_FROM_BLUBEL = ""
+MAIL_FROM_IEBEL = ""
 # 実施中の答え合わせキャンペーンID。空なら /campaign/* は 404（期間外は空にする）
 KOTAE_CAMPAIGN = ""
+# ステージング専用。本番は必ず空
+EXTRA_ALLOW_ORIGINS = ""
+
+# ══ ステージング（wrangler deploy --env staging）══
+# 本番とは別の Worker・別の D1・別の KV。本番のデータ・上限カウンタには触れない。
+# OPENAI_API_KEY は入れない（/illustrate は not_configured を返す＝課金されない）。
+[env.staging]
+name = "colorlab-selfcard-staging"
+workers_dev = true
+preview_urls = false
+
+[[env.staging.kv_namespaces]]
+binding = "SELFCARD_KV"
+id = "bad75d4e79154eb2921becd449b3f426"
+
+[[env.staging.d1_databases]]
+binding = "DB"
+database_name = "colorlab-mine-staging"
+database_id = "67315f3f-34df-4d36-b7be-c60ac8b6d072"
+
+[env.staging.vars]
+STRIPE_PRICE_MONTHLY = ""
+STRIPE_PRICE_YEARLY = ""
+MAIL_PROVIDER = "resend"
+# ドメイン認証前の Resend は onboarding@resend.dev からしか送れず、宛先も Resend アカウント本人だけ
+MAIL_FROM_BLUBEL = "Color Lab MINE <onboarding@resend.dev>"
+MAIL_FROM_IEBEL = "Color Lab MINE <onboarding@resend.dev>"
+KOTAE_CAMPAIGN = "kotae2026"
+# ステージング用ビルドを手元で開く検証ページ（npx vite preview 等）
+EXTRA_ALLOW_ORIGINS = "http://localhost:4173"

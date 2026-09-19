@@ -46,6 +46,7 @@ import { COLOR70, COLOR70_FAMILY_ORDER } from "./color70_data.js";
 // 商品マスタ item_{site}.csv の color 列（test/build_sku_colors.py が生成）
 import { SKU_COLORS } from "./sku_color_data.js";
 import { KotaeInput, KotaeResult } from "./kotaeawase.jsx";
+import { MineAccount } from "./mine_account.jsx";
 
 const TYPE_FACE_IMG = { spring: FACE_SPRING, summer: FACE_SUMMER, autumn: FACE_AUTUMN, winter: FACE_WINTER };
 
@@ -3281,9 +3282,10 @@ function Header({ title, onBack }) {
 // ════════════════════════════════════════════
 // campaign="kotaeawase" のときは答え合わせキャンペーン専用の入口（プロ診断の入力）から始まり、
 // 写真で診断の結果を通常の結果ページではなく答え合わせ画面へ渡す。診断エンジンは共通。
-export default function App({ campaign = null } = {}) {
+// account=true のときは MINE 会員画面（ログイン・EC購入者の申請）から始まる。
+export default function App({ campaign = null, account = false } = {}) {
   const kotae = campaign === "kotaeawase";
-  const [mode, setMode] = useState(kotae ? "kotae_input" : "home");
+  const [mode, setMode] = useState(kotae ? "kotae_input" : account ? "mine" : "home");
   const [kotaePro, setKotaePro] = useState(null); // { first, second|null }
   const [kotaeApp, setKotaeApp] = useState(null); // { first, second }
   const [myType, setMyType] = useState(null); // 1stタイプ key
@@ -3863,6 +3865,13 @@ export default function App({ campaign = null } = {}) {
         {mode === "kotae_result" && kotaePro && kotaeApp && (
           <div className="fade-up">
             <KotaeResult pro={kotaePro} app={kotaeApp} site={embedSite() || TYPES[kotaeApp.first].site} onRetry={() => setMode("kotae_input")} />
+          </div>
+        )}
+
+        {/* ═══ MINE 会員画面 ═══ */}
+        {mode === "mine" && (
+          <div className="fade-up">
+            <MineAccount site={embedSite()} onBack={goHome} />
           </div>
         )}
 
