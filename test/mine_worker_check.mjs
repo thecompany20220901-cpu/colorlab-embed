@@ -328,6 +328,34 @@ console.log("■ EC購入者の申請（C案）と承認");
   check("トークン違いが10回続くと正しいトークンでも1時間 429", locked.status === 429);
 }
 
+console.log("■ 実施期間（KOTAE_START / KOTAE_END・JST）");
+{
+  env.KOTAE_CAMPAIGN = "kotae_test";
+  const jst = (offsetDays) => new Date(Date.now() + 9 * 3600e3 + offsetDays * 86400e3).toISOString().slice(0, 10);
+  const ans = (n) => call("POST", "/campaign/answer", { body: { campaign: "kotae_test", device_id: "period_dev_" + String(n).padStart(8, "0"), site: "blubel", pro_first: "summer", app_first: "summer", app_second: "winter" } });
+  env.SELFCARD_KV._m.clear();
+  const s0 = await call("GET", "/campaign/stats?campaign=kotae_test");
+  check("未設定なら period.status = unset・期間の制限なし", s0.j.stats.period.status === "unset" && s0.j.stats.period.start === null);
+  env.KOTAE_START = jst(1); env.KOTAE_END = jst(7);
+  const b = await ans(1);
+  check("開始前は記録しない（403 not_started）・集計と期間は返す", b.status === 403 && b.j.reason === "not_started" && b.j.stats.period.status === "before" && b.j.stats.period.start === jst(1));
+  env.KOTAE_START = jst(0); env.KOTAE_END = jst(6);
+  const before = (await call("GET", "/campaign/stats?campaign=kotae_test")).j.stats.total;
+  const o = await ans(2);
+  check("期間中（初日）は記録する", o.status === 200 && o.j.recorded === true && o.j.stats.total === before + 1 && o.j.stats.period.status === "open");
+  env.KOTAE_START = jst(-6); env.KOTAE_END = jst(0);
+  const last = await ans(3);
+  check("最終日も記録する（両端を含む）", last.status === 200 && last.j.recorded === true);
+  env.KOTAE_START = jst(-7); env.KOTAE_END = jst(-1);
+  const e = await ans(4);
+  check("終了後は記録しない（410 ended）", e.status === 410 && e.j.reason === "ended" && e.j.stats.period.status === "ended");
+  const st = await call("GET", "/campaign/stats?campaign=kotae_test");
+  check("終了後も集計は見られる", st.status === 200 && st.j.stats.period.status === "ended" && st.j.stats.total === before + 2);
+  env.KOTAE_START = "2026/09/21"; env.KOTAE_END = "2026-09-27";
+  check("形式違いの日付は unset 扱い（誤設定で全停止しない）", (await call("GET", "/campaign/stats?campaign=kotae_test")).j.stats.period.status === "unset");
+  env.KOTAE_START = ""; env.KOTAE_END = "";
+}
+
 globalThis.fetch = realFetch;
 console.log(`\n${pass} OK / ${fail} NG`);
 

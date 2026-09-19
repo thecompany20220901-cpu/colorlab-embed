@@ -86,6 +86,12 @@ console.log("■ LP（Fulmo 貼り付け用 HTML）の機械ゲート");
   check("サイト内リンクは相対パス・target なし", /<a href="\/pages\/personalcolor">/.test(lpBody) && !/target=/.test(lpBody));
   check("参加ボタンは /pages/personalcolor?campaign=kotaeawase（GTM を変えない方式）", (lpBody.match(/href="\/pages\/personalcolor\?campaign=kotaeawase"/g) || []).length === 2);
   check("LP にアプリのマウント先を置かない（GTM が読み込まないページでは動かないため）", !/id="colorlab-root"|colorlab-kotae-stats/.test(lpBody));
+  const lpText = lpBody.replace(/<!--[\s\S]*?-->/, "");
+  check("LP: ハッシュタグ・メンション先（ブルベ/イエベ別）・当選発表が入っている",
+    /#答え合わせキャンペーン #ColorLabMINE/.test(lpText) && /ブルベの方は <b>@blube_lab<\/b>/.test(lpText) && /イエベの方は <b>@iebe_lab<\/b>/.test(lpText) &&
+    /期間終了後、@blube_lab・@iebe_lab 両アカウントのストーリーで当選者にDMでご連絡します。あわせてアカウント上で当選人数・結果を告知します。/.test(lpText));
+  check("LP: 「未定」が残っていない", !/未定/.test(lpText));
+  check("LP: 実施期間は【開始日確定後に記入】のまま（公開前に日付へ差し替える）", (lpText.match(/【開始日確定後に記入】/g) || []).length === 1);
 }
 
 const browser = await chromium.launch();
@@ -157,6 +163,10 @@ console.log("■ ?campaign=kotaeawase：入力 → 写真で診断 → 一致");
   check("通常の結果ページ（タイプです！）には行かない", !/タイプです！/.test(t));
   check("送信内容はタイプ名だけ（写真なし）", posted.length === 1 && Object.keys(posted[0]).sort().join() === "app_first,app_second,campaign,device_id,pro_first,pro_second,site" && posted[0].pro_first === "spring" && posted[0].pro_second === "summer" && posted[0].app_first === "spring");
   check("集計は 1件・1st 一致率 100%", /100%/.test(t) && /1 \/ 1 人/.test(t));
+  check("応募方法: ハッシュタグ2つ・メンションはアプリの結果（イエベ春）→ @iebe_lab", /#答え合わせキャンペーン #ColorLabMINE を付けて\s*@iebe_lab をメンションしてください/.test(t));
+  check("実施期間（Worker 未設定）は「近日お知らせします」", /実施期間：近日お知らせします/.test(t));
+  check("当選発表の文言が出る", /当選発表：期間終了後、@blube_lab・@iebe_lab 両アカウントのストーリーで当選者にDMでご連絡します。/.test(t));
+  check("画面に「未定」が出ない", !/未定/.test(t));
   const cells = await page.locator("#colorlab-root table tbody td").count();
   check("集計表は 4行 x (見出し+4列) = 20セル", cells === 20);
   await page.waitForTimeout(800); // fade-up（0.5秒）が終わってから撮る
@@ -219,6 +229,64 @@ console.log("■ 別の端末の不一致は集計に入り、外れも表に残
   await p2.waitForTimeout(800);
   await p2.screenshot({ path: join(SHOTS, "k07_campaign_input_after_2.png"), fullPage: true });
   await ctx2.close();
+}
+
+console.log("■ 実施期間の表示と期間外（Worker の KOTAE_START / KOTAE_END）");
+{
+  const jst = (off) => new Date(Date.now() + 9 * 3600e3 + off * 86400e3).toISOString().slice(0, 10);
+  const WD = ["日", "月", "火", "水", "木", "金", "土"];
+  const jp = (s) => { const [y, m, d] = s.split("-").map(Number); return `${m}月${d}日（${WD[new Date(Date.UTC(y, m - 1, d)).getUTCDay()]}）`; };
+  const fresh = async () => {
+    const c = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2 });
+    await c.route(ENDPOINT + "/**", routeWorker);
+    const pg = await c.newPage();
+    pg.on("pageerror", (e) => errors.push(String(e)));
+    return { c, pg };
+  };
+  // 期間中: 入力画面の集計に期間が出る
+  env.KOTAE_START = jst(0); env.KOTAE_END = jst(6);
+  let { c, pg } = await fresh();
+  await pg.goto(CAMP, { waitUntil: "load" });
+  await pg.waitForSelector("#colorlab-root >> text=みんなの答え合わせ", { timeout: 15000 });
+  const want = `実施期間：${jp(jst(0))}〜${jp(jst(6))}`;
+  check(`期間中: 入力画面に「${want}」`, (await pg.locator("#colorlab-root").innerText()).includes(want));
+  await pg.waitForTimeout(800);
+  await pg.screenshot({ path: join(SHOTS, "k08_campaign_input_period.png"), fullPage: true });
+  await c.close();
+
+  // 開始前: 写真で診断まで進めても記録されず、理由と期間が出る
+  env.KOTAE_START = jst(1); env.KOTAE_END = jst(7);
+  ({ c, pg } = await fresh());
+  const totalBefore = db.prepare("SELECT COUNT(*) n FROM kotae_answers").get().n;
+  await pg.goto(CAMP, { waitUntil: "load" });
+  await pg.waitForSelector("#colorlab-root >> text=プロ診断の結果（1st）", { timeout: 15000 });
+  await pg.getByRole("button", { name: "ブルベ夏", exact: true }).first().click();
+  await pg.locator("#colorlab-root input[type=checkbox]").check();
+  await pg.getByRole("button", { name: /写真で診断して答え合わせする/ }).click();
+  const bx = pg.locator("#colorlab-root input[type=checkbox]");
+  await pg.waitForSelector("#colorlab-root >> text=撮影条件（すべて必要です）", { timeout: 5000 });
+  for (let i = 0; i < await bx.count(); i++) await bx.nth(i).check();
+  await pg.getByRole("button", { name: /^地毛に近い$/ }).click();
+  await pg.getByRole("button", { name: /撮影にすすむ/ }).click();
+  await pg.getByRole("button", { name: /カメラを起動する/ }).click();
+  await pg.waitForSelector("#colorlab-root >> text=写真を選ぶ", { timeout: 10000 });
+  await pg.locator("#colorlab-root input[type=file]").setInputFiles({ name: "ok.png", mimeType: "image/png", buffer: PHOTO_OK });
+  await pg.waitForSelector("#colorlab-root >> text=キャンペーンの開始前です", { timeout: 15000 });
+  const tb = await pg.locator("#colorlab-root").innerText();
+  check("開始前: 「開始前のため集計に入りません」と期間を出し、集計表は見せる", /この結果は集計に入りません（実施期間 /.test(tb) && /みんなの答え合わせ/.test(tb));
+  check("開始前: D1 に記録されない", db.prepare("SELECT COUNT(*) n FROM kotae_answers").get().n === totalBefore);
+  await pg.waitForTimeout(800);
+  await pg.screenshot({ path: join(SHOTS, "k09_result_before_start.png"), fullPage: true });
+  await c.close();
+
+  // 終了後: 入力画面の集計に「終了しました」
+  env.KOTAE_START = jst(-7); env.KOTAE_END = jst(-1);
+  ({ c, pg } = await fresh());
+  await pg.goto(CAMP, { waitUntil: "load" });
+  await pg.waitForSelector("#colorlab-root >> text=みんなの答え合わせ", { timeout: 15000 });
+  check("終了後: 入力画面の集計に「（終了しました）」", /（終了しました）/.test(await pg.locator("#colorlab-root").innerText()));
+  await c.close();
+  env.KOTAE_START = ""; env.KOTAE_END = "";
 }
 
 console.log("■ 写真画面の戻る");

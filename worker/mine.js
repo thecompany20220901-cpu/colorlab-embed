@@ -359,6 +359,11 @@ export async function routeMine(request, env, allowOrigins) {
       await env.SELFCARD_KV.put(ipKey, String(n + 1), { expirationTtl: 60 * 60 * 48 });
     }
 
+    // 実施期間外は記録しない（集計・画面の表示はそのまま出せるよう stats は返す）
+    const period = kotaePeriod(env);
+    if (period.status === "before") return json({ ok: false, reason: "not_started", stats: await kotaeStats(env, b.campaign) }, 403);
+    if (period.status === "ended") return json({ ok: false, reason: "ended", stats: await kotaeStats(env, b.campaign) }, 410);
+
     // 一致判定はサーバでやり直す（クライアントの申告した match は使わない）
     const firstMatch = b.pro_first === b.app_first ? 1 : 0;
     const fullMatch = proSecond === null ? null : (firstMatch && proSecond === b.app_second ? 1 : 0);
@@ -421,6 +426,18 @@ export async function routeMine(request, env, allowOrigins) {
   return json({ ok: false, reason: "not_found" }, 404);
 }
 
+// 実施期間（JST の日付・両端を含む。wrangler.toml の KOTAE_START / KOTAE_END）。
+// どちらかが空・形式違いなら "unset"（期間の制限なし）。日付が決まったら vars を変えて deploy するだけで、
+// アプリの再リリースは要らない（画面の期間表示もここから出す）。
+const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+export function kotaePeriod(env, nowMs = Date.now()) {
+  const start = DATE_RE.test(env.KOTAE_START || "") ? env.KOTAE_START : null;
+  const end = DATE_RE.test(env.KOTAE_END || "") ? env.KOTAE_END : null;
+  if (!start || !end) return { start: null, end: null, status: "unset" };
+  const today = new Date(nowMs + 9 * 3600 * 1000).toISOString().slice(0, 10);
+  return { start, end, status: today < start ? "before" : today > end ? "ended" : "open" };
+}
+
 // 集計。行列は 4x4 の全セルを 0 埋めで返す（件数の少ないセルも消さない）。
 export async function kotaeStats(env, campaign) {
   const rows = (await env.DB.prepare(
@@ -444,6 +461,7 @@ export async function kotaeStats(env, campaign) {
     full_rate: ft ? fu / ft : null,
     matrix,
     last_at: tot.last_at || null,
+    period: kotaePeriod(env),
   };
 }
 

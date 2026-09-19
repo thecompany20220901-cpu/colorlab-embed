@@ -41,8 +41,12 @@ STRIPE_PRICE_YEARLY = ""    # ¥3,980 / 年
 MAIL_PROVIDER = "resend"
 MAIL_FROM_BLUBEL = "BLUBEL Color Lab <blubel@mail.blubeliebel.co.jp>"
 MAIL_FROM_IEBEL = "IEBEL Color Lab <iebel@mail.blubeliebel.co.jp>"
-# 実施中の答え合わせキャンペーンID。空なら /campaign/* は 404（期間外は空にする）
+# 実施中の答え合わせキャンペーンID。空なら /campaign/* は 404
 KOTAE_CAMPAIGN = "kotae2026"
+# 実施期間（JST・両端を含む YYYY-MM-DD）。全ての実装・テスト完了の翌日から1週間（2026-09-19 keisuke 決定）。
+# 空のあいだは期間の制限なし。期間外の回答は記録しない（開始前 403 not_started / 終了後 410 ended）
+KOTAE_START = ""
+KOTAE_END = ""
 # ステージング専用。本番は必ず空
 EXTRA_ALLOW_ORIGINS = ""
 
@@ -72,5 +76,7 @@ MAIL_PROVIDER = "resend"
 MAIL_FROM_BLUBEL = "BLUBEL Color Lab <blubel@mail.blubeliebel.co.jp>"
 MAIL_FROM_IEBEL = "IEBEL Color Lab <iebel@mail.blubeliebel.co.jp>"
 KOTAE_CAMPAIGN = "kotae2026"
+KOTAE_START = ""
+KOTAE_END = ""
 # ステージング用ビルドを手元で開く検証ページ（npx vite preview 等）
 EXTRA_ALLOW_ORIGINS = "http://localhost:4173"

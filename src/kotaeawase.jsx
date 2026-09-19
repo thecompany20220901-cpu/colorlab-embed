@@ -15,12 +15,15 @@ import { MINE_ENDPOINT as ENDPOINT } from "./mine_api.js";
    Tailwind 側の見た目に左右されないよう、ここはインラインスタイルだけで書く。
    ════════════════════════════════════════════ */
 
-// 【未定】keisuke 確定待ち。null のあいだ画面と画像には「未定」と出す（黙って仮の値を入れない）。
+// キャンペーン内容（2026-09-19 keisuke 確定）。実施期間は日付が決まってから Worker の
+// KOTAE_START / KOTAE_END に入れ、画面は集計 API（stats.period）から表示する（アプリの再リリース不要）。
 export const KOTAE = {
   id: "kotae2026",       // Worker の KOTAE_CAMPAIGN と一致させる
-  hashtag: null,         // 例 "#ブルベイエベ答え合わせ"
-  mention: null,         // 例 "@blube_lab"（サイト別にするなら { blubel, iebel }）
-  period: null,          // 例 "2026年10月1日〜10月31日"
+  hashtag: "#答え合わせキャンペーン #ColorLabMINE",
+  // メンション先は診断結果で出し分ける（ブルベ → @blube_lab / イエベ → @iebe_lab）。
+  // 「診断結果」はストーリー画像を作ったアプリの結果（写真で診断の 1st）で判定する
+  mention: { spring: "@iebe_lab", autumn: "@iebe_lab", summer: "@blube_lab", winter: "@blube_lab" },
+  announce: "期間終了後、@blube_lab・@iebe_lab 両アカウントのストーリーで当選者にDMでご連絡します。あわせてアカウント上で当選人数・結果を告知します。",
 };
 
 // 名前と accent は color_lab_stylist_v23.jsx の TYPES と同じ（test/kotaeawase_check.mjs で照合）
@@ -36,12 +39,18 @@ const INK = "#3a3340", SUB = "#7d7580", FAINT = "#a99fa8", LINE = "#e7dfe6";
 const SERIF = "'Noto Serif JP','Hiragino Mincho ProN','Yu Mincho',serif";
 
 const pct = (r) => (r == null ? "—" : Math.round(r * 100) + "%");
-const hashtagText = () => KOTAE.hashtag || "#（ハッシュタグ未定）";
-const mentionText = (site) => {
-  const m = KOTAE.mention;
-  if (!m) return "@（メンション先未定）";
-  return typeof m === "string" ? m : m[site] || m.blubel;
-};
+const mentionFor = (first) => KOTAE.mention[first] || "@blube_lab";
+
+// "2026-09-21" → "9月21日（月）"。曜日は日付そのものから出す（端末のタイムゾーンに左右されない）
+const WD = ["日", "月", "火", "水", "木", "金", "土"];
+function jpDate(s) {
+  const [y, m, d] = s.split("-").map(Number);
+  return `${m}月${d}日（${WD[new Date(Date.UTC(y, m - 1, d)).getUTCDay()]}）`;
+}
+export function periodText(p) {
+  if (!p || !p.start || !p.end) return "近日お知らせします";
+  return `${jpDate(p.start)}〜${jpDate(p.end)}`;
+}
 
 // 1端末1回の集計のための乱数ID。localStorage が使えない環境では毎回変わる（=記録は最初の1回扱いにならない）
 function deviceId() {
@@ -134,9 +143,16 @@ export function KotaeResult({ pro, app, site, onRetry }) {
       body: JSON.stringify({ campaign: KOTAE.id, device_id: deviceId(), site, pro_first: pro.first, pro_second: pro.second, app_first: app.first, app_second: app.second }),
     })
       .then((r) => r.json().then((j) => ({ ok: r.ok, j })))
-      .then(({ ok, j }) => setPost(ok && j.ok ? { state: "done", recorded: j.recorded, stats: j.stats } : { state: "error" }))
+      .then(({ ok, j }) => {
+        if (ok && j.ok) setPost({ state: "done", recorded: j.recorded, stats: j.stats });
+        // 実施期間外（開始前 / 終了後）は記録されないが、集計と期間は見せる
+        else if (j && (j.reason === "not_started" || j.reason === "ended")) setPost({ state: "closed", reason: j.reason, stats: j.stats });
+        else setPost({ state: "error" });
+      })
       .catch(() => setPost({ state: "error" }));
   }, []);
+  const period = post.stats && post.stats.period;
+  const mention = mentionFor(app.first);
 
   const verdict = firstMatch ? "一致！" : "ちがった！";
   const vColor = firstMatch ? "#7D2E46" : "#5b6b8a";
@@ -167,17 +183,26 @@ export function KotaeResult({ pro, app, site, onRetry }) {
         ストーリー用の画像を保存
       </button>
       <div style={{ fontSize: 12, color: SUB, lineHeight: 1.7, marginTop: 10, padding: "12px 14px", background: "#faf7f9", borderRadius: 12 }}>
-        応募方法：保存した画像をストーリーに投稿し、<b>{hashtagText()}</b> を付けて <b>{mentionText(site)}</b> をメンション。
-        {KOTAE.period ? `（期間 ${KOTAE.period}）` : "（期間は未定）"}
+        <div>
+          <b style={{ color: INK }}>応募方法</b>：保存した画像をストーリーに投稿し、<b style={{ color: INK }}>{KOTAE.hashtag}</b> を付けて
+          <b style={{ color: INK }}> {mention}</b> をメンションしてください（アプリの結果がブルベの方は @blube_lab、イエベの方は @iebe_lab）。
+        </div>
+        <div style={{ marginTop: 6 }}><b style={{ color: INK }}>実施期間</b>：{post.state === "sending" ? "…" : periodText(period)}</div>
+        <div style={{ marginTop: 6 }}><b style={{ color: INK }}>当選発表</b>：{KOTAE.announce}</div>
       </div>
 
       <div style={{ marginTop: 22 }}>
         {post.state === "sending" && <div style={{ fontSize: 12, color: FAINT, textAlign: "center" }}>集計に送信しています…</div>}
         {post.state === "error" && <div style={{ fontSize: 12, color: FAINT, textAlign: "center" }}>集計に接続できませんでした（結果の表示と画像の保存はできます）</div>}
+        {post.state === "closed" && (
+          <div role="alert" style={{ fontSize: 12, color: "#b42318", textAlign: "center", marginBottom: 8, lineHeight: 1.7 }}>
+            {post.reason === "ended" ? "キャンペーンは終了しました。" : "キャンペーンの開始前です。"}この結果は集計に入りません（実施期間 {periodText(period)}）。
+          </div>
+        )}
         {post.state === "done" && post.recorded === false && (
           <div style={{ fontSize: 12, color: FAINT, textAlign: "center", marginBottom: 8 }}>この端末は記録済みのため、集計には最初の1回の結果が入っています。</div>
         )}
-        {post.state === "done" && <KotaeStatsView stats={post.stats} />}
+        {(post.state === "done" || post.state === "closed") && <KotaeStatsView stats={post.stats} />}
       </div>
 
       <button type="button" onClick={onRetry} style={{ display: "block", margin: "18px auto 0", background: "none", border: "none", color: SUB, fontSize: 13, textDecoration: "underline", cursor: "pointer" }}>
@@ -194,6 +219,9 @@ export function KotaeStatsView({ stats }) {
   return (
     <div style={{ border: `1px solid ${LINE}`, borderRadius: 18, padding: "16px 14px", background: "#fff", color: INK }}>
       <div style={{ fontSize: 13, fontWeight: 600 }}>みんなの答え合わせ（リアルタイム集計）</div>
+      <div style={{ fontSize: 11, color: SUB, marginTop: 2 }}>
+        実施期間：{periodText(stats.period)}{stats.period && stats.period.status === "ended" ? "（終了しました）" : ""}
+      </div>
       {stats.total === 0 ? (
         <div style={{ fontSize: 12, color: FAINT, marginTop: 8 }}>まだ回答がありません。</div>
       ) : (
@@ -297,8 +325,8 @@ export function buildKotaeStory({ pro, app, firstMatch, site, stats }) {
   }
 
   ctx.fillStyle = SUB; ctx.font = "44px sans-serif";
-  ctx.fillText(hashtagText(), W / 2, 1640);
-  ctx.fillText(mentionText(site), W / 2, 1710);
+  ctx.fillText(KOTAE.hashtag, W / 2, 1640);
+  ctx.fillText(mentionFor(app.first), W / 2, 1710);
   ctx.fillStyle = FAINT; ctx.font = "36px sans-serif";
   ctx.fillText((site === "iebel" ? "iebel.jp" : "blubel.jp") + "/pages/personalcolor", W / 2, 1800);
   return cv;
