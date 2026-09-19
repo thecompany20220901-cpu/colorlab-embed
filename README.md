@@ -563,12 +563,13 @@ colorlab は設置先ごとに参照タグが違うので、**サイト別に書
 
 | アプリ / 設置先 | 参照タグ | 設置方式 | jsDelivr |
 |---|---|---|---|
-| colorlab / **IEBEL** | `@v1.21.1` | GTM（GTM-WVFLHTNW） | `https://cdn.jsdelivr.net/gh/thecompany20220901-cpu/colorlab-embed@v1.21.1/dist/colorlab.iife.js` |
-| colorlab / **BLUBEL** | `@v1.21.1` | GTM（GTM-NN7QDLCH） | `https://cdn.jsdelivr.net/gh/thecompany20220901-cpu/colorlab-embed@v1.21.1/dist/colorlab.iife.js` |
+| colorlab / **IEBEL** | `@v1.22.0` | GTM（GTM-WVFLHTNW） | `https://cdn.jsdelivr.net/gh/thecompany20220901-cpu/colorlab-embed@v1.22.0/dist/colorlab.iife.js` |
+| colorlab / **BLUBEL** | `@v1.22.0` | GTM（GTM-NN7QDLCH） | `https://cdn.jsdelivr.net/gh/thecompany20220901-cpu/colorlab-embed@v1.22.0/dist/colorlab.iife.js` |
 | ngpolice | `@v1.3.0` | 本文HTML | `https://cdn.jsdelivr.net/gh/thecompany20220901-cpu/colorlab-embed@v1.3.0/dist/ngpolice.iife.js` |
 | mens | `@v1.6.1` | 本文HTML | `https://cdn.jsdelivr.net/gh/thecompany20220901-cpu/colorlab-embed@v1.6.1/dist/mens.iife.js` |
 
-- colorlab の2行は **2026-09-11 13:47 に v1.21.1 切替後の実物を測った値**（両サイトとも GTM コンテナ `gtm.js?id=…` を取得し、
+- colorlab の2行は **2026-09-19 に v1.22.0 切替後の実物を測った値**（両サイトとも実ページで `@v1.22.0`・`x-jsd-version: 1.22.0`）。
+  それ以前の記録: 2026-09-11 13:47 に v1.21.1 切替後の実物を測った値（両サイトとも GTM コンテナ `gtm.js?id=…` を取得し、
   さらに実ページを開いて読み込まれたバンドルが `@v1.21.1`（`x-jsd-version: 1.21.1`）であることを確認。
   カスタムHTMLタグの中身は `<script src="…@v1.21.1/dist/colorlab.iife.js" defer>`。ページ本文HTMLには
   `<div id="colorlab-root">` だけが残り、スクリプトは無い）。ngpolice / mens の行は 2026-09-06 の値のまま。
@@ -582,8 +583,10 @@ colorlab は設置先ごとに参照タグが違うので、**サイト別に書
   デプロイ済みの Worker バージョン: `cbeaaaae-1d11-480a-91e3-0dc078ccec3d`（2026-09-11・`GET /quota` 追加）。
   1つ前は `b2ff9dd7-0362-4758-8361-59e573af38dd`（2色配色の修正込み）で、戻すときは
   `wrangler rollback b2ff9dd7-0362-4758-8361-59e573af38dd`。`/quota` を消してもアプリは数字を出さないだけで壊れない。
-- **v1.22.0 はタグ発行済み・本番切替待ち**（2026-09-19・MINE v1）。GTM のタグを `@v1.21.1` → `@v1.22.0` に
-  書き換えると反映される（IEBEL＝`GTM-WVFLHTNW` ／ BLUBEL＝`GTM-NN7QDLCH`・Keisuke作業）。ロールバックは `@v1.21.1` に戻すだけ。
+- **v1.22.0 は両サイトとも本番切替済み・実測確認済み**（2026-09-19・MINE v1。Keisuke が GTM で `@v1.21.1` → `@v1.22.0`）。
+  本番の通し確認（差し替えなし）: blubel.jp でログインメール送信 → 届いたリンクでログイン → 再読み込みでも維持 →
+  `?campaign=kotaeawase` で写真で診断 → 一致表示・本番集計に記録・ストーリー画像 1080x1920、pageerror 0。
+  IEBEL＝`GTM-WVFLHTNW` ／ BLUBEL＝`GTM-NN7QDLCH`。ロールバックは `@v1.21.1` に戻すだけ。
   中身: ①答え合わせキャンペーン（`/pages/personalcolor?campaign=kotaeawase` で開く。プロ診断の入力 → 既存の写真で診断
   → 1st 一致/不一致 → ストーリー画像 1080x1920・入力画面の下にリアルタイム集計 4x4 全セル）②MINE 会員画面
   （`?mine=account`・メールのマジックリンクでログイン・EC購入者の無料会員申請＝購入完了メールのスクショ → 承認画面 `/admin`）。
