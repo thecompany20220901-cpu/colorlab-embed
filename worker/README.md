@@ -152,27 +152,40 @@ OpenAI へ camel という語は一度も渡っていない。絵に2色目が�
 まったく同じ色（light green / charcoal gray / olive green / bordeaux red）に
 フォールバックする。400 では落とさない。
 
-## MINE v1（会員・課金・答え合わせ）— keisuke 承認後に有効化
+## MINE v1（会員・課金・答え合わせ・EC購入者申請）
 
-`mine.js` が `/auth/*` `/me` `/billing/checkout` `/stripe/webhook` `/campaign/*` を受け持つ。
+`mine.js` が `/auth/*` `/me` `/billing/checkout` `/stripe/webhook` `/campaign/*` `/ec/*` `/admin` `/admin/api/*` を受け持つ。
 それ以外のパス（`/illustrate` `/quota` `/health`）は従来どおり `selfcard-worker.js` が処理する。
 
+### ステージング（2026-09-19 反映済み）
+
+- URL: `https://colorlab-selfcard-staging.the-company-20220901.workers.dev`（承認画面は `/admin`）
+- 本番とは別の Worker・D1（`colorlab-mine-staging`）・KV（`SELFCARD_KV_STAGING`）。OpenAI キーは入れていない
+- Secret: `ADMIN_TOKEN` のみ設定済み。`RESEND_API_KEY` / `STRIPE_*` は未設定（該当 API は 503 を返す）
+- 手元の確認: `VITE_MINE_ENDPOINT=<ステージングURL> npx vite build --config vite.colorlab.config.mjs --outDir <任意>` で作ったバンドルを `http://localhost:4173` で開く（`EXTRA_ALLOW_ORIGINS`）
+
 ```bash
-# 1) D1 を作ってスキーマを入れる → database_id を wrangler.toml に貼る
-wrangler d1 create colorlab-mine
+wrangler deploy --env staging
+wrangler d1 execute colorlab-mine-staging --remote --file=schema.sql
+printf '%s' "$TOKEN" | wrangler secret put ADMIN_TOKEN --env staging
+printf '%s' "$RESEND_KEY" | wrangler secret put RESEND_API_KEY --env staging
+```
+
+### 本番に出すとき（keisuke 承認後）
+
+```bash
+wrangler d1 create colorlab-mine                 # → database_id を wrangler.toml に貼る
 wrangler d1 execute colorlab-mine --remote --file=schema.sql
-
-# 2) Stripe の鍵を Secret に入れる（wrangler.toml には書かない）
+wrangler secret put ADMIN_TOKEN                  # 32文字以上
+wrangler secret put RESEND_API_KEY
 wrangler secret put STRIPE_SECRET_KEY
-wrangler secret put STRIPE_WEBHOOK_SECRET   # Webhook エンドポイント作成時に出る whsec_...
-
-# 3) wrangler.toml の [vars] に Price ID（¥480/月・¥3,980/年）と KOTAE_CAMPAIGN を入れて deploy
+wrangler secret put STRIPE_WEBHOOK_SECRET
+# wrangler.toml の [vars]: MAIL_FROM_BLUBEL / MAIL_FROM_IEBEL（DNS 認証後のアドレス）・Price ID・KOTAE_CAMPAIGN
 wrangler deploy
 ```
 
-- Stripe の Webhook 送信先: `https://colorlab-selfcard.<account>.workers.dev/stripe/webhook`
-  （イベント: `checkout.session.completed` / `customer.subscription.created` / `.updated` / `.deleted`）
-- Checkout を作るたびに Price の金額・通貨・周期を `PLANS` と照合し、食い違えば作らない（`price_mismatch`）
-- メール送信サービスは選定待ち。`MAIL_PROVIDER` が空のあいだ `/auth/request` は 503 `mail_not_configured`
-- EC購入者の判定方式は未確定。`users.is_ec_purchaser` を立てる経路はまだ無い
-- 検収: `node test/mine_worker_check.mjs`（D1 は node:sqlite・Stripe は差し替え・外部通信ゼロ）
+- メール: Resend。差出人はサイトごと（`MAIL_FROM_BLUBEL` / `MAIL_FROM_IEBEL`）。ドメイン認証前は `onboarding@resend.dev` からしか送れず、宛先も Resend アカウント本人だけ
+- EC購入者: 会員画面（`/pages/personalcolor?mine=account`）から購入完了メールのスクショで申請 → `/admin` で承認すると `users.is_ec_purchaser = 1`。スクショは承認・却下の時点で削除
+- Stripe の Webhook 送信先: `…/stripe/webhook`（`checkout.session.completed` / `customer.subscription.created` / `.updated` / `.deleted`）。Checkout を作るたびに Price の金額・通貨・周期を `PLANS` と照合し、食い違えば作らない
+- 答え合わせの入口: `/pages/personalcolor?campaign=kotaeawase`（GTM が読み込むのは personalcolor だけなので、LP は静的ページからこの URL へリンクする）
+- 検収: `node test/mine_worker_check.mjs` / `node test/kotaeawase_check.mjs <bundle>` / `node test/mine_account_check.mjs <bundle>`（外部通信ゼロ）
