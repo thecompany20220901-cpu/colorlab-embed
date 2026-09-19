@@ -36,8 +36,8 @@ database_id = "REPLACE_WITH_D1_DATABASE_ID"
 # ダッシュボードで作った Price ID。金額・周期は mine.js の PLANS と毎回照合する
 STRIPE_PRICE_MONTHLY = ""   # ¥480 / 月
 STRIPE_PRICE_YEARLY = ""    # ¥3,980 / 年
-# メール送信は Resend（2026-09-19 決定）。差出人は DNS（SPF/DKIM）の認証が済んでから入れる。
-# 空のあいだ /auth/request は 503 mail_not_configured
+# メール送信は Resend（2026-09-19 決定）。差出人は本番承認時に入れる（ステージングと同じ
+# mail.blubeliebel.co.jp の予定）。空のあいだ /auth/request は 503 mail_not_configured
 MAIL_PROVIDER = "resend"
 MAIL_FROM_BLUBEL = ""
 MAIL_FROM_IEBEL = ""
@@ -67,9 +67,10 @@ database_id = "67315f3f-34df-4d36-b7be-c60ac8b6d072"
 STRIPE_PRICE_MONTHLY = ""
 STRIPE_PRICE_YEARLY = ""
 MAIL_PROVIDER = "resend"
-# ドメイン認証前の Resend は onboarding@resend.dev からしか送れず、宛先も Resend アカウント本人だけ
-MAIL_FROM_BLUBEL = "Color Lab MINE <onboarding@resend.dev>"
-MAIL_FROM_IEBEL = "Color Lab MINE <onboarding@resend.dev>"
+# 送信ドメインは mail.blubeliebel.co.jp（2026-09-19 Resend で Verified。DNS は keisuke 管理の GMO ns-rs）。
+# 利用者がログインを頼んだサイトの名義で送る
+MAIL_FROM_BLUBEL = "BLUBEL Color Lab <blubel@mail.blubeliebel.co.jp>"
+MAIL_FROM_IEBEL = "IEBEL Color Lab <iebel@mail.blubeliebel.co.jp>"
 KOTAE_CAMPAIGN = "kotae2026"
 # ステージング用ビルドを手元で開く検証ページ（npx vite preview 等）
 EXTRA_ALLOW_ORIGINS = "http://localhost:4173"
