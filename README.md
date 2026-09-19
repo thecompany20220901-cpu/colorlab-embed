@@ -582,6 +582,18 @@ colorlab は設置先ごとに参照タグが違うので、**サイト別に書
   デプロイ済みの Worker バージョン: `cbeaaaae-1d11-480a-91e3-0dc078ccec3d`（2026-09-11・`GET /quota` 追加）。
   1つ前は `b2ff9dd7-0362-4758-8361-59e573af38dd`（2色配色の修正込み）で、戻すときは
   `wrangler rollback b2ff9dd7-0362-4758-8361-59e573af38dd`。`/quota` を消してもアプリは数字を出さないだけで壊れない。
+- **v1.22.0 はタグ発行済み・本番切替待ち**（2026-09-19・MINE v1）。GTM のタグを `@v1.21.1` → `@v1.22.0` に
+  書き換えると反映される（IEBEL＝`GTM-WVFLHTNW` ／ BLUBEL＝`GTM-NN7QDLCH`・Keisuke作業）。ロールバックは `@v1.21.1` に戻すだけ。
+  中身: ①答え合わせキャンペーン（`/pages/personalcolor?campaign=kotaeawase` で開く。プロ診断の入力 → 既存の写真で診断
+  → 1st 一致/不一致 → ストーリー画像 1080x1920・入力画面の下にリアルタイム集計 4x4 全セル）②MINE 会員画面
+  （`?mine=account`・メールのマジックリンクでログイン・EC購入者の無料会員申請＝購入完了メールのスクショ → 承認画面 `/admin`）。
+  通常の診断画面・写真診断エンジンは変更なし（`?campaign` / `?mine` が無ければ従来どおりホーム）。
+  バンドルは 889,047B（gzip 396KB・v1.21.1 比 +23KB）。検証: 既存 verify 168 OK/0 NG・`test/kotaeawase_check.mjs` 34/34・
+  `test/mine_account_check.mjs` 22/22・`test/mine_worker_check.mjs` 77/77。
+  **Worker は先にデプロイ済み**（`57d939a6-de73-4a9a-935d-5430a18e44df`・2026-09-19。D1 `colorlab-mine`・Resend 送信元
+  `mail.blubeliebel.co.jp`・`KOTAE_CAMPAIGN=kotae2026`）。v1.21.1 のまま `/quota` が両サイトで動くことを実測済み。
+  戻すときは `wrangler rollback cbeaaaae-1d11-480a-91e3-0dc078ccec3d`（MINE の API だけが消え、既存の生成・残数は動く）。
+  ステージング: `colorlab-selfcard-staging`（`wrangler deploy --env staging`・D1 `colorlab-mine-staging`）。
 - **v1.21.1 は両サイトとも本番切替済み・実測確認済み**（2026-09-11。Keisuke が GTM で切替 → 13:47 に実測）。
   実測の中身: ①IEBEL・BLUBEL とも GTM と実ページの両方で `@v1.21.1` を読み込み（`x-jsd-version: 1.21.1`）
   ②選択画面に「本日残り38回」、`/health` の remaining（38）と一致 ③`/quota` の応答だけを残り0に差し替えると、
