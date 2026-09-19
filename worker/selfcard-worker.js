@@ -19,6 +19,8 @@
      wrangler deploy
    ══════════════════════════════════════════════════════════ */
 
+import { routeMine } from "./mine.js";
+
 const ALLOW_ORIGINS = [
   "https://blubel.jp", "https://www.blubel.jp",
   "https://iebel.jp", "https://www.iebel.jp",
@@ -171,6 +173,11 @@ const json = (body, status, origin) =>
 
 export default {
   async fetch(request, env) {
+    // MINE（会員・課金・答え合わせ）のパスだけ先に振り分ける。
+    // それ以外は null が返り、下の既存処理がそのまま動く。
+    const mine = await routeMine(request, env, ALLOW_ORIGINS);
+    if (mine) return mine;
+
     const origin = request.headers.get("Origin") || "";
 
     if (request.method === "OPTIONS") {

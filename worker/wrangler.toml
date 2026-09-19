@@ -17,3 +17,24 @@ id = "c199a47f84744c28b3902bfdaa523bfa"
 
 # OPENAI_API_KEY はここに書かない。必ず Secret で入れる:
 #   wrangler secret put OPENAI_API_KEY
+
+# ── MINE v1（会員・課金・答え合わせ）── keisuke 承認後に有効化する
+# 会員・課金状態・キャンペーン集計。作成後に id を差し替える:
+#   wrangler d1 create colorlab-mine
+#   wrangler d1 execute colorlab-mine --remote --file=schema.sql
+[[d1_databases]]
+binding = "DB"
+database_name = "colorlab-mine"
+database_id = "REPLACE_WITH_D1_DATABASE_ID"
+
+# Stripe の鍵とメール送信サービスのキーは Secret で入れる（ここに書かない）:
+#   wrangler secret put STRIPE_SECRET_KEY
+#   wrangler secret put STRIPE_WEBHOOK_SECRET
+[vars]
+# ダッシュボードで作った Price ID。金額・周期は mine.js の PLANS と毎回照合する
+STRIPE_PRICE_MONTHLY = ""   # ¥480 / 月
+STRIPE_PRICE_YEARLY = ""    # ¥3,980 / 年
+# メール送信サービス（選定待ち）。空のあいだ /auth/request は 503 mail_not_configured
+MAIL_PROVIDER = ""
+# 実施中の答え合わせキャンペーンID。空なら /campaign/* は 404（期間外は空にする）
+KOTAE_CAMPAIGN = ""

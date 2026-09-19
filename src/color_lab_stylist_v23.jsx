@@ -45,6 +45,7 @@ import { FAMILY_ORDER, COLOR_FAMILIES, COLOR_EN, CHIP_HEX, SKU_IMG } from "./col
 import { COLOR70, COLOR70_FAMILY_ORDER } from "./color70_data.js";
 // 商品マスタ item_{site}.csv の color 列（test/build_sku_colors.py が生成）
 import { SKU_COLORS } from "./sku_color_data.js";
+import { KotaeInput, KotaeResult } from "./kotaeawase.jsx";
 
 const TYPE_FACE_IMG = { spring: FACE_SPRING, summer: FACE_SUMMER, autumn: FACE_AUTUMN, winter: FACE_WINTER };
 
@@ -3278,8 +3279,13 @@ function Header({ title, onBack }) {
 // ════════════════════════════════════════════
 // メイン
 // ════════════════════════════════════════════
-export default function App() {
-  const [mode, setMode] = useState("home");
+// campaign="kotaeawase" のときは答え合わせキャンペーン専用の入口（プロ診断の入力）から始まり、
+// 写真で診断の結果を通常の結果ページではなく答え合わせ画面へ渡す。診断エンジンは共通。
+export default function App({ campaign = null } = {}) {
+  const kotae = campaign === "kotaeawase";
+  const [mode, setMode] = useState(kotae ? "kotae_input" : "home");
+  const [kotaePro, setKotaePro] = useState(null); // { first, second|null }
+  const [kotaeApp, setKotaeApp] = useState(null); // { first, second }
   const [myType, setMyType] = useState(null); // 1stタイプ key
   const [mySecond, setMySecond] = useState(null); // 2ndタイプ key
   const [myFrame, setMyFrame] = useState(null); // 骨格 S/W/N
@@ -3383,7 +3389,7 @@ export default function App() {
   const [wdOwned, setWdOwned] = useState([]);
   const [wdWorry, setWdWorry] = useState(null);
 
-  const goHome = () => setMode("home");
+  const goHome = () => setMode(kotae ? "kotae_input" : "home");
   // 途中でホームへ戻ったら、写真＋質問の道中の状態は捨てる（中途半端な統合を防ぐ）
   useEffect(() => { if (mode === "home") { setComboStage(null); setComboPhoto(null); } }, [mode]);
   const rootRef = useRef(null);
@@ -3737,6 +3743,12 @@ export default function App() {
           startQuiz();
           return;
         }
+        // 答え合わせキャンペーン：同じ結果 {first, second} を答え合わせ画面へ渡す
+        if (kotae && kotaePro) {
+          setKotaeApp({ first: r.type, second: sKey });
+          setMode("kotae_result");
+          return;
+        }
         setQuizResult({
           first: r.type, second: sKey,
           url: RESULT_MAP[`${fT.num}-${sT.num}`] || fT.siteUrl,
@@ -3841,6 +3853,18 @@ export default function App() {
         .bar-grow { animation: barGrow 1s ease both; }
       `}</style>
       <div className="w-full max-w-xl bg-white rounded-3xl overflow-hidden my-4" style={{ boxShadow: "0 20px 60px -20px rgba(80,70,90,0.25)" }}>
+
+        {/* ═══ 答え合わせキャンペーン（MINE v1）═══ */}
+        {mode === "kotae_input" && (
+          <div className="fade-up">
+            <KotaeInput onStart={(p) => { setKotaePro(p); setKotaeApp(null); openPhoto(); }} />
+          </div>
+        )}
+        {mode === "kotae_result" && kotaePro && kotaeApp && (
+          <div className="fade-up">
+            <KotaeResult pro={kotaePro} app={kotaeApp} site={embedSite() || TYPES[kotaeApp.first].site} onRetry={() => setMode("kotae_input")} />
+          </div>
+        )}
 
         {/* ═══ HOME ═══ */}
         {mode === "home" && (

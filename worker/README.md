@@ -151,3 +151,28 @@ OpenAI へ camel という語は一度も渡っていない。絵に2色目が�
 `second` が届かない場合（キャッシュに残った旧バンドル）は、2026-09-05 以前と
 まったく同じ色（light green / charcoal gray / olive green / bordeaux red）に
 フォールバックする。400 では落とさない。
+
+## MINE v1（会員・課金・答え合わせ）— keisuke 承認後に有効化
+
+`mine.js` が `/auth/*` `/me` `/billing/checkout` `/stripe/webhook` `/campaign/*` を受け持つ。
+それ以外のパス（`/illustrate` `/quota` `/health`）は従来どおり `selfcard-worker.js` が処理する。
+
+```bash
+# 1) D1 を作ってスキーマを入れる → database_id を wrangler.toml に貼る
+wrangler d1 create colorlab-mine
+wrangler d1 execute colorlab-mine --remote --file=schema.sql
+
+# 2) Stripe の鍵を Secret に入れる（wrangler.toml には書かない）
+wrangler secret put STRIPE_SECRET_KEY
+wrangler secret put STRIPE_WEBHOOK_SECRET   # Webhook エンドポイント作成時に出る whsec_...
+
+# 3) wrangler.toml の [vars] に Price ID（¥480/月・¥3,980/年）と KOTAE_CAMPAIGN を入れて deploy
+wrangler deploy
+```
+
+- Stripe の Webhook 送信先: `https://colorlab-selfcard.<account>.workers.dev/stripe/webhook`
+  （イベント: `checkout.session.completed` / `customer.subscription.created` / `.updated` / `.deleted`）
+- Checkout を作るたびに Price の金額・通貨・周期を `PLANS` と照合し、食い違えば作らない（`price_mismatch`）
+- メール送信サービスは選定待ち。`MAIL_PROVIDER` が空のあいだ `/auth/request` は 503 `mail_not_configured`
+- EC購入者の判定方式は未確定。`users.is_ec_purchaser` を立てる経路はまだ無い
+- 検収: `node test/mine_worker_check.mjs`（D1 は node:sqlite・Stripe は差し替え・外部通信ゼロ）

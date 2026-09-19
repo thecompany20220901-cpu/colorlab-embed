@@ -2,6 +2,7 @@ import "./base.colorlab.css";
 import React from "react";
 import { createRoot } from "react-dom/client";
 import App from "./color_lab_stylist_v23.jsx";
+import { KotaeStats } from "./kotaeawase.jsx";
 
 /* ════════════════════════════════════════════
    マウント方式（v1.12.0〜）
@@ -25,6 +26,19 @@ const MOUNTED_FLAG = "data-colorlab-mounted";
 let mountedEl = null;
 let mountedRoot = null;
 
+// 答え合わせキャンペーン（MINE v1）。どちらか一方で有効になる:
+//   ・本文の <div id="colorlab-root" data-mode="kotaeawase">（LP を GTM の読み込み対象に足した場合）
+//   ・/pages/personalcolor?campaign=kotaeawase（GTM を変えずに今のページで出す場合）
+const CAMPAIGNS = ["kotaeawase"];
+function campaignOf(el) {
+  try {
+    const a = el && el.getAttribute("data-mode");
+    if (CAMPAIGNS.includes(a)) return a;
+    const q = new URLSearchParams(location.search).get("campaign");
+    return CAMPAIGNS.includes(q) ? q : null;
+  } catch (e) { return null; }
+}
+
 function mount(target) {
   const el = typeof target === "string" ? document.querySelector(target) : target;
   if (!el) {
@@ -41,7 +55,7 @@ function mount(target) {
   }
   el.innerHTML = "";
   const root = createRoot(el);
-  root.render(React.createElement(App));
+  root.render(React.createElement(App, { campaign: campaignOf(el) }));
   el.setAttribute(MOUNTED_FLAG, "1");
   mountedEl = el;
   mountedRoot = root;
@@ -61,6 +75,23 @@ function autoMount() {
   mount(el);
 }
 
+/* LP に置く集計欄（<div id="colorlab-kotae-stats"></div>）。アプリ本体とは別のルートで、
+   同じく SPA の再描画で消されたら貼り直す。 */
+const STATS_ID = "colorlab-kotae-stats";
+let statsEl = null;
+let statsRoot = null;
+function autoMountStats() {
+  if (typeof document === "undefined") return;
+  const el = document.getElementById(STATS_ID);
+  if (!el) return;
+  if (el === statsEl && el.firstElementChild) return;
+  if (statsRoot) { try { statsRoot.unmount(); } catch (e) {} statsRoot = null; }
+  el.innerHTML = "";
+  statsRoot = createRoot(el);
+  statsRoot.render(React.createElement(KotaeStats));
+  statsEl = el;
+}
+
 if (typeof window !== "undefined") {
   window.ColorLabApp = window.ColorLabApp || {};
   window.ColorLabApp.mount = mount;
@@ -69,8 +100,8 @@ if (typeof window !== "undefined") {
   if (!window.ColorLabApp.__watching) {
     window.ColorLabApp.__watching = true;
 
-    if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", autoMount);
-    else autoMount();
+    if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", () => { autoMount(); autoMountStats(); });
+    else { autoMount(); autoMountStats(); }
 
     // SPA のルート変更・再描画に追従する。自前の再描画で毎回走らないよう、
     // 「マウント先が入れ替わった / 中身が消えた」ときだけ実際に貼り直す（autoMount 内で判定）。
@@ -78,7 +109,7 @@ if (typeof window !== "undefined") {
     const schedule = () => {
       if (queued) return;
       queued = true;
-      setTimeout(() => { queued = false; autoMount(); }, 150);
+      setTimeout(() => { queued = false; autoMount(); autoMountStats(); }, 150);
     };
     if (typeof MutationObserver !== "undefined") {
       new MutationObserver(schedule).observe(document.documentElement, { childList: true, subtree: true });
