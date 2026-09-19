@@ -563,12 +563,12 @@ colorlab は設置先ごとに参照タグが違うので、**サイト別に書
 
 | アプリ / 設置先 | 参照タグ | 設置方式 | jsDelivr |
 |---|---|---|---|
-| colorlab / **IEBEL** | `@v1.22.0` | GTM（GTM-WVFLHTNW） | `https://cdn.jsdelivr.net/gh/thecompany20220901-cpu/colorlab-embed@v1.22.0/dist/colorlab.iife.js` |
-| colorlab / **BLUBEL** | `@v1.22.0` | GTM（GTM-NN7QDLCH） | `https://cdn.jsdelivr.net/gh/thecompany20220901-cpu/colorlab-embed@v1.22.0/dist/colorlab.iife.js` |
+| colorlab / **IEBEL** | `@v1.22.2` | GTM（GTM-WVFLHTNW） | `https://cdn.jsdelivr.net/gh/thecompany20220901-cpu/colorlab-embed@v1.22.2/dist/colorlab.iife.js` |
+| colorlab / **BLUBEL** | `@v1.22.2` | GTM（GTM-NN7QDLCH） | `https://cdn.jsdelivr.net/gh/thecompany20220901-cpu/colorlab-embed@v1.22.2/dist/colorlab.iife.js` |
 | ngpolice | `@v1.3.0` | 本文HTML | `https://cdn.jsdelivr.net/gh/thecompany20220901-cpu/colorlab-embed@v1.3.0/dist/ngpolice.iife.js` |
 | mens | `@v1.6.1` | 本文HTML | `https://cdn.jsdelivr.net/gh/thecompany20220901-cpu/colorlab-embed@v1.6.1/dist/mens.iife.js` |
 
-- colorlab の2行は **2026-09-19 に v1.22.0 切替後の実物を測った値**（両サイトとも実ページで `@v1.22.0`・`x-jsd-version: 1.22.0`）。
+- colorlab の2行は **2026-09-19 に v1.22.2 切替後の実物を測った値**（両サイトとも実ページで `@v1.22.2`・`x-jsd-version: 1.22.2`）。
   それ以前の記録: 2026-09-11 13:47 に v1.21.1 切替後の実物を測った値（両サイトとも GTM コンテナ `gtm.js?id=…` を取得し、
   さらに実ページを開いて読み込まれたバンドルが `@v1.21.1`（`x-jsd-version: 1.21.1`）であることを確認。
   カスタムHTMLタグの中身は `<script src="…@v1.21.1/dist/colorlab.iife.js" defer>`。ページ本文HTMLには
@@ -583,8 +583,9 @@ colorlab は設置先ごとに参照タグが違うので、**サイト別に書
   デプロイ済みの Worker バージョン: `cbeaaaae-1d11-480a-91e3-0dc078ccec3d`（2026-09-11・`GET /quota` 追加）。
   1つ前は `b2ff9dd7-0362-4758-8361-59e573af38dd`（2色配色の修正込み）で、戻すときは
   `wrangler rollback b2ff9dd7-0362-4758-8361-59e573af38dd`。`/quota` を消してもアプリは数字を出さないだけで壊れない。
-- **v1.22.2 はタグ発行済み・本番切替待ち**（2026-09-19）。GTM のタグを `@v1.22.2` に書き換えると反映
-  （IEBEL＝`GTM-WVFLHTNW` ／ BLUBEL＝`GTM-NN7QDLCH`・Keisuke作業）。v1.22.1 を飛ばして直接 v1.22.2 でよい。
+- **v1.22.2 は両サイトとも本番切替済み・実測確認済み**（2026-09-19。Keisuke が GTM で `@v1.22.0` → `@v1.22.2`）。
+  実測: 両サイトで `@v1.22.2` を読み込み・答え合わせ画面と通常ホーム OK・一致/不一致の文言（回答送信だけ検証ブラウザで止めて本番集計に入れずに確認）・pageerror 0。
+  切替を確かめてから本番 Worker を `KOTAE_STATS_PUBLIC="0"`（集計非公開）で deploy → `96d4b0a3-2667-4c73-910c-cb2f92a91701`（1つ前 `dc9d550a`）。
   中身（keisuke 2026-09-19 の全面修正）: 一致「プロと同じ診断結果でした！」／不一致「プロとは異なる結果でした（診断結果：◯◯タイプ）」
   （◯◯＝アプリの写真で診断の 1st。結果画面とストーリー画像）。**集計は Worker の `KOTAE_STATS_PUBLIC` が "1" のときだけ画面に出す**
   （それ以外は API も件数・一致率を返さず、期間だけ。記録は続き、数字は `/admin` の「答え合わせ集計」タブで見る）。
