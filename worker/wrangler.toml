@@ -45,8 +45,9 @@ MAIL_FROM_IEBEL = "IEBEL Color Lab <iebel@mail.blubeliebel.co.jp>"
 KOTAE_CAMPAIGN = "kotae2026"
 # 実施期間（JST・両端を含む YYYY-MM-DD）。全ての実装・テスト完了の翌日から1週間（2026-09-19 keisuke 決定）。
 # 空のあいだは期間の制限なし。期間外の回答は記録しない（開始前 403 not_started / 終了後 410 ended）
-KOTAE_START = ""
-KOTAE_END = ""
+# 2026-09-19 keisuke 確定: 2026-09-19（当日）〜 2026-09-25 の7日間
+KOTAE_START = "2026-09-19"
+KOTAE_END = "2026-09-25"
 # 画面に集計（件数・一致率）を出すか。"1" のときだけ公開。それ以外は API も数字を返さない（記録は続ける・/admin で見られる）。
 # 2026-09-19 keisuke: 一旦非表示（回答が集まってから公開するか判断）。v1.22.1 以前のアプリは非公開の応答で
 # 画面が壊れるため、GTM が両サイト @v1.22.2 になったのを実測で確かめてから "0" にした（2026-09-19）
