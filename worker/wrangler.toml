@@ -47,6 +47,10 @@ KOTAE_CAMPAIGN = "kotae2026"
 # 空のあいだは期間の制限なし。期間外の回答は記録しない（開始前 403 not_started / 終了後 410 ended）
 KOTAE_START = ""
 KOTAE_END = ""
+# 画面に集計（件数・一致率）を出すか。"1" のときだけ公開。それ以外は API も数字を返さない（記録は続ける・/admin で見られる）。
+# 2026-09-19 keisuke: 一旦非表示。ただし v1.22.1 以前のアプリは非公開の応答で画面が壊れるため、
+# GTM が @v1.22.2 に切り替わるまでは "1" のまま、切替を確かめてから "0" にして deploy する
+KOTAE_STATS_PUBLIC = "1"
 # ステージング専用。本番は必ず空
 EXTRA_ALLOW_ORIGINS = ""
 
@@ -78,5 +82,6 @@ MAIL_FROM_IEBEL = "IEBEL Color Lab <iebel@mail.blubeliebel.co.jp>"
 KOTAE_CAMPAIGN = "kotae2026"
 KOTAE_START = ""
 KOTAE_END = ""
+KOTAE_STATS_PUBLIC = "0"
 # ステージング用ビルドを手元で開く検証ページ（npx vite preview 等）
 EXTRA_ALLOW_ORIGINS = "http://localhost:4173"

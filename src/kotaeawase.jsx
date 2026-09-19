@@ -47,6 +47,14 @@ function jpDate(s) {
   const [y, m, d] = s.split("-").map(Number);
   return `${m}月${d}日（${WD[new Date(Date.UTC(y, m - 1, d)).getUTCDay()]}）`;
 }
+// 一致/不一致の文言（2026-09-19 keisuke 指定）。判定は 1st が同じかどうか。
+// 不一致のときの「診断結果」はアプリの結果（写真で診断の 1st）
+export function verdictOf(firstMatch, app) {
+  return firstMatch
+    ? { main: "プロと同じ診断結果でした！", sub: null }
+    : { main: "プロとは異なる結果でした", sub: `（診断結果：${SEASON[app.first].name}タイプ）` };
+}
+
 export function periodText(p) {
   if (!p || !p.start || !p.end) return "近日お知らせします";
   return `${jpDate(p.start)}〜${jpDate(p.end)}`;
@@ -154,7 +162,7 @@ export function KotaeResult({ pro, app, site, onRetry }) {
   const period = post.stats && post.stats.period;
   const mention = mentionFor(app.first);
 
-  const verdict = firstMatch ? "一致！" : "ちがった！";
+  const verdict = verdictOf(firstMatch, app);
   const vColor = firstMatch ? "#7D2E46" : "#5b6b8a";
 
   const Box = ({ label, v }) => (
@@ -168,7 +176,10 @@ export function KotaeResult({ pro, app, site, onRetry }) {
   return (
     <div style={{ padding: "26px 22px 32px", color: INK }}>
       <div style={{ fontSize: 12, color: SUB, textAlign: "center" }}>プロ診断 × アプリ 答え合わせ</div>
-      <div style={{ fontFamily: SERIF, fontSize: 44, textAlign: "center", color: vColor, margin: "6px 0 14px" }}>{verdict}</div>
+      <div style={{ fontFamily: SERIF, textAlign: "center", color: vColor, margin: "8px 0 16px", lineHeight: 1.5 }}>
+        <div style={{ fontSize: 24 }}>{verdict.main}</div>
+        {verdict.sub && <div style={{ fontSize: 17 }}>{verdict.sub}</div>}
+      </div>
       <div style={{ display: "flex", gap: 10 }}>
         <Box label="プロ診断" v={pro} />
         <Box label="アプリ（写真で診断）" v={app} />
@@ -215,6 +226,10 @@ export function KotaeResult({ pro, app, site, onRetry }) {
 // ── 集計の表示。4x4 の全セルを出す（件数の少ないセル・外れも隠さない）──
 export function KotaeStatsView({ stats }) {
   if (!stats) return null;
+  // 集計を非公開にしているあいだ（Worker の KOTAE_STATS_PUBLIC が "1" 以外）は数字を出さず、期間だけ見せる
+  if (stats.hidden) {
+    return <div style={{ fontSize: 12, color: SUB, textAlign: "center" }}>実施期間：{periodText(stats.period)}</div>;
+  }
   const cell = { padding: "6px 2px", textAlign: "center", fontSize: 12, borderBottom: `1px solid ${LINE}` };
   return (
     <div style={{ border: `1px solid ${LINE}`, borderRadius: 18, padding: "16px 14px", background: "#fff", color: INK }}>
@@ -316,10 +331,13 @@ export function buildKotaeStory({ pro, app, firstMatch, site, stats }) {
   card(560, "アプリ", app);
 
   ctx.fillStyle = firstMatch ? "#7D2E46" : "#5b6b8a";
-  ctx.font = `170px ${SERIF}`;
-  ctx.fillText(firstMatch ? "一致！" : "ちがった！", W / 2, 1210);
+  const v = verdictOf(firstMatch, app);
+  ctx.font = `72px ${SERIF}`;
+  ctx.fillText(v.main, W / 2, v.sub ? 1150 : 1190);
+  if (v.sub) { ctx.font = `54px ${SERIF}`; ctx.fillText(v.sub, W / 2, 1250); }
 
-  if (stats && stats.total) {
+  // みんなの一致率は集計を公開しているときだけ（非公開のあいだ API は数字を返さない）
+  if (stats && !stats.hidden && stats.total) {
     ctx.fillStyle = INK; ctx.font = "48px sans-serif";
     ctx.fillText(`みんなの一致率 ${pct(stats.first_rate)}（${stats.total}人中）`, W / 2, 1360);
   }

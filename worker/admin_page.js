@@ -35,6 +35,7 @@ dl{display:grid;grid-template-columns:8em 1fr;gap:2px 10px;margin:0}dt{color:var
       <button role="tab" data-st="pending" aria-selected="true">確認待ち</button>
       <button role="tab" data-st="approved" aria-selected="false">承認済み</button>
       <button role="tab" data-st="rejected" aria-selected="false">却下</button>
+      <button role="tab" data-st="kotae" aria-selected="false">答え合わせ集計</button>
       <button id="reload">再読み込み</button>
       <button id="out">トークンを消す</button>
     </div>
@@ -62,8 +63,48 @@ dl{display:grid;grid-template-columns:8em 1fr;gap:2px 10px;margin:0}dt{color:var
   function fmt(t) { return t ? new Date(t * 1000).toLocaleString("ja-JP") : "—"; }
   function row(dl, k, v) { dl.appendChild(el("dt", null, k)); dl.appendChild(el("dd", null, v == null || v === "" ? "—" : String(v))); }
 
+  var SEASON = { spring: "イエベ春", summer: "ブルベ夏", autumn: "イエベ秋", winter: "ブルベ冬" };
+  var ORDER = ["spring", "summer", "autumn", "winter"];
+  function pct(r) { return r == null ? "—" : Math.round(r * 100) + "%"; }
+
+  // 答え合わせの集計（画面で非公開のあいだも、ここでは数字を見られる）
+  function loadKotae() {
+    var list = $("list"); list.textContent = "読み込み中…";
+    api("/kotae-stats").then(function (r) {
+      if (r.status === 401 || r.status === 429) { showLogin(r.status === 429 ? "失敗が続いたため1時間ロックされています" : "トークンが違います"); return null; }
+      return r.json();
+    }).then(function (j) {
+      if (!j) return;
+      list.textContent = "";
+      if (!j.ok) { list.appendChild(el("p", { class: "msg" }, "キャンペーンが設定されていません。")); return; }
+      var s = j.stats, c = el("article", { class: "card", style: "grid-template-columns:1fr" }), d = el("div");
+      d.appendChild(el("div", { style: "font-weight:600;margin-bottom:6px" }, "答え合わせ集計（" + j.campaign + "）"));
+      d.appendChild(el("p", { class: "msg", style: "margin:0 0 8px" }, j.public ? "アプリの画面に公開中" : "アプリの画面では非公開（Worker の KOTAE_STATS_PUBLIC を \"1\" にすると公開）"));
+      var dl = el("dl");
+      row(dl, "実施期間", s.period && s.period.start ? s.period.start + " 〜 " + s.period.end + "（" + s.period.status + "）" : "未設定");
+      row(dl, "回答数", s.total);
+      row(dl, "1st 一致", s.first_match + " / " + s.total + "（" + pct(s.first_rate) + "）");
+      row(dl, "2nd まで一致", s.full_match + " / " + s.full_total + "（" + pct(s.full_rate) + "・2nd を入力した人）");
+      row(dl, "最終回答", s.last_at ? fmt(s.last_at) : "—");
+      d.appendChild(dl);
+      var t = el("table", { style: "border-collapse:collapse;margin-top:12px;font-size:13px" }), hr = el("tr");
+      hr.appendChild(el("th", { style: "text-align:left;padding:4px 10px;color:#7d7580" }, "プロ ＼ アプリ"));
+      ORDER.forEach(function (a) { hr.appendChild(el("th", { style: "padding:4px 10px;color:#7d7580" }, SEASON[a])); });
+      t.appendChild(hr);
+      ORDER.forEach(function (p) {
+        var tr = el("tr");
+        tr.appendChild(el("td", { style: "padding:4px 10px;color:#7d7580" }, SEASON[p]));
+        ORDER.forEach(function (a) { tr.appendChild(el("td", { style: "padding:4px 10px;text-align:center;" + (p === a ? "font-weight:700;background:#f3eef2" : "") }, String(s.matrix[p][a]))); });
+        t.appendChild(tr);
+      });
+      d.appendChild(t);
+      c.appendChild(d); list.appendChild(c);
+    }).catch(function () { list.textContent = "読み込みに失敗しました。"; });
+  }
+
   function load() {
     urls.forEach(function (u) { URL.revokeObjectURL(u); }); urls = [];
+    if (st === "kotae") { loadKotae(); return; }
     var list = $("list"); list.textContent = "読み込み中…";
     api("/applications?status=" + st).then(function (r) {
       if (r.status === 401 || r.status === 429) { showLogin(r.status === 429 ? "失敗が続いたため1時間ロックされています" : "トークンが違います"); return null; }

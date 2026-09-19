@@ -1,0 +1,137 @@
+{
+  "_note": "答え合わせキャンペーン（プロ診断実証キャンペーン）の景品候補。2026-09-19 keisuke 指定の BLUBEL 10点と、同じ商品の IEBEL 版（CC選定・即納/在庫あり/非表示でないを item_iebel (5).csv で確認）。name は LP 表示用の短い名前、price は税込の販売価格（マスタ price 列）",
+  "blubel": [
+    {
+      "item_id": 1910,
+      "name": "毛皮風ショート丈ジャケット 秋冬防寒アウター",
+      "price": 5990,
+      "image": "https://fulmo-img-server.com/blubel/f7d0a79e-8050-4c68-814d-66af21daa1a5.jpg"
+    },
+    {
+      "item_id": 1914,
+      "name": "エコファーベスト 韓国風ミドル丈アウター",
+      "price": 5490,
+      "image": "https://fulmo-img-server.com/blubel/af2a91d2-bcae-4936-8cd8-8e6e33c53241.jpg"
+    },
+    {
+      "item_id": 1916,
+      "name": "ベルト付きテーラードジャケット アウター",
+      "price": 6290,
+      "image": "https://fulmo-img-server.com/blubel/af82196a-4e21-4648-9364-c92446bbbf53.jpg"
+    },
+    {
+      "item_id": 1918,
+      "name": "ファー付きケープ風ジャケット アウター",
+      "price": 6490,
+      "image": "https://fulmo-img-server.com/blubel/a47736fb-55b6-4ab8-9d48-1807f8750f6f.jpg"
+    },
+    {
+      "item_id": 1898,
+      "name": "裏起毛ニット長袖インナー保温カットソー",
+      "price": 4790,
+      "image": "https://fulmo-img-server.com/blubel/5a876a6e-9912-4c89-9eac-bdcb70905f74.jpg"
+    },
+    {
+      "item_id": 1887,
+      "name": "裏起毛タートルネックニット 長袖",
+      "price": 3490,
+      "image": "https://fulmo-img-server.com/blubel/1758444377691_bt8salqq_w263xbp9.jpeg"
+    },
+    {
+      "item_id": 1911,
+      "name": "体型カバー二重ボタンテーラードジャケット中丈アウター",
+      "price": 5490,
+      "image": "https://fulmo-img-server.com/blubel/0a0f3910-9df2-4b93-bf5b-39d080438fe7.jpg"
+    },
+    {
+      "item_id": 1917,
+      "name": "大人上品テーラードジャケット アウター",
+      "price": 5990,
+      "image": "https://fulmo-img-server.com/blubel/52073ac7-09eb-4a2f-91af-96fc927dc3ef.jpg"
+    },
+    {
+      "item_id": 1921,
+      "name": "もこもこムートン風ショートブーツ",
+      "price": 4720,
+      "image": "https://fulmo-img-server.com/blubel/1758726680229_rn8qm6jv_qgm1aadk.jpeg"
+    },
+    {
+      "item_id": 2108,
+      "name": "とんがりつま先太ヒールシューズサンダル裏起毛ブーツ",
+      "price": 6290,
+      "image": "https://fulmo-img-server.com/blubel/1768230040767_qeazigvj_72i3qbt0.jpeg"
+    }
+  ],
+  "iebel": [
+    {
+      "item_id": 1942,
+      "name": "毛皮風ショート丈ジャケット 秋冬防寒アウター",
+      "price": 5990,
+      "image": "https://fulmo-img-server.com/blubel/f7d0a79e-8050-4c68-814d-66af21daa1a5.jpg",
+      "master_name": "イエベ春/イエベ秋服　毛皮風ショート丈ジャケット 秋冬防寒アウター【即納】"
+    },
+    {
+      "item_id": 1946,
+      "name": "エコファーベスト 韓国風ミドル丈アウター",
+      "price": 5490,
+      "image": "https://fulmo-img-server.com/blubel/af2a91d2-bcae-4936-8cd8-8e6e33c53241.jpg",
+      "master_name": "イエベ春/イエベ秋服　エコファーベスト レディース ジャケット 韓国風ミドル丈アウター【即納】"
+    },
+    {
+      "item_id": 1948,
+      "name": "ベルト付きテーラードジャケット アウター",
+      "price": 6290,
+      "image": "https://fulmo-img-server.com/blubel/eac38be5-484a-4e5a-a4f9-60d436079c51.jpg",
+      "master_name": "イエベ春/イエベ秋服　ベルト付きテーラードジャケット レディース アウター【即納】"
+    },
+    {
+      "item_id": 1950,
+      "name": "ファー付きケープ風ジャケット アウター",
+      "price": 6490,
+      "image": "https://fulmo-img-server.com/blubel/a47736fb-55b6-4ab8-9d48-1807f8750f6f.jpg",
+      "master_name": "イエベ春/イエベ秋服　ファー付きケープ風ジャケット 女性用アウター【即納】"
+    },
+    {
+      "item_id": 1930,
+      "name": "裏起毛ニット長袖インナー保温カットソー",
+      "price": 4790,
+      "image": "https://fulmo-img-server.com/blubel/5a876a6e-9912-4c89-9eac-bdcb70905f74.jpg",
+      "master_name": "イエベ春/イエベ秋服　裏起毛ニット長袖インナー保温カットソー【即納】"
+    },
+    {
+      "item_id": 1919,
+      "name": "裏起毛タートルネックニット 長袖",
+      "price": 3490,
+      "image": "https://fulmo-img-server.com/blubel/1758444377691_bt8salqq_w263xbp9.jpeg",
+      "master_name": "イエベ春/イエベ秋服　裏起毛タートルネックニット 長袖【即納】"
+    },
+    {
+      "item_id": 1943,
+      "name": "体型カバー二重ボタンテーラードジャケット中丈アウター",
+      "price": 5490,
+      "image": "https://fulmo-img-server.com/blubel/3b29ea12-8666-433b-b8a3-ba8fd5cada08.jpg",
+      "master_name": "イエベ春/イエベ秋服　体型カバー二重ボタンテーラードジャケット中丈アウター【即納】"
+    },
+    {
+      "item_id": 1949,
+      "name": "大人上品テーラードジャケット アウター",
+      "price": 5990,
+      "image": "https://fulmo-img-server.com/blubel/52073ac7-09eb-4a2f-91af-96fc927dc3ef.jpg",
+      "master_name": "イエベ春/イエベ秋服　大人上品テーラードジャケット レディース アウター【即納】"
+    },
+    {
+      "item_id": 1953,
+      "name": "もこもこムートン風ショートブーツ",
+      "price": 4720,
+      "image": "https://fulmo-img-server.com/blubel/1758726680229_rn8qm6jv_qgm1aadk.jpeg",
+      "master_name": "イエベ春/イエベ秋服　美脚効果抜群もこもこムートン風ショートブーツ【即納】"
+    },
+    {
+      "item_id": 2140,
+      "name": "とんがりつま先太ヒールシューズサンダル裏起毛ブーツ",
+      "price": 6290,
+      "image": "https://fulmo-img-server.com/blubel/1768230040767_qeazigvj_72i3qbt0.jpeg",
+      "master_name": "イエベ秋靴　とんがりつま先太ヒールシューズサンダル裏起毛ブーツ【即納】"
+    }
+  ]
+}

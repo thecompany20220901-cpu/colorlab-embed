@@ -36,7 +36,7 @@ const env = {
   DB: d1(), SELFCARD_KV: kv(),
   STRIPE_SECRET_KEY: "sk_test_dummy", STRIPE_WEBHOOK_SECRET: "whsec_dummy",
   STRIPE_PRICE_MONTHLY: "price_month", STRIPE_PRICE_YEARLY: "price_year",
-  MAIL_PROVIDER: "", KOTAE_CAMPAIGN: "kotae_test",
+  MAIL_PROVIDER: "", KOTAE_CAMPAIGN: "kotae_test", KOTAE_STATS_PUBLIC: "1",
 };
 
 // ── Stripe の代用 ──
@@ -354,6 +354,28 @@ console.log("■ 実施期間（KOTAE_START / KOTAE_END・JST）");
   env.KOTAE_START = "2026/09/21"; env.KOTAE_END = "2026-09-27";
   check("形式違いの日付は unset 扱い（誤設定で全停止しない）", (await call("GET", "/campaign/stats?campaign=kotae_test")).j.stats.period.status === "unset");
   env.KOTAE_START = ""; env.KOTAE_END = "";
+}
+
+console.log("■ 集計の非公開（KOTAE_STATS_PUBLIC が \"1\" 以外）と承認画面の集計");
+{
+  env.KOTAE_CAMPAIGN = "kotae_test";
+  env.KOTAE_STATS_PUBLIC = "";
+  env.SELFCARD_KV._m.clear();
+  const s = await call("GET", "/campaign/stats?campaign=kotae_test");
+  check("非公開: /campaign/stats は hidden と期間だけ（件数・一致率・行列を返さない）", s.status === 200 && s.j.stats.hidden === true && !("total" in s.j.stats) && !("matrix" in s.j.stats) && !("first_rate" in s.j.stats) && s.j.stats.period.status === "unset");
+  const dbBefore = env.DB.raw.prepare("SELECT COUNT(*) n FROM kotae_answers WHERE campaign='kotae_test'").get().n;
+  const a = await call("POST", "/campaign/answer", { body: { campaign: "kotae_test", device_id: "hidden_dev_000001", site: "blubel", pro_first: "winter", app_first: "autumn", app_second: "spring" } });
+  check("非公開: 回答は記録する・応答にも数字を入れない", a.status === 200 && a.j.recorded === true && a.j.stats.hidden === true && !("total" in a.j.stats));
+  check("非公開: D1 には1件増えている", env.DB.raw.prepare("SELECT COUNT(*) n FROM kotae_answers WHERE campaign='kotae_test'").get().n === dbBefore + 1);
+  env.SELFCARD_KV._m.clear();
+  const good = { Authorization: "Bearer " + env.ADMIN_TOKEN };
+  const ad = await call("GET", "/admin/api/kotae-stats", { origin: null, headers: good });
+  check("承認画面の集計 API は非公開中も数字を返す（public:false）", ad.status === 200 && ad.j.public === false && ad.j.stats.total === dbBefore + 1 && ad.j.stats.matrix.winter.autumn >= 1);
+  const ng = await call("GET", "/admin/api/kotae-stats", { origin: null, headers: { Authorization: "Bearer nope" } });
+  check("承認画面の集計 API はトークン必須", ng.status === 401);
+  env.KOTAE_STATS_PUBLIC = "1";
+  const pub = await call("GET", "/campaign/stats?campaign=kotae_test");
+  check("公開（\"1\"）に戻すと数字を返す", pub.j.stats.total === dbBefore + 1 && !pub.j.stats.hidden);
 }
 
 globalThis.fetch = realFetch;

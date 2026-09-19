@@ -39,7 +39,7 @@ const db = new DatabaseSync(":memory:");
 db.exec(readFileSync(join(HERE, "../worker/schema.sql"), "utf8"));
 const stmt = (sql, a = []) => ({ bind: (...b) => stmt(sql, b), first: async () => db.prepare(sql).get(...a) ?? null, all: async () => ({ results: db.prepare(sql).all(...a) }), run: async () => ({ meta: { changes: Number(db.prepare(sql).run(...a).changes) } }) });
 const kvm = new Map();
-const env = { DB: { prepare: (s) => stmt(s) }, SELFCARD_KV: { get: async (k) => kvm.get(k) ?? null, put: async (k, v) => { kvm.set(k, v); } }, KOTAE_CAMPAIGN: "kotae2026" };
+const env = { DB: { prepare: (s) => stmt(s) }, SELFCARD_KV: { get: async (k) => kvm.get(k) ?? null, put: async (k, v) => { kvm.set(k, v); } }, KOTAE_CAMPAIGN: "kotae2026", KOTAE_STATS_PUBLIC: "1" };
 const posted = [];
 async function routeWorker(route) {
   const r = route.request();
@@ -53,14 +53,14 @@ async function routeWorker(route) {
 
 // ── ハーネス（本番と同じく、先にスクリプト → 本文の div を自動マウント）──
 // 入口は /pages/personalcolor?campaign=kotaeawase（2026-09-19 決定: GTM は変えない）
-const lpBody = readFileSync(join(HERE, "../lp/kotaeawase_lp.html"), "utf8");
+const LPS = Object.fromEntries(["blubel", "iebel"].map((site) => [site, readFileSync(join(HERE, `../lp/kotaeawase_lp_${site}.html`), "utf8")]));
+const PRIZES = JSON.parse(readFileSync(join(HERE, "../lp/kotaeawase_prizes.json"), "utf8"));
 const harness = (name, body) => {
   const p = join(tmpdir(), `_kotae_${name}.html`);
   writeFileSync(p, `<!doctype html><html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <script src="${pathToFileURL(BUNDLE).href}" defer></script></head><body style="margin:0;background:#fff">${body}</body></html>`);
   return pathToFileURL(p).href;
 };
-const LP = harness("lp", lpBody);
 const PLAIN = harness("plain", `<div id="colorlab-root">アプリを読み込み中…</div>`);
 const CAMP = PLAIN + "?campaign=kotaeawase";
 
@@ -76,23 +76,34 @@ console.log("■ 名前・色が本体の TYPES と一致");
   }
 }
 
-console.log("■ LP（Fulmo 貼り付け用 HTML）の機械ゲート");
-{
-  check("LP に script タグが無い", !/<script/i.test(lpBody));
-  check("LP に外部 URL（http/https）の読み込みが無い", !/(src|href)\s*=\s*"https?:/i.test(lpBody) && !/@import|url\(\s*["']?https?:/i.test(lpBody));
-  const css = lpBody.match(/<style>([\s\S]*?)<\/style>/)[1].replace(/\/\*[\s\S]*?\*\//g, "");
-  const sels = [...css.matchAll(/([^{}]+)\{/g)].flatMap((m) => m[1].split(",").map((s) => s.trim())).filter(Boolean);
-  check(`CSS のセレクタ ${sels.length} 個がすべて .kt 配下`, sels.every((s) => s.startsWith(".kt")));
-  check("サイト内リンクは相対パス・target なし", /<a href="\/pages\/personalcolor">/.test(lpBody) && !/target=/.test(lpBody));
-  check("参加ボタンは /pages/personalcolor?campaign=kotaeawase（GTM を変えない方式）", (lpBody.match(/href="\/pages\/personalcolor\?campaign=kotaeawase"/g) || []).length === 2);
-  check("LP にアプリのマウント先を置かない（GTM が読み込まないページでは動かないため）", !/id="colorlab-root"|colorlab-kotae-stats/.test(lpBody));
+console.log("■ LP（Fulmo 貼り付け用 HTML・BLUBEL / IEBEL）の機械ゲート");
+for (const [site, lpBody] of Object.entries(LPS)) {
+  const L = site.toUpperCase();
   const lpText = lpBody.replace(/<!--[\s\S]*?-->/, "");
-  check("LP: ハッシュタグ・メンション先（ブルベ/イエベ別）・当選発表が入っている",
-    /#答え合わせキャンペーン #ColorLabMINE/.test(lpText) && /ブルベの方は <b>@blube_lab<\/b>/.test(lpText) && /イエベの方は <b>@iebe_lab<\/b>/.test(lpText) &&
-    /期間終了後、@blube_lab・@iebe_lab 両アカウントのストーリーで当選者にDMでご連絡します。あわせてアカウント上で当選人数・結果を告知します。/.test(lpText));
-  check("LP: 「未定」が残っていない", !/未定/.test(lpText));
-  check("LP: 実施期間は【開始日確定後に記入】のまま（公開前に日付へ差し替える）", (lpText.match(/【開始日確定後に記入】/g) || []).length === 1);
+  check(`${L}: script タグが無い`, !/<script/i.test(lpBody));
+  const ext = [...lpText.matchAll(/(src|href)\s*=\s*"(https?:[^"]+)"/gi)].map((m) => m[2]);
+  check(`${L}: 外部URLは商品画像（fulmo-img-server.com の img）だけ`, ext.length === 10 && ext.every((u) => u.startsWith("https://fulmo-img-server.com/")) && !/@import|url\(\s*["']?https?:/i.test(lpText));
+  const css = lpText.match(/<style>([\s\S]*?)<\/style>/)[1].replace(/\/\*[\s\S]*?\*\//g, "");
+  const sels = [...css.matchAll(/([^{}]+)\{/g)].flatMap((m) => m[1].split(",").map((x) => x.trim())).filter(Boolean);
+  check(`${L}: CSS のセレクタ ${sels.length} 個がすべて .kt 配下`, sels.every((x) => x.startsWith(".kt")));
+  check(`${L}: リンクは相対パス・target なし（参加ボタン2つ・商品10点・トップ）`,
+    (lpText.match(/href="\/pages\/personalcolor\?campaign=kotaeawase"/g) || []).length === 2 && (lpText.match(/href="\/item\/\d+"/g) || []).length === 10 && /href="\/pages\/personalcolor"/.test(lpText) && !/target=/.test(lpText));
+  check(`${L}: 見出し・サブ文言・本文が指示どおり`,
+    lpText.includes("研究所監修12タイプ別パーソナルカラー診断！") && lpText.includes("プロ診断実証キャンペーン！") &&
+    lpText.includes("プロのパーソナルカラー診断を受けたことがある方へ") &&
+    lpText.includes("プロに診断されたあなたの色を、研究所監修の12タイプ診断でも同じように導き出せるか。その場で確かめられます。"));
+  check(`${L}: 景品「3名様に、${L}商品1点をプレゼント！」・候補10点から選べる`, lpText.includes(`3名様に、${L}商品1点をプレゼント！`) && /候補10点から/.test(lpText));
+  const items = PRIZES[site];
+  const okItems = items.every((it) => lpText.includes(`href="/item/${it.item_id}"`) && lpText.includes(`src="${it.image}"`) && lpText.includes(`¥${it.price.toLocaleString("en-US")}`));
+  check(`${L}: 候補10点（item_id・画像URL・価格）が JSON どおり`, items.length === 10 && okItems);
+  check(`${L}: 参加ステップ4枚（①〜④の文言どおり）`, (lpText.match(/class="kt-step"/g) || []).length === 4 &&
+    ["プロ診断の結果を選ぶ", "下のボタンから進み、プロに言われたあなたのタイプを選択", "そのままアプリで診断", "「写真で診断」を実行（写真は端末内だけで解析、外部には送信されません）",
+     "その場で結果が分かる", "プロの診断とアプリの診断が「同じタイプ」だったかどうか、その場で表示されます", "結果画像をSNSに投稿", "保存した画像をストーリーに投稿し、指定ハッシュタグと指定アカウントをメンション"].every((x) => lpText.includes(x)));
+  check(`${L}: 「みんなの結果」セクションが無い`, !/みんなの|一致率|リアルタイム/.test(lpText));
+  check(`${L}: ハッシュタグ・メンション・当選発表`, /#答え合わせキャンペーン #ColorLabMINE/.test(lpText) && /ブルベの方は @blube_lab、イエベの方は @iebe_lab/.test(lpText) && /両アカウントのストーリーで当選者にDMでご連絡します/.test(lpText));
+  check(`${L}: 「未定」「在庫」が無い・期間は【開始日確定後に記入】`, !/未定|在庫/.test(lpText) && (lpText.match(/【開始日確定後に記入】/g) || []).length === 1);
 }
+check("IEBEL の候補は BLUBEL と同じ商品・同じ価格の IEBEL 版", PRIZES.iebel.every((it, i) => it.price === PRIZES.blubel[i].price && it.name === PRIZES.blubel[i].name && it.item_id !== PRIZES.blubel[i].item_id));
 
 const browser = await chromium.launch();
 const ctx = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, acceptDownloads: true });
@@ -102,11 +113,13 @@ const errors = [];
 page.on("pageerror", (e) => errors.push(String(e)));
 
 console.log("■ LP（静的ページ）の表示");
-{
-  await page.goto(LP, { waitUntil: "load" });
-  await page.waitForTimeout(500);
-  check("LP: 390px 幅で横スクロールが出ない", await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth));
-  await page.screenshot({ path: join(SHOTS, "k00_lp.png"), fullPage: true });
+for (const site of ["blubel", "iebel"]) {
+  await page.goto(harness("lp_" + site, LPS[site]), { waitUntil: "load" });
+  await page.evaluate(() => Promise.all([...document.images].map((i) => { i.loading = "eager"; return i.complete ? 0 : new Promise((r) => { i.onload = i.onerror = r; }); })));
+  const imgs = await page.evaluate(() => [...document.querySelectorAll(".kt-item img")].map((i) => i.naturalWidth));
+  check(`LP ${site}: 商品画像10枚が読み込める`, imgs.length === 10 && imgs.every((w) => w > 0));
+  check(`LP ${site}: 390px 幅で横スクロールが出ない`, await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth));
+  await page.screenshot({ path: join(SHOTS, `k00_lp_${site}.png`), fullPage: true });
 }
 
 console.log("■ 通常ページは今までどおり（キャンペーン画面を出さない）");
@@ -155,11 +168,11 @@ console.log("■ ?campaign=kotaeawase：入力 → 写真で診断 → 一致");
   await page.getByRole("button", { name: /写真で診断して答え合わせする/ }).click();
 
   await runPhoto();
-  await page.waitForSelector("#colorlab-root >> text=一致！", { timeout: 15000 });
+  await page.waitForSelector("#colorlab-root >> text=プロと同じ診断結果でした！", { timeout: 15000 });
   await page.waitForSelector("#colorlab-root >> text=みんなの答え合わせ", { timeout: 10000 });
   const t = await page.locator("#colorlab-root").innerText();
   check("アプリの結果は既存エンジンの判定（イエベ春 / 2nd ブルベ夏）", /アプリ（写真で診断）\s*イエベ春\s*2nd：ブルベ夏/.test(t));
-  check("1st 一致の表示", /1st（いちばん似合うシーズン）が一致しました/.test(t));
+  check("一致の文言「プロと同じ診断結果でした！」", /プロと同じ診断結果でした！/.test(t) && /1st（いちばん似合うシーズン）が一致しました/.test(t));
   check("通常の結果ページ（タイプです！）には行かない", !/タイプです！/.test(t));
   check("送信内容はタイプ名だけ（写真なし）", posted.length === 1 && Object.keys(posted[0]).sort().join() === "app_first,app_second,campaign,device_id,pro_first,pro_second,site" && posted[0].pro_first === "spring" && posted[0].pro_second === "summer" && posted[0].app_first === "spring");
   check("集計は 1件・1st 一致率 100%", /100%/.test(t) && /1 \/ 1 人/.test(t));
@@ -188,9 +201,10 @@ console.log("■ 同じ端末の2回目（不一致）は集計に入れない")
   await page.locator("#colorlab-root input[type=checkbox]").check();
   await page.getByRole("button", { name: /写真で診断して答え合わせする/ }).click();
   await runPhoto();
-  await page.waitForSelector("#colorlab-root >> text=ちがった！", { timeout: 15000 });
+  await page.waitForSelector("#colorlab-root >> text=プロとは異なる結果でした", { timeout: 15000 });
   await page.waitForSelector("#colorlab-root >> text=記録済み", { timeout: 10000 });
   const t = await page.locator("#colorlab-root").innerText();
+  check("不一致の文言「プロとは異なる結果でした（診断結果：イエベ春タイプ）」", /プロとは異なる結果でした\s*（診断結果：イエベ春タイプ）/.test(t));
   check("不一致の表示（プロ ブルベ冬 / アプリ イエベ春）", /プロ診断\s*ブルベ冬/.test(t) && /1st（いちばん似合うシーズン）が違いました/.test(t));
   check("「記録済み」の注記が出て、集計は 1件のまま", /記録済み/.test(t) && /1 \/ 1 人/.test(t));
   await page.waitForTimeout(800);
@@ -217,7 +231,7 @@ console.log("■ 別の端末の不一致は集計に入り、外れも表に残
   await p2.getByRole("button", { name: /カメラを起動する/ }).click();
   await p2.waitForSelector("#colorlab-root >> text=写真を選ぶ", { timeout: 10000 });
   await p2.locator("#colorlab-root input[type=file]").setInputFiles({ name: "ok.png", mimeType: "image/png", buffer: PHOTO_OK });
-  await p2.waitForSelector("#colorlab-root >> text=ちがった！", { timeout: 15000 });
+  await p2.waitForSelector("#colorlab-root >> text=プロとは異なる結果でした", { timeout: 15000 });
   await p2.waitForSelector("#colorlab-root >> text=1 / 2 人", { timeout: 10000 });
   const cell = await p2.locator("#colorlab-root table tbody tr").nth(1).locator("td").nth(1).innerText();
   check("2件目で 1st 一致率 50%（1/2）", /50%/.test(await p2.locator("#colorlab-root").innerText()));
@@ -287,6 +301,46 @@ console.log("■ 実施期間の表示と期間外（Worker の KOTAE_START / KO
   check("終了後: 入力画面の集計に「（終了しました）」", /（終了しました）/.test(await pg.locator("#colorlab-root").innerText()));
   await c.close();
   env.KOTAE_START = ""; env.KOTAE_END = "";
+}
+
+console.log("■ 集計を非公開にしているとき（Worker の KOTAE_STATS_PUBLIC が \"1\" 以外）");
+{
+  env.KOTAE_STATS_PUBLIC = "";
+  const c = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, acceptDownloads: true });
+  await c.route(ENDPOINT + "/**", routeWorker);
+  const pg = await c.newPage();
+  pg.on("pageerror", (e) => errors.push(String(e)));
+  const got = [];
+  pg.on("response", async (r) => { if (/\/campaign\//.test(r.url())) { try { got.push(await r.json()); } catch (e) {} } });
+  await pg.goto(CAMP, { waitUntil: "load" });
+  await pg.waitForSelector("#colorlab-root >> text=実施期間：", { timeout: 15000 });
+  const t0 = await pg.locator("#colorlab-root").innerText();
+  check("非公開: 入力画面に集計（みんなの答え合わせ・件数）を出さず、期間だけ出す", !/みんなの答え合わせ|人）|一致率/.test(t0) && /実施期間：/.test(t0));
+  await pg.waitForTimeout(800);
+  await pg.screenshot({ path: join(SHOTS, "k10_hidden_input.png"), fullPage: true });
+  await pg.getByRole("button", { name: "イエベ春", exact: true }).first().click();
+  await pg.locator("#colorlab-root input[type=checkbox]").check();
+  await pg.getByRole("button", { name: /写真で診断して答え合わせする/ }).click();
+  const bx = pg.locator("#colorlab-root input[type=checkbox]");
+  await pg.waitForSelector("#colorlab-root >> text=撮影条件（すべて必要です）", { timeout: 5000 });
+  for (let i = 0; i < await bx.count(); i++) await bx.nth(i).check();
+  await pg.getByRole("button", { name: /^地毛に近い$/ }).click();
+  await pg.getByRole("button", { name: /撮影にすすむ/ }).click();
+  await pg.getByRole("button", { name: /カメラを起動する/ }).click();
+  await pg.waitForSelector("#colorlab-root >> text=写真を選ぶ", { timeout: 10000 });
+  const before = db.prepare("SELECT COUNT(*) n FROM kotae_answers").get().n;
+  await pg.locator("#colorlab-root input[type=file]").setInputFiles({ name: "ok.png", mimeType: "image/png", buffer: PHOTO_OK });
+  await pg.waitForSelector("#colorlab-root >> text=プロと同じ診断結果でした！", { timeout: 15000 });
+  await pg.waitForTimeout(800);
+  const t1 = await pg.locator("#colorlab-root").innerText();
+  check("非公開: 結果画面にも集計の数字を出さない", !/みんなの答え合わせ|一致率|人）/.test(t1));
+  check("非公開: 回答は記録は続ける（D1 に1件増える）", db.prepare("SELECT COUNT(*) n FROM kotae_answers").get().n === before + 1);
+  check("非公開: API の応答に件数・一致率・行列が入っていない", got.length >= 2 && got.every((j) => j.stats && j.stats.hidden === true && !("total" in j.stats) && !("matrix" in j.stats)));
+  await pg.screenshot({ path: join(SHOTS, "k11_hidden_result.png"), fullPage: true });
+  const [dl] = await Promise.all([pg.waitForEvent("download"), pg.getByRole("button", { name: /ストーリー用の画像を保存/ }).click()]);
+  await dl.saveAs(join(SHOTS, "k12_hidden_story.png"));
+  await c.close();
+  env.KOTAE_STATS_PUBLIC = "1";
 }
 
 console.log("■ 写真画面の戻る");

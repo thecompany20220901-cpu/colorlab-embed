@@ -361,8 +361,8 @@ export async function routeMine(request, env, allowOrigins) {
 
     // 実施期間外は記録しない（集計・画面の表示はそのまま出せるよう stats は返す）
     const period = kotaePeriod(env);
-    if (period.status === "before") return json({ ok: false, reason: "not_started", stats: await kotaeStats(env, b.campaign) }, 403);
-    if (period.status === "ended") return json({ ok: false, reason: "ended", stats: await kotaeStats(env, b.campaign) }, 410);
+    if (period.status === "before") return json({ ok: false, reason: "not_started", stats: await publicStats(env, b.campaign) }, 403);
+    if (period.status === "ended") return json({ ok: false, reason: "ended", stats: await publicStats(env, b.campaign) }, 410);
 
     // 一致判定はサーバでやり直す（クライアントの申告した match は使わない）
     const firstMatch = b.pro_first === b.app_first ? 1 : 0;
@@ -376,7 +376,7 @@ export async function routeMine(request, env, allowOrigins) {
       recorded: !!(r.meta && r.meta.changes),   // false = この端末は記録済み（2回目以降は集計に入れない）
       first_match: !!firstMatch,
       full_match: fullMatch === null ? null : !!fullMatch,
-      stats: await kotaeStats(env, b.campaign),
+      stats: await publicStats(env, b.campaign),
     });
   }
 
@@ -420,7 +420,7 @@ export async function routeMine(request, env, allowOrigins) {
   if (path === "/campaign/stats" && request.method === "GET") {
     const c = url.searchParams.get("campaign") || "";
     if (!env.KOTAE_CAMPAIGN || c !== env.KOTAE_CAMPAIGN) return json({ ok: false, reason: "no_campaign" }, 404);
-    return json({ ok: true, stats: await kotaeStats(env, c) });
+    return json({ ok: true, stats: await publicStats(env, c) });
   }
 
   return json({ ok: false, reason: "not_found" }, 404);
@@ -436,6 +436,14 @@ export function kotaePeriod(env, nowMs = Date.now()) {
   if (!start || !end) return { start: null, end: null, status: "unset" };
   const today = new Date(nowMs + 9 * 3600 * 1000).toISOString().slice(0, 10);
   return { start, end, status: today < start ? "before" : today > end ? "ended" : "open" };
+}
+
+// 画面向けの集計。KOTAE_STATS_PUBLIC が "1" のときだけ数字を返す（2026-09-19 keisuke:
+// 回答が集まってから公開するか判断する）。非公開のあいだは件数も一致率も API から出さず、
+// 期間だけ返す。記録は続け、数字は承認画面（/admin）の集計タブで見る。
+export async function publicStats(env, campaign) {
+  if (String(env.KOTAE_STATS_PUBLIC || "") === "1") return kotaeStats(env, campaign);
+  return { hidden: true, period: kotaePeriod(env) };
 }
 
 // 集計。行列は 4x4 の全セルを 0 埋めで返す（件数の少ないセルも消さない）。
@@ -541,6 +549,12 @@ async function routeAdmin(request, env, path) {
       "FROM ec_applications a JOIN users u ON u.id = a.user_id WHERE a.status = ? ORDER BY a.id " + (st === "pending" ? "ASC" : "DESC") + " LIMIT 200"
     ).bind(st).all()).results || [];
     return json({ ok: true, applications: rows });
+  }
+
+  // GET /admin/api/kotae-stats — 答え合わせの集計（画面で非公開のあいだも、ここでは数字を見られる）
+  if (path === "/admin/api/kotae-stats" && request.method === "GET") {
+    if (!env.KOTAE_CAMPAIGN) return json({ ok: false, reason: "no_campaign" }, 404);
+    return json({ ok: true, campaign: env.KOTAE_CAMPAIGN, public: String(env.KOTAE_STATS_PUBLIC || "") === "1", stats: await kotaeStats(env, env.KOTAE_CAMPAIGN) });
   }
 
   let m;
