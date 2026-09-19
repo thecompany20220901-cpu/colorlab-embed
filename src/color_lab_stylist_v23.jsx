@@ -45,7 +45,7 @@ import { FAMILY_ORDER, COLOR_FAMILIES, COLOR_EN, CHIP_HEX, SKU_IMG } from "./col
 import { COLOR70, COLOR70_FAMILY_ORDER } from "./color70_data.js";
 // 商品マスタ item_{site}.csv の color 列（test/build_sku_colors.py が生成）
 import { SKU_COLORS } from "./sku_color_data.js";
-import { KotaeInput, KotaeResult } from "./kotaeawase.jsx";
+import { KotaeInput, KotaeResult, KotaeHomeBanner } from "./kotaeawase.jsx";
 import { MineAccount } from "./mine_account.jsx";
 
 const TYPE_FACE_IMG = { spring: FACE_SPRING, summer: FACE_SUMMER, autumn: FACE_AUTUMN, winter: FACE_WINTER };
@@ -3897,6 +3897,8 @@ export default function App({ campaign = null, account = false } = {}) {
                   <h1 className="font-serif text-3xl leading-tight mb-2" style={{ color: C.ink }}>パーソナルカラー<br />スタイリング</h1>
                   <p className="text-sm" style={{ color: C.sub }}>12タイプ診断から「今日に着る？」まで。</p>
                 </div>
+                {/* 答え合わせキャンペーンの入口（v1.22.3）。実施期間中だけ出る */}
+                <KotaeHomeBanner />
                 {T && (
                   <div className="mx-auto max-w-sm mt-4 rounded-2xl px-5 py-4 text-left" style={{ background: T.accent + "0d", border: `1px solid ${T.accent}33` }}>
                     <div className="text-sm font-medium" style={{ color: T.accent }}>おかえりなさい、{T.name}さん 🎨</div>

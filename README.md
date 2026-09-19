@@ -583,6 +583,16 @@ colorlab は設置先ごとに参照タグが違うので、**サイト別に書
   デプロイ済みの Worker バージョン: `cbeaaaae-1d11-480a-91e3-0dc078ccec3d`（2026-09-11・`GET /quota` 追加）。
   1つ前は `b2ff9dd7-0362-4758-8361-59e573af38dd`（2色配色の修正込み）で、戻すときは
   `wrangler rollback b2ff9dd7-0362-4758-8361-59e573af38dd`。`/quota` を消してもアプリは数字を出さないだけで壊れない。
+- **v1.22.3 はタグ発行済み・本番未切替**（2026-09-19）。GTM のタグを `@v1.22.2` → `@v1.22.3` に書き換えると反映
+  （IEBEL＝`GTM-WVFLHTNW` ／ BLUBEL＝`GTM-NN7QDLCH`・Keisuke作業）。ロールバックは `@v1.22.2` に戻すだけ。
+  中身: 通常の診断ページ（ホーム）に答え合わせキャンペーンの入口を追加（keisuke 2026-09-19「プロフィールのリンクから、どのボタンで入るか明示」）。
+  IG のプロフィールのリンク（4アカウントとも `www.blubel.jp/ig` / `www.iebel.jp/ig` → `/pages/personalcolor?utm_source=instagram…`）には
+  `?campaign=kotaeawase` が付かないため、それまで入口が LP のボタンだけだった。入口は集計 API の `period.status` が `open` のあいだだけ出る
+  （開始前・終了後・未設定・通信失敗では出さない＝期間が終われば再リリースなしで消える）。ボタン名と行き先は LP と同じ「答え合わせをはじめる」
+  → 今の URL に `campaign=kotaeawase` を足して開き直す（utm は残す）。バンドル 892,676B。
+  検証: kotaeawase 76/0（入口: 期間中だけ出る・開始前/終了後/未設定で出ない・最初の画面内・見出し1行・押すと答え合わせ入力）・card_smoke 49/0・mine_account 22/0。
+  本番ページでの確認: 両サイトの `/ig` を開き、jsDelivr の colorlab.iife.js だけ手元の dist に差し替え → 入口がファーストビューに出る・
+  押すと `…&campaign=kotaeawase` の答え合わせ入力・pageerror 0・回答送信 0（Downloads/kotae_campaign_capture_20260919/_rects_banner__20260919_203516.json）。
 - **v1.22.2 は両サイトとも本番切替済み・実測確認済み**（2026-09-19。Keisuke が GTM で `@v1.22.0` → `@v1.22.2`）。
   実測: 両サイトで `@v1.22.2` を読み込み・答え合わせ画面と通常ホーム OK・一致/不一致の文言（回答送信だけ検証ブラウザで止めて本番集計に入れずに確認）・pageerror 0。
   切替を確かめてから本番 Worker を `KOTAE_STATS_PUBLIC="0"`（集計非公開）で deploy → `96d4b0a3-2667-4c73-910c-cb2f92a91701`（1つ前 `dc9d550a`）。

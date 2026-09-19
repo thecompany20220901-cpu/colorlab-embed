@@ -283,6 +283,44 @@ export function KotaeStatsView({ stats }) {
   );
 }
 
+// 通常の診断ページ（ホーム）に出すキャンペーンの入口（v1.22.3・2026-09-19 keisuke 指示）。
+// IG のプロフィールのリンク（/ig → /pages/personalcolor）から来た人が、ここからキャンペーンに入れるようにする。
+// 表示は集計 API の period.status が "open" のあいだだけ（開始前・終了後・未設定・通信失敗では出さない）。
+// ボタンの文言と行き先は LP の「答え合わせをはじめる」と同じ（/pages/personalcolor?campaign=kotaeawase）。
+export function KotaeHomeBanner() {
+  const [open, setOpen] = useState(null); // null=確認中 / period / false
+  useEffect(() => {
+    let alive = true;
+    fetch(ENDPOINT + "/campaign/stats?campaign=" + encodeURIComponent(KOTAE.id))
+      .then((r) => r.json().then((j) => ({ ok: r.ok, j })))
+      .then(({ ok, j }) => {
+        const p = ok && j.ok && j.stats && j.stats.period;
+        if (alive) setOpen(p && p.status === "open" ? p : false);
+      })
+      .catch(() => alive && setOpen(false));
+    return () => { alive = false; };
+  }, []);
+  if (!open) return null;
+  const go = () => {
+    const q = new URLSearchParams(location.search);
+    q.set("campaign", "kotaeawase");
+    location.href = location.pathname + "?" + q.toString();
+  };
+  return (
+    <div data-kotae-banner="" style={{ margin: "16px auto 0", maxWidth: 384, borderRadius: 20, padding: "16px 18px 18px", textAlign: "center",
+      background: "#7D2E460d", border: "1.5px solid #7D2E4640", color: INK }}>
+      <div style={{ fontSize: 12, color: "#7D2E46", fontWeight: 600, letterSpacing: ".06em" }}>プロのパーソナルカラー診断を受けた方へ</div>
+      <div style={{ fontFamily: SERIF, fontSize: 17, margin: "6px 0 4px", whiteSpace: "nowrap" }}>答え合わせキャンペーン実施中</div>
+      <div style={{ fontSize: 12, color: SUB, lineHeight: 1.6 }}>プロの結果とアプリの結果を答え合わせ。参加した方の中から3名様に商品をプレゼント（{periodText(open)}）</div>
+      <button type="button" onClick={go}
+        style={{ width: "100%", marginTop: 12, padding: "14px 0", borderRadius: 999, border: "none", fontSize: 15, fontWeight: 600,
+          background: "#7D2E46", color: "#fff", cursor: "pointer" }}>
+        答え合わせをはじめる
+      </button>
+    </div>
+  );
+}
+
 // 入力画面の下に出す集計。30秒ごとに取り直す。
 export function KotaeStats() {
   const [s, setS] = useState({ state: "loading" });

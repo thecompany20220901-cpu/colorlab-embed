@@ -132,6 +132,36 @@ console.log("■ 通常ページは今までどおり（キャンペーン画面
   check("答え合わせの入力画面は出ない", !/答え合わせ/.test(t));
 }
 
+// v1.22.3: 通常ページ（IG のプロフィールのリンクの行き先）に、実施期間中だけキャンペーンの入口を出す
+console.log("■ 通常ページのキャンペーン入口（実施期間中だけ）");
+{
+  const iso = (d) => new Date(Date.now() + d * 86400000 + 9 * 3600000).toISOString().slice(0, 10);   // JST の日付
+  const cases = [["期間中", iso(-1), iso(1), true], ["開始前", iso(1), iso(3), false], ["終了後", iso(-3), iso(-1), false], ["未設定", null, null, false]];
+  for (const [name, s, e, want] of cases) {
+    if (s) { env.KOTAE_START = s; env.KOTAE_END = e; } else { delete env.KOTAE_START; delete env.KOTAE_END; }
+    await page.goto(PLAIN, { waitUntil: "load" });
+    await page.waitForSelector("#colorlab-root >> text=写真で診断", { timeout: 15000 });
+    await page.waitForTimeout(600);
+    const n = await page.locator("[data-kotae-banner]").count();
+    check(`${name}: 入口を${want ? "出す" : "出さない"}`, (n === 1) === want);
+    if (want) {
+      const b = page.locator("[data-kotae-banner]");
+      const bt = await b.innerText();
+      check("入口の文言（プロ診断を受けた方へ・実施中・期間・ボタン「答え合わせをはじめる」）",
+        /プロのパーソナルカラー診断を受けた方へ/.test(bt) && /答え合わせキャンペーン実施中/.test(bt) && /月\d+日（.）〜\d+月\d+日（.）/.test(bt) && /答え合わせをはじめる/.test(bt));
+      check("入口の見出しは1行（折り返さない）", await b.locator("div").nth(1).evaluate((e) => { const r = document.createRange(); r.selectNodeContents(e); return r.getClientRects().length === 1 && e.scrollWidth <= e.clientWidth + 1; }));
+      const box = await b.boundingBox();
+      check(`入口は最初の画面内（上端 ${Math.round(box.y)}px・下端 ${Math.round(box.y + box.height)}px < 844px）`, box.y + box.height < 844);
+      await page.screenshot({ path: join(SHOTS, "k00b_home_banner.png") });
+      await b.getByRole("button", { name: "答え合わせをはじめる" }).click();
+      await page.waitForSelector("#colorlab-root >> text=プロ診断の結果（1st）", { timeout: 10000 });
+      check("ボタンで ?campaign=kotaeawase の答え合わせ入力へ（LP のボタンと同じ行き先）", new URL(page.url()).searchParams.get("campaign") === "kotaeawase");
+      check("答え合わせ入力画面には入口を重ねて出さない", (await page.locator("[data-kotae-banner]").count()) === 0);
+    }
+  }
+  delete env.KOTAE_START; delete env.KOTAE_END;
+}
+
 async function runPhoto() {
   const boxes = page.locator("#colorlab-root input[type=checkbox]");
   await page.waitForSelector("#colorlab-root >> text=撮影条件（すべて必要です）", { timeout: 5000 });
