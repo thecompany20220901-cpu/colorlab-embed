@@ -39,7 +39,7 @@ const db = new DatabaseSync(":memory:");
 db.exec(readFileSync(join(HERE, "../worker/schema.sql"), "utf8"));
 const stmt = (sql, a = []) => ({ bind: (...b) => stmt(sql, b), first: async () => db.prepare(sql).get(...a) ?? null, all: async () => ({ results: db.prepare(sql).all(...a) }), run: async () => ({ meta: { changes: Number(db.prepare(sql).run(...a).changes) } }) });
 const kvm = new Map();
-const env = { DB: { prepare: (s) => stmt(s) }, SELFCARD_KV: { get: async (k) => kvm.get(k) ?? null, put: async (k, v) => { kvm.set(k, v); } }, KOTAE_CAMPAIGN: "kotae2026", KOTAE_STATS_PUBLIC: "1" };
+const env = { DB: { prepare: (s) => stmt(s) }, SELFCARD_KV: { get: async (k) => kvm.get(k) ?? null, put: async (k, v) => { kvm.set(k, v); } }, KOTAE_CAMPAIGN: "kotae2026b", KOTAE_STATS_PUBLIC: "1" };   // v1.22.4: 第2弾の ID
 const posted = [];
 async function routeWorker(route) {
   const r = route.request();
@@ -149,6 +149,7 @@ console.log("■ 通常ページのキャンペーン入口（実施期間中だ
       const bt = await b.innerText();
       check("入口の文言（プロ診断を受けた方へ・実施中・期間・ボタン「答え合わせをはじめる」）",
         /プロのパーソナルカラー診断を受けた方へ/.test(bt) && /答え合わせキャンペーン実施中/.test(bt) && /月\d+日（.）〜\d+月\d+日（.）/.test(bt) && /答え合わせをはじめる/.test(bt));
+      check("入口の当選人数: Worker が人数を返さないときは既定の2名様（v1.22.4）", /参加した方の中から2名様に商品をプレゼント/.test(bt));
       check("入口の見出しは1行（折り返さない）", await b.locator("div").nth(1).evaluate((e) => { const r = document.createRange(); r.selectNodeContents(e); return r.getClientRects().length === 1 && e.scrollWidth <= e.clientWidth + 1; }));
       const box = await b.boundingBox();
       check(`入口は最初の画面内（上端 ${Math.round(box.y)}px・下端 ${Math.round(box.y + box.height)}px < 844px）`, box.y + box.height < 844);
@@ -160,6 +161,19 @@ console.log("■ 通常ページのキャンペーン入口（実施期間中だ
     }
   }
   delete env.KOTAE_START; delete env.KOTAE_END;
+  // v1.22.4: 9/25 の夜に GTM を先に切り替えても、第1弾の最終日は第1弾の人数・期間を出す（Worker の KOTAE_ROUNDS）
+  env.KOTAE_ROUNDS = `kotae2026:${iso(-2)}:${iso(0)}:3,kotae2026b:${iso(1)}:${iso(9)}:2`;
+  for (const [name, want] of [["第1弾の最終日", 3], ["第2弾の初日", 2]]) {
+    if (want === 2) env.KOTAE_ROUNDS = `kotae2026:${iso(-3)}:${iso(-1)}:3,kotae2026b:${iso(0)}:${iso(8)}:2`;
+    await page.goto(PLAIN, { waitUntil: "load" });
+    await page.waitForSelector("#colorlab-root >> text=写真で診断", { timeout: 15000 });
+    await page.waitForTimeout(600);
+    const bt = (await page.locator("[data-kotae-banner]").count()) ? await page.locator("[data-kotae-banner]").innerText() : "";
+    const [, m, d] = (want === 2 ? iso(0) : iso(-2)).split("-").map(Number);
+    check(`${name}: 入口は ${want}名様・期間は ${m}月${d}日〜`, bt.includes(`${want}名様に商品をプレゼント`) && bt.includes(`${m}月${d}日（`));
+    if (want === 2) await page.screenshot({ path: join(SHOTS, "k00c_home_banner_round2.png") });
+  }
+  delete env.KOTAE_ROUNDS;
 }
 
 async function runPhoto() {

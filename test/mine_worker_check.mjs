@@ -378,6 +378,45 @@ console.log("■ 集計の非公開（KOTAE_STATS_PUBLIC が \"1\" 以外）と�
   check("公開（\"1\"）に戻すと数字を返す", pub.j.stats.total === dbBefore + 1 && !pub.j.stats.hidden);
 }
 
+console.log("■ 回（KOTAE_ROUNDS）: 第1弾はそのまま・第2弾は別集計（2026-09-21 keisuke）");
+{
+  const jst = (offsetDays) => new Date(Date.now() + 9 * 3600e3 + offsetDays * 86400e3).toISOString().slice(0, 10);
+  const good = { Authorization: "Bearer " + env.ADMIN_TOKEN };
+  env.KOTAE_STATS_PUBLIC = "1";
+  env.KOTAE_CAMPAIGN = "r1"; env.KOTAE_START = ""; env.KOTAE_END = "";
+  const ans = (camp, dev) => call("POST", "/campaign/answer", { body: { campaign: camp, device_id: "round_dev_" + dev.padStart(8, "0"), site: "blubel", pro_first: "summer", app_first: "summer", app_second: "winter" } });
+  const setDays = (a1, b1, a2, b2) => { env.KOTAE_ROUNDS = `r1:${jst(a1)}:${jst(b1)}:3, r2:${jst(a2)}:${jst(b2)}:2`; };
+  env.SELFCARD_KV._m.clear();
+  // 今日 = 第1弾の最終日（9/25 の夜に deploy した状態）
+  setDays(-6, 0, 1, 9);
+  const a = await ans("r1", "a");
+  check("第1弾の最終日は第1弾に記録（deploy の時刻で第1弾が締め切られない）", a.status === 200 && a.j.recorded === true && a.j.stats.period.start === jst(-6) && a.j.stats.period.winners === 3);
+  const a2 = await ans("r2", "a2");
+  check("第2弾の ID（v1.22.4）で来ても、今日は第1弾に記録", a2.status === 200 && a2.j.recorded === true && a2.j.stats.period.end === jst(0));
+  const sr2 = await call("GET", "/campaign/stats?campaign=r2");
+  check("stats はどちらの ID でも今日の回（第1弾・open・当選3）", sr2.status === 200 && sr2.j.stats.period.status === "open" && sr2.j.stats.period.winners === 3 && sr2.j.stats.total === 2);
+  // 翌日 = 第2弾の初日
+  setDays(-7, -1, 0, 8);
+  const b = await ans("r1", "a");
+  check("第2弾: 第1弾に参加した端末も記録される（別集計）・v1.22.3 の ID でも第2弾へ", b.status === 200 && b.j.recorded === true && b.j.stats.total === 1 && b.j.stats.period.winners === 2 && b.j.stats.period.start === jst(0));
+  const b2 = await ans("r2", "a");
+  check("第2弾: 同じ端末の2回目は記録しない", b2.status === 200 && b2.j.recorded === false && b2.j.stats.total === 1);
+  const unk = await ans("kotae_x", "zz");
+  check("一覧にない ID は 404", unk.status === 404);
+  const ad = await call("GET", "/admin/api/kotae-stats", { origin: null, headers: good });
+  check("承認画面: 省略時は今日の回（第2弾）・rounds に2回", ad.status === 200 && ad.j.campaign === "r2" && ad.j.current === "r2" && ad.j.rounds.length === 2 && ad.j.stats.total === 1 && ad.j.rounds[0].status === "ended" && ad.j.rounds[1].status === "open");
+  const ad1 = await call("GET", "/admin/api/kotae-stats?campaign=r1", { origin: null, headers: good });
+  check("承認画面: ?campaign=r1 で第1弾の集計（2件・期間は第1弾・ended）", ad1.status === 200 && ad1.j.stats.total === 2 && ad1.j.stats.period.status === "ended" && ad1.j.stats.period.winners === 3);
+  setDays(-20, -10, 1, 9);
+  const g = await call("GET", "/campaign/stats?campaign=r1");
+  check("回の間（どちらも期間外）は次の回を before で返す", g.j.stats.period.status === "before" && g.j.stats.period.start === jst(1));
+  setDays(-30, -20, -10, -2);
+  const z = await ans("r2", "zz");
+  check("全回の終了後は最後の回で 410 ended", z.status === 410 && z.j.stats.period.end === jst(-2));
+  env.KOTAE_ROUNDS = "";
+  env.KOTAE_CAMPAIGN = "kotae_test";
+}
+
 globalThis.fetch = realFetch;
 console.log(`\n${pass} OK / ${fail} NG`);
 

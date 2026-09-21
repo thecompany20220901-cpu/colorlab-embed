@@ -340,7 +340,9 @@ export async function routeMine(request, env, allowOrigins) {
   // ── 答え合わせキャンペーン ──
   if (path === "/campaign/answer" && request.method === "POST") {
     const b = await readJson(request);
-    if (!b || !env.KOTAE_CAMPAIGN || b.campaign !== env.KOTAE_CAMPAIGN) return json({ ok: false, reason: "no_campaign" }, 404);
+    // 第1弾・第2弾のどの ID で来ても、記録は「今日の回」に入れる（v1.22.3 は第1弾の ID のまま送ってくるため）
+    if (!b || !kotaeKnownId(env, b.campaign)) return json({ ok: false, reason: "no_campaign" }, 404);
+    const round = kotaeRound(env);
     const okSeason = (s) => SEASONS.includes(s);
     const proSecond = b.pro_second == null || b.pro_second === "" ? null : b.pro_second;
     if (!okSeason(b.pro_first) || !okSeason(b.app_first) || !okSeason(b.app_second) ||
@@ -361,8 +363,8 @@ export async function routeMine(request, env, allowOrigins) {
 
     // 実施期間外は記録しない（集計・画面の表示はそのまま出せるよう stats は返す）
     const period = kotaePeriod(env);
-    if (period.status === "before") return json({ ok: false, reason: "not_started", stats: await publicStats(env, b.campaign) }, 403);
-    if (period.status === "ended") return json({ ok: false, reason: "ended", stats: await publicStats(env, b.campaign) }, 410);
+    if (period.status === "before") return json({ ok: false, reason: "not_started", stats: await publicStats(env, round.id) }, 403);
+    if (period.status === "ended") return json({ ok: false, reason: "ended", stats: await publicStats(env, round.id) }, 410);
 
     // 一致判定はサーバでやり直す（クライアントの申告した match は使わない）
     const firstMatch = b.pro_first === b.app_first ? 1 : 0;
@@ -370,13 +372,13 @@ export async function routeMine(request, env, allowOrigins) {
     const r = await env.DB.prepare(
       "INSERT OR IGNORE INTO kotae_answers (campaign, device_id, site, pro_first, pro_second, app_first, app_second, first_match, full_match, created_at) " +
       "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
-    ).bind(b.campaign, b.device_id, site, b.pro_first, proSecond, b.app_first, b.app_second, firstMatch, fullMatch, now()).run();
+    ).bind(round.id, b.device_id, site, b.pro_first, proSecond, b.app_first, b.app_second, firstMatch, fullMatch, now()).run();
     return json({
       ok: true,
       recorded: !!(r.meta && r.meta.changes),   // false = この端末は記録済み（2回目以降は集計に入れない）
       first_match: !!firstMatch,
       full_match: fullMatch === null ? null : !!fullMatch,
-      stats: await publicStats(env, b.campaign),
+      stats: await publicStats(env, round.id),
     });
   }
 
@@ -419,8 +421,8 @@ export async function routeMine(request, env, allowOrigins) {
 
   if (path === "/campaign/stats" && request.method === "GET") {
     const c = url.searchParams.get("campaign") || "";
-    if (!env.KOTAE_CAMPAIGN || c !== env.KOTAE_CAMPAIGN) return json({ ok: false, reason: "no_campaign" }, 404);
-    return json({ ok: true, stats: await publicStats(env, c) });
+    if (!kotaeKnownId(env, c)) return json({ ok: false, reason: "no_campaign" }, 404);
+    return json({ ok: true, stats: await publicStats(env, kotaeRound(env).id) });
   }
 
   return json({ ok: false, reason: "not_found" }, 404);
@@ -430,12 +432,48 @@ export async function routeMine(request, env, allowOrigins) {
 // どちらかが空・形式違いなら "unset"（期間の制限なし）。日付が決まったら vars を変えて deploy するだけで、
 // アプリの再リリースは要らない（画面の期間表示もここから出す）。
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+const jstToday = (nowMs) => new Date(nowMs + 9 * 3600 * 1000).toISOString().slice(0, 10);
+
+// 回（第1弾・第2弾…）の一覧。KOTAE_ROUNDS = "ID:開始:終了:当選人数,ID:開始:終了:当選人数"（JST・両端含む）。
+// 2026-09-21 keisuke: 第1弾（kotae2026・9/19〜9/25・3名）はそのまま走らせ、第2弾（9/26〜10/4・2名）は別集計。
+// 空なら従来どおり KOTAE_CAMPAIGN / KOTAE_START / KOTAE_END の1回だけ（当選人数は返さない）
+export function kotaeRounds(env) {
+  const spec = String(env.KOTAE_ROUNDS || "").trim();
+  if (!spec) {
+    if (!env.KOTAE_CAMPAIGN) return [];
+    const start = DATE_RE.test(env.KOTAE_START || "") ? env.KOTAE_START : null;
+    const end = DATE_RE.test(env.KOTAE_END || "") ? env.KOTAE_END : null;
+    return [{ id: env.KOTAE_CAMPAIGN, start: start && end ? start : null, end: start && end ? end : null, winners: null }];
+  }
+  return spec.split(",").map((x) => x.trim()).filter(Boolean).map((x) => {
+    const [id, start, end, w] = x.split(":").map((v) => (v || "").trim());
+    const ok = DATE_RE.test(start) && DATE_RE.test(end);
+    return { id, start: ok ? start : null, end: ok ? end : null, winners: /^\d+$/.test(w || "") ? Number(w) : null };
+  }).filter((r) => r.id);
+}
+
+export const kotaeKnownId = (env, id) => !!id && kotaeRounds(env).some((r) => r.id === id);
+
+// 今日の回: 期間内の回 → 無ければ次に始まる回 → 無ければ最後に終わった回
+export function kotaeRound(env, nowMs = Date.now()) {
+  const rs = kotaeRounds(env);
+  if (rs.length <= 1) return rs[0] || null;
+  const t = jstToday(nowMs);
+  const dated = rs.filter((r) => r.start);
+  return dated.find((r) => r.start <= t && t <= r.end)
+    || dated.filter((r) => r.start > t).sort((a, b) => (a.start < b.start ? -1 : 1))[0]
+    || dated.sort((a, b) => (a.end < b.end ? 1 : -1))[0] || rs[rs.length - 1];
+}
+
+export function roundPeriod(r, nowMs = Date.now()) {
+  if (!r || !r.start || !r.end) return { start: null, end: null, status: "unset", ...(r && r.winners != null ? { winners: r.winners } : {}) };
+  const today = jstToday(nowMs);
+  return { start: r.start, end: r.end, status: today < r.start ? "before" : today > r.end ? "ended" : "open",
+           ...(r.winners != null ? { winners: r.winners } : {}) };
+}
+
 export function kotaePeriod(env, nowMs = Date.now()) {
-  const start = DATE_RE.test(env.KOTAE_START || "") ? env.KOTAE_START : null;
-  const end = DATE_RE.test(env.KOTAE_END || "") ? env.KOTAE_END : null;
-  if (!start || !end) return { start: null, end: null, status: "unset" };
-  const today = new Date(nowMs + 9 * 3600 * 1000).toISOString().slice(0, 10);
-  return { start, end, status: today < start ? "before" : today > end ? "ended" : "open" };
+  return roundPeriod(kotaeRound(env, nowMs), nowMs);
 }
 
 // 画面向けの集計。KOTAE_STATS_PUBLIC が "1" のときだけ数字を返す（2026-09-19 keisuke:
@@ -447,7 +485,7 @@ export async function publicStats(env, campaign) {
 }
 
 // 集計。行列は 4x4 の全セルを 0 埋めで返す（件数の少ないセルも消さない）。
-export async function kotaeStats(env, campaign) {
+export async function kotaeStats(env, campaign, nowMs = Date.now()) {
   const rows = (await env.DB.prepare(
     "SELECT pro_first, app_first, COUNT(*) AS n FROM kotae_answers WHERE campaign = ? GROUP BY pro_first, app_first"
   ).bind(campaign).all()).results || [];
@@ -469,7 +507,7 @@ export async function kotaeStats(env, campaign) {
     full_rate: ft ? fu / ft : null,
     matrix,
     last_at: tot.last_at || null,
-    period: kotaePeriod(env),
+    period: roundPeriod(kotaeRounds(env).find((r) => r.id === campaign) || kotaeRound(env, nowMs), nowMs),
   };
 }
 
@@ -553,8 +591,13 @@ async function routeAdmin(request, env, path) {
 
   // GET /admin/api/kotae-stats — 答え合わせの集計（画面で非公開のあいだも、ここでは数字を見られる）
   if (path === "/admin/api/kotae-stats" && request.method === "GET") {
-    if (!env.KOTAE_CAMPAIGN) return json({ ok: false, reason: "no_campaign" }, 404);
-    return json({ ok: true, campaign: env.KOTAE_CAMPAIGN, public: String(env.KOTAE_STATS_PUBLIC || "") === "1", stats: await kotaeStats(env, env.KOTAE_CAMPAIGN) });
+    // ?campaign=<回のID> でその回の集計（省略時は今日の回）。rounds は全回の一覧（管理画面の切替用）
+    const cur = kotaeRound(env);
+    if (!cur) return json({ ok: false, reason: "no_campaign" }, 404);
+    const want = new URL(request.url).searchParams.get("campaign") || cur.id;
+    if (!kotaeKnownId(env, want)) return json({ ok: false, reason: "no_campaign" }, 404);
+    return json({ ok: true, campaign: want, current: cur.id, public: String(env.KOTAE_STATS_PUBLIC || "") === "1",
+                  rounds: kotaeRounds(env).map((r) => ({ id: r.id, ...roundPeriod(r) })), stats: await kotaeStats(env, want) });
   }
 
   let m;

@@ -68,9 +68,10 @@ dl{display:grid;grid-template-columns:8em 1fr;gap:2px 10px;margin:0}dt{color:var
   function pct(r) { return r == null ? "—" : Math.round(r * 100) + "%"; }
 
   // 答え合わせの集計（画面で非公開のあいだも、ここでは数字を見られる）
-  function loadKotae() {
+  // 回（第1弾・第2弾…）が複数あるときは上に切替ボタン。省略時は今日の回
+  function loadKotae(campaign) {
     var list = $("list"); list.textContent = "読み込み中…";
-    api("/kotae-stats").then(function (r) {
+    api("/kotae-stats" + (campaign ? "?campaign=" + encodeURIComponent(campaign) : "")).then(function (r) {
       if (r.status === 401 || r.status === 429) { showLogin(r.status === 429 ? "失敗が続いたため1時間ロックされています" : "トークンが違います"); return null; }
       return r.json();
     }).then(function (j) {
@@ -78,10 +79,21 @@ dl{display:grid;grid-template-columns:8em 1fr;gap:2px 10px;margin:0}dt{color:var
       list.textContent = "";
       if (!j.ok) { list.appendChild(el("p", { class: "msg" }, "キャンペーンが設定されていません。")); return; }
       var s = j.stats, c = el("article", { class: "card", style: "grid-template-columns:1fr" }), d = el("div");
+      if (j.rounds && j.rounds.length > 1) {
+        var nav = el("div", { style: "display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px" });
+        j.rounds.forEach(function (r, i) {
+          var b = el("button", { type: "button", style: "padding:6px 12px;border-radius:8px;border:1px solid #d9cfd8;cursor:pointer;" + (r.id === j.campaign ? "background:#3a3340;color:#fff" : "background:#fff") },
+            "第" + (i + 1) + "弾（" + r.id + (r.id === j.current ? "・今日の回" : "") + "）");
+          b.addEventListener("click", function () { loadKotae(r.id); });
+          nav.appendChild(b);
+        });
+        d.appendChild(nav);
+      }
       d.appendChild(el("div", { style: "font-weight:600;margin-bottom:6px" }, "答え合わせ集計（" + j.campaign + "）"));
       d.appendChild(el("p", { class: "msg", style: "margin:0 0 8px" }, j.public ? "アプリの画面に公開中" : "アプリの画面では非公開（Worker の KOTAE_STATS_PUBLIC を \"1\" にすると公開）"));
       var dl = el("dl");
       row(dl, "実施期間", s.period && s.period.start ? s.period.start + " 〜 " + s.period.end + "（" + s.period.status + "）" : "未設定");
+      if (s.period && s.period.winners != null) row(dl, "当選人数", s.period.winners + "名（各サイト）");
       row(dl, "回答数", s.total);
       row(dl, "1st 一致", s.first_match + " / " + s.total + "（" + pct(s.first_rate) + "）");
       row(dl, "2nd まで一致", s.full_match + " / " + s.full_total + "（" + pct(s.full_rate) + "・2nd を入力した人）");

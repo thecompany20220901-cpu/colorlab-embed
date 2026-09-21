@@ -48,6 +48,11 @@ KOTAE_CAMPAIGN = "kotae2026"
 # 2026-09-19 keisuke 確定: 2026-09-19（当日）〜 2026-09-25 の7日間
 KOTAE_START = "2026-09-19"
 KOTAE_END = "2026-09-25"
+# 2026-09-21 keisuke: 第1弾（上の ID・期間・各サイト3名）は 9/25 まで今のまま。第2弾は別集計で 9/26〜10/4・各サイト2名。
+# KOTAE_ROUNDS が空でなければ、上の KOTAE_CAMPAIGN / KOTAE_START / KOTAE_END より優先（"ID:開始:終了:当選人数" をカンマ区切り）。
+# 日付で「今日の回」を選ぶので、9/25 の何時に deploy しても第1弾は 23:59 まで続き、9/26 0:00 から第2弾になる。
+# アプリは v1.22.3 = kotae2026 / v1.22.4 = kotae2026b を送るが、どちらも今日の回に記録する
+KOTAE_ROUNDS = "kotae2026:2026-09-19:2026-09-25:3,kotae2026b:2026-09-26:2026-10-04:2"
 # 画面に集計（件数・一致率）を出すか。"1" のときだけ公開。それ以外は API も数字を返さない（記録は続ける・/admin で見られる）。
 # 2026-09-19 keisuke: 一旦非表示（回答が集まってから公開するか判断）。v1.22.1 以前のアプリは非公開の応答で
 # 画面が壊れるため、GTM が両サイト @v1.22.2 になったのを実測で確かめてから "0" にした（2026-09-19）
@@ -83,6 +88,7 @@ MAIL_FROM_IEBEL = "IEBEL Color Lab <iebel@mail.blubeliebel.co.jp>"
 KOTAE_CAMPAIGN = "kotae2026"
 KOTAE_START = ""
 KOTAE_END = ""
+KOTAE_ROUNDS = ""
 KOTAE_STATS_PUBLIC = "0"
 # ステージング用ビルドを手元で開く検証ページ（npx vite preview 等）
 EXTRA_ALLOW_ORIGINS = "http://localhost:4173"

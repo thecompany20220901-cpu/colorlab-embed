@@ -18,7 +18,10 @@ import { MINE_ENDPOINT as ENDPOINT } from "./mine_api.js";
 // キャンペーン内容（2026-09-19 keisuke 確定）。実施期間は日付が決まってから Worker の
 // KOTAE_START / KOTAE_END に入れ、画面は集計 API（stats.period）から表示する（アプリの再リリース不要）。
 export const KOTAE = {
-  id: "kotae2026",       // Worker の KOTAE_CAMPAIGN と一致させる
+  // v1.22.4（2026-09-21 keisuke）: 第2弾（9/26〜10/4・各サイト2名）は別集計。Worker の KOTAE_ROUNDS に載っている ID。
+  // Worker は第1弾・第2弾どちらの ID でも「今日の回」に記録するので、GTM の切替時刻に左右されない
+  id: "kotae2026b",
+  winners: 2,            // 当選人数の既定値（Worker が period.winners を返せばそちらを表示）
   hashtag: "#答え合わせキャンペーン #ColorLabMINE",
   // メンション先は診断結果で出し分ける（ブルベ → @blube_lab / イエベ → @iebe_lab）。
   // 「診断結果」はストーリー画像を作ったアプリの結果（写真で診断の 1st）で判定する
@@ -311,7 +314,7 @@ export function KotaeHomeBanner() {
       background: "#7D2E460d", border: "1.5px solid #7D2E4640", color: INK }}>
       <div style={{ fontSize: 12, color: "#7D2E46", fontWeight: 600, letterSpacing: ".06em" }}>プロのパーソナルカラー診断を受けた方へ</div>
       <div style={{ fontFamily: SERIF, fontSize: 17, margin: "6px 0 4px", whiteSpace: "nowrap" }}>答え合わせキャンペーン実施中</div>
-      <div style={{ fontSize: 12, color: SUB, lineHeight: 1.6 }}>プロの結果とアプリの結果を答え合わせ。参加した方の中から3名様に商品をプレゼント（{periodText(open)}）</div>
+      <div style={{ fontSize: 12, color: SUB, lineHeight: 1.6 }}>プロの結果とアプリの結果を答え合わせ。参加した方の中から{open.winners ?? KOTAE.winners}名様に商品をプレゼント（{periodText(open)}）</div>
       <button type="button" onClick={go}
         style={{ width: "100%", marginTop: 12, padding: "14px 0", borderRadius: 999, border: "none", fontSize: 15, fontWeight: 600,
           background: "#7D2E46", color: "#fff", cursor: "pointer" }}>
