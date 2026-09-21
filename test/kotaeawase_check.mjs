@@ -92,7 +92,7 @@ for (const [site, lpBody] of Object.entries(LPS)) {
     lpText.includes("研究所監修12タイプ別パーソナルカラー診断！") && lpText.includes("プロ診断実証キャンペーン！") &&
     lpText.includes("プロのパーソナルカラー診断を受けたことがある方へ") &&
     lpText.includes("プロに診断されたあなたの色を、研究所監修の12タイプ診断でも同じように導き出せるか。その場で確かめられます。"));
-  check(`${L}: 景品「3名様に、${L}商品1点をプレゼント！」・候補10点から選べる`, lpText.includes(`3名様に、${L}商品1点をプレゼント！`) && /候補10点から/.test(lpText));
+  check(`${L}: 景品「2名様に、${L}商品1点をプレゼント！」・候補10点から選べる`, lpText.includes(`2名様に、${L}商品1点をプレゼント！`) && /候補10点から/.test(lpText));
   const items = PRIZES[site];
   const okItems = items.every((it) => lpText.includes(`href="/item/${it.item_id}"`) && lpText.includes(`src="${it.image}"`) && lpText.includes(`¥${it.price.toLocaleString("en-US")}`));
   check(`${L}: 候補10点（item_id・画像URL・価格）が JSON どおり`, items.length === 10 && okItems);
@@ -101,8 +101,8 @@ for (const [site, lpBody] of Object.entries(LPS)) {
      "その場で結果が分かる", "プロの診断とアプリの診断が「同じタイプ」だったかどうか、その場で表示されます", "結果画像をSNSに投稿", "保存した画像をストーリーに投稿し、指定ハッシュタグと指定アカウントをメンション"].every((x) => lpText.includes(x)));
   check(`${L}: 「みんなの結果」セクションが無い`, !/みんなの|一致率|リアルタイム/.test(lpText));
   check(`${L}: ハッシュタグ・メンション・当選発表`, /#答え合わせキャンペーン #ColorLabMINE/.test(lpText) && /ブルベの方は @blube_lab、イエベの方は @iebe_lab/.test(lpText) && /両アカウントのストーリーで当選者にDMでご連絡します/.test(lpText));
-  // 2026-09-19 keisuke 確定: 2026-09-19〜09-25（Worker の KOTAE_START / KOTAE_END と同じ）
-  check(`${L}: 「未定」「在庫」が無い・期間は 2026年9月19日〜9月25日（記入欄が残っていない）`, !/未定|在庫|開始日確定後に記入/.test(lpText) && lpText.includes("<dt>期間</dt><dd>2026年9月19日〜9月25日（7日間）</dd>"));
+  // 2026-09-21 keisuke 変更: 2026-09-26〜10-04（Worker の KOTAE_START / KOTAE_END と同じ）・当選 3名様 → 2名様
+  check(`${L}: 「未定」「在庫」が無い・期間は 2026年9月26日（土）〜10月4日（日）（記入欄が残っていない）`, !/未定|在庫|開始日確定後に記入/.test(lpText) && lpText.includes("<dt>期間</dt><dd>2026年9月26日（土）〜10月4日（日）（9日間）</dd>"));
 }
 check("IEBEL の候補は BLUBEL と同じ商品・同じ価格の IEBEL 版", PRIZES.iebel.every((it, i) => it.price === PRIZES.blubel[i].price && it.name === PRIZES.blubel[i].name && it.item_id !== PRIZES.blubel[i].item_id));
 

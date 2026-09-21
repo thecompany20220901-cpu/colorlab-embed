@@ -76,7 +76,11 @@ def yen(n):
     return "¥{:,}".format(n)
 
 
-def build(site, prizes, period_html):
+# 当選人数（各サイト）。2026-09-21 keisuke 変更: 3名様 → 2名様
+WIN = "2名様"
+
+
+def build(site, prizes, period_html, days=7):
     b = BRAND[site]
     e = html.escape
     steps = "\n".join(
@@ -99,7 +103,7 @@ def build(site, prizes, period_html):
     <div class="kt-eyebrow">プロのパーソナルカラー診断を受けたことがある方へ</div>
     <h1><span class="kt-h1a">研究所監修12タイプ別パーソナルカラー診断！</span><span class="kt-h1b">プロ診断実証キャンペーン！</span></h1>
     <p class="kt-lead">プロに診断されたあなたの色を、研究所監修の12タイプ診断でも同じように導き出せるか。その場で確かめられます。</p>
-    <div class="kt-prize"><b>3名様に、{b["name"]}商品1点をプレゼント！</b><span>下の候補10点から、当選した方がお好きな1点を選べます</span></div>
+    <div class="kt-prize"><b>{WIN}に、{b["name"]}商品1点をプレゼント！</b><span>下の候補10点から、当選した方がお好きな1点を選べます</span></div>
   </div>
 
   <h2>参加のしかた</h2>
@@ -117,9 +121,9 @@ def build(site, prizes, period_html):
 
   <h2>応募要項</h2>
   <dl>
-    <dt>期間</dt><dd>{period_html}（7日間）</dd>
+    <dt>期間</dt><dd>{period_html}（{days}日間）</dd>
     <dt>対象</dt><dd>プロのパーソナルカラー診断を受けたことがある方</dd>
-    <dt>賞品</dt><dd>{b["name"]}商品1点（上のプレゼント候補10点から、当選した方が選べます）を抽選で3名様</dd>
+    <dt>賞品</dt><dd>{b["name"]}商品1点（上のプレゼント候補10点から、当選した方が選べます）を抽選で{WIN}</dd>
     <dt>応募条件</dt><dd>答え合わせの結果画像をストーリーに投稿し、#答え合わせキャンペーン #ColorLabMINE を付けて、アプリの結果がブルベの方は @blube_lab、イエベの方は @iebe_lab をメンション</dd>
     <dt>当選発表</dt><dd>期間終了後、@blube_lab・@iebe_lab 両アカウントのストーリーで当選者にDMでご連絡します。あわせてアカウント上で当選人数・結果を告知します。</dd>
   </dl>
@@ -145,12 +149,13 @@ def header(site):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--period", help="例: 9月21日（月）〜9月27日（日）")
+    ap.add_argument("--days", type=int, default=7, help="実施日数（期間欄の「（N日間）」）")
     ap.add_argument("--paste-dir", help="Fulmo 貼り付け用（コメントなし）の出力先")
     a = ap.parse_args()
     data = json.loads((HERE / "kotaeawase_prizes.json").read_text(encoding="utf-8"))
     period_html = html.escape(a.period) if a.period else PERIOD_TODO
     for site in ("blubel", "iebel"):
-        body = build(site, data[site], period_html)
+        body = build(site, data[site], period_html, a.days)
         assert "<script" not in body.lower() and not re.search(r'href="https?:', body)
         (HERE / f"kotaeawase_lp_{site}.html").write_text(header(site) + body, encoding="utf-8", newline="\n")
         if a.paste_dir:
