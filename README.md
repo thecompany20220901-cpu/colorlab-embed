@@ -588,7 +588,8 @@ colorlab は設置先ごとに参照タグが違うので、**サイト別に書
   （IEBEL＝`GTM-WVFLHTNW` ／ BLUBEL＝`GTM-NN7QDLCH`・Keisuke作業）。ロールバックは `@v1.22.3` に戻すだけ（v1.22.3 は新旧どちらの Worker でも動く）。
   中身: 答え合わせキャンペーン第2弾（keisuke 2026-09-21）。アプリのキャンペーンID `kotae2026b`・入口の当選人数は Worker の `period.winners`（無ければ2）。
   Worker は `KOTAE_ROUNDS`（JST の日付で「今日の回」を選ぶ・第1弾 `kotae2026` 9/19〜9/25 3名／第2弾 `kotae2026b` 9/26〜10/4 2名・集計は回ごと・どちらの ID でも今日の回に記録）。
-  **順番: Worker deploy → GTM 切替**（逆だと旧 Worker が `kotae2026b` を知らず入口が消える）。Worker は 2026-09-26 に deploy（手順書の 9/25 夜から1日遅れ）。
+  **順番: Worker deploy → GTM 切替**（逆だと旧 Worker が `kotae2026b` を知らず入口が消える）。Worker は 2026-09-26 17:55 に deploy → `5e306c25-054a-4ed3-b637-8764905be2fc`（1つ前＝第1弾のみ `dc24c9ac-57c3-4558-a41a-a728ae29cdf9`・戻すときは `wrangler rollback dc24c9ac-…`）。
+  deploy 後の実測: `/campaign/stats?campaign=kotae2026` と `kotae2026b` がどちらも period 9/26〜10/4・open・winners 2／D1 の `kotae2026` は 30件のまま。
   第1弾の最終件数（deploy 前に本番 D1 で数えた値）: `kotae2026` 30件（blubel 26 / iebel 4）。
   検証: worker 100/100・kotaeawase 79/79・mine_account 22/22・wrangler dry-run OK。
 - **v1.22.3 はタグ発行済み・本番切替済み（2026-09-26 実測で両 GTM コンテナとも `@v1.22.3`）・以下は発行時の記録**（2026-09-19）。GTM のタグを `@v1.22.2` → `@v1.22.3` に書き換えると反映
