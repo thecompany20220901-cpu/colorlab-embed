@@ -104,7 +104,15 @@ for (const [site, lpBody] of Object.entries(LPS)) {
   // 2026-09-21 keisuke 変更: 2026-09-26〜10-04（Worker の KOTAE_START / KOTAE_END と同じ）・当選 3名様 → 2名様
   check(`${L}: 「未定」「在庫」が無い・期間は 2026年9月26日（土）〜10月4日（日）（記入欄が残っていない）`, !/未定|在庫|開始日確定後に記入/.test(lpText) && lpText.includes("<dt>期間</dt><dd>2026年9月26日（土）〜10月4日（日）（9日間）</dd>"));
 }
-check("IEBEL の候補は BLUBEL と同じ商品・同じ価格の IEBEL 版", PRIZES.iebel.every((it, i) => it.price === PRIZES.blubel[i].price && it.name === PRIZES.blubel[i].name && it.item_id !== PRIZES.blubel[i].item_id));
+// 2026-09-27 keisuke: IEBEL が BLUBEL と同じ商品・同じ写真だったのは誤り → IEBEL 独自の10点 (v6)。旧チェック「同じ商品の IEBEL 版」は廃止
+{
+  // 商品名は見ない: keisuke 指定の 1943 は BLUBEL 1911 と同名の IEBEL 版 (写真は別)
+  const bImg = new Set(PRIZES.blubel.map((it) => it.image)), bId = new Set(PRIZES.blubel.map((it) => it.item_id));
+  check("IEBEL の候補は BLUBEL と別の写真・別の item_id (重複 0)・10点・価格は正の数",
+    PRIZES.iebel.length === 10 && new Set(PRIZES.iebel.map((it) => it.item_id)).size === 10 &&
+    new Set(PRIZES.iebel.map((it) => it.image)).size === 10 &&
+    PRIZES.iebel.every((it) => !bImg.has(it.image) && !bId.has(it.item_id) && it.price > 0));
+}
 
 const browser = await chromium.launch();
 const ctx = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, acceptDownloads: true });
