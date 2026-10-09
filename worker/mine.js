@@ -369,10 +369,14 @@ export async function routeMine(request, env, allowOrigins) {
     // 一致判定はサーバでやり直す（クライアントの申告した match は使わない）
     const firstMatch = b.pro_first === b.app_first ? 1 : 0;
     const fullMatch = proSecond === null ? null : (firstMatch && proSecond === b.app_second ? 1 : 0);
+    // v1.22.5〜: 校正用の付帯情報（数値のみ）。どれも不正なら NULL にするだけで、回答そのものは落とさない。
+    // v1.22.4 以前はこれらを送らないので、すべて NULL で今までどおり記録される
+    const extra = kotaeExtra(b);
     const r = await env.DB.prepare(
-      "INSERT OR IGNORE INTO kotae_answers (campaign, device_id, site, pro_first, pro_second, app_first, app_second, first_match, full_match, created_at) " +
-      "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
-    ).bind(round.id, b.device_id, site, b.pro_first, proSecond, b.app_first, b.app_second, firstMatch, fullMatch, now()).run();
+      "INSERT OR IGNORE INTO kotae_answers (campaign, device_id, site, pro_first, pro_second, app_first, app_second, first_match, full_match, created_at, " +
+      "app_version, method, measure_json, captured_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+    ).bind(round.id, b.device_id, site, b.pro_first, proSecond, b.app_first, b.app_second, firstMatch, fullMatch, now(),
+           extra.app_version, extra.method, extra.measure_json, extra.captured_at).run();
     return json({
       ok: true,
       recorded: !!(r.meta && r.meta.changes),   // false = この端末は記録済み（2回目以降は集計に入れない）
@@ -483,6 +487,43 @@ export async function publicStats(env, campaign) {
   if (String(env.KOTAE_STATS_PUBLIC || "") === "1") return kotaeStats(env, campaign);
   return { hidden: true, period: kotaePeriod(env) };
 }
+
+// 答え合わせ回答の付帯情報（v1.22.5〜・2026-10-09 keisuke）。写真は受け取らない・数値だけ。
+// measure_json は 2KB 以下・JSON として読める・数値はすべて有限値 のときだけ残す。
+// 文字列は短い識別子（refHex・conf 等）だけを想定し、64文字を超えるものがあれば丸ごと捨てる。
+export const KOTAE_MEASURE_MAX = 2048;
+export function kotaeExtra(b) {
+  const out = { app_version: null, method: null, measure_json: null, captured_at: null };
+  if (!b || typeof b !== "object") return out;
+  if (typeof b.app_version === "string" && /^\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(b.app_version)) out.app_version = b.app_version;
+  if (b.method === "photo" || b.method === "quiz") out.method = b.method;
+  let m = b.measure_json;
+  if (m == null || m === "") return out;
+  let text;
+  try { text = typeof m === "string" ? m : JSON.stringify(m); } catch (e) { return out; }
+  if (typeof text !== "string" || new TextEncoder().encode(text).length > KOTAE_MEASURE_MAX) return out;
+  let obj;
+  try { obj = JSON.parse(text); } catch (e) { return out; }
+  if (!obj || typeof obj !== "object" || Array.isArray(obj)) return out;
+  const ok = (v, depth) => {
+    if (v === null || typeof v === "boolean") return true;
+    if (typeof v === "number") return Number.isFinite(v);
+    if (typeof v === "string") return v.length <= 64;
+    if (depth > 3 || typeof v !== "object") return false;
+    return (Array.isArray(v) ? v : Object.values(v)).every((x) => ok(x, depth + 1));
+  };
+  if (!ok(obj, 0)) return out;
+  out.measure_json = JSON.stringify(obj);
+  if (typeof obj.ts === "string" && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d{1,3})?Z$/.test(obj.ts)) out.captured_at = obj.ts;
+  return out;
+}
+
+// CSV の1セル（" と改行を含むものは囲む）
+const csvCell = (v) => {
+  if (v == null) return "";
+  const s = String(v);
+  return /[",\r\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
+};
 
 // 集計。行列は 4x4 の全セルを 0 埋めで返す（件数の少ないセルも消さない）。
 export async function kotaeStats(env, campaign, nowMs = Date.now()) {
@@ -598,6 +639,25 @@ async function routeAdmin(request, env, path) {
     if (!kotaeKnownId(env, want)) return json({ ok: false, reason: "no_campaign" }, 404);
     return json({ ok: true, campaign: want, current: cur.id, public: String(env.KOTAE_STATS_PUBLIC || "") === "1",
                   rounds: kotaeRounds(env).map((r) => ({ id: r.id, ...roundPeriod(r) })), stats: await kotaeStats(env, want) });
+  }
+
+  // GET /admin/api/kotae-answers.csv?campaign=<回のID> — 回答の CSV（admin 認証内だけ。公開 API には出さない）
+  // device_id は先頭6文字だけ出す（同一端末の突き合わせには足りる・端末 ID そのものは持ち出さない）
+  if (path === "/admin/api/kotae-answers.csv" && request.method === "GET") {
+    const cur = kotaeRound(env);
+    const want = new URL(request.url).searchParams.get("campaign") || (cur && cur.id);
+    if (!kotaeKnownId(env, want)) return json({ ok: false, reason: "no_campaign" }, 404);
+    const rows = (await env.DB.prepare(
+      "SELECT id, campaign, site, pro_first, pro_second, app_first, app_second, first_match, full_match, created_at, " +
+      "substr(device_id, 1, 6) AS device6, app_version, method, measure_json, captured_at FROM kotae_answers WHERE campaign = ? ORDER BY id"
+    ).bind(want).all()).results || [];
+    const cols = ["id", "campaign", "site", "pro_first", "pro_second", "app_first", "app_second", "first_match", "full_match", "created_at", "device6",
+                  "app_version", "method", "measure_json", "captured_at"];
+    const body = "﻿" + [cols.join(",")].concat(rows.map((r) => cols.map((c) => csvCell(r[c])).join(","))).join("\r\n") + "\r\n";
+    return new Response(body, { headers: Object.assign({
+      "Content-Type": "text/csv; charset=utf-8",
+      "Content-Disposition": 'attachment; filename="kotae_answers_' + want + '.csv"',
+    }, sec) });
   }
 
   let m;

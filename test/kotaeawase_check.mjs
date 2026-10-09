@@ -208,6 +208,7 @@ console.log("■ ?campaign=kotaeawase：入力 → 写真で診断 → 一致");
 
   const start = page.getByRole("button", { name: /結果の選択と確認をしてください/ });
   check("未入力のうちは開始ボタンが無効", await start.isDisabled());
+  check("同意文の1行（計測値も送信・写真は保存しない）", (await page.locator("#colorlab-root").innerText()).includes("診断時の計測値(数値のみ・写真は保存されません)も、精度改善のため一緒に送信されます。"));
   await page.locator("#colorlab-root").getByRole("button", { name: "イエベ春", exact: true }).first().click();
   check("1st だけ選んでも確認チェック前は無効", await page.getByRole("button", { name: /結果の選択と確認をしてください/ }).isDisabled());
   // 2nd の並びは「言われていない / 1st 以外の3つ」。ブルベ夏は 2nd 側の1つ目
@@ -227,7 +228,17 @@ console.log("■ ?campaign=kotaeawase：入力 → 写真で診断 → 一致");
   check("アプリの結果は既存エンジンの判定（イエベ春 / 2nd ブルベ夏）", /アプリ（写真で診断）\s*イエベ春\s*2nd：ブルベ夏/.test(t));
   check("一致の文言「プロと同じ診断結果でした！」", /プロと同じ診断結果でした！/.test(t) && /1st（いちばん似合うシーズン）が一致しました/.test(t));
   check("通常の結果ページ（タイプです！）には行かない", !/タイプです！/.test(t));
-  check("送信内容はタイプ名だけ（写真なし）", posted.length === 1 && Object.keys(posted[0]).sort().join() === "app_first,app_second,campaign,device_id,pro_first,pro_second,site" && posted[0].pro_first === "spring" && posted[0].pro_second === "summer" && posted[0].app_first === "spring");
+  check("送信内容はタイプ名＋版・方式・計測値（v1.22.5）", posted.length === 1 && Object.keys(posted[0]).sort().join() === "app_first,app_second,app_version,campaign,device_id,measure_json,method,pro_first,pro_second,site" && posted[0].pro_first === "spring" && posted[0].pro_second === "summer" && posted[0].app_first === "spring");
+  {
+    const m = posted[0].measure_json || {};
+    const nums = [m.axes && m.axes.warmth, m.axes && m.axes.lightness, m.axes && m.axes.clarity].concat(m.metrics ? ["L", "a", "b", "chroma", "contrast", "hairL"].map((k) => m.metrics[k]) : []);
+    check("計測値は校正ログ形式（v/ts/first/second/axes/metrics/wb/dyed/conf）・数値は有限", posted[0].app_version === "1.22.5" && posted[0].method === "photo" &&
+      Object.keys(m).sort().join() === "axes,conf,dyed,first,metrics,second,ts,v,wb" && m.first === "spring" && nums.length === 9 && nums.every((x) => typeof x === "number" && Number.isFinite(x)) &&
+      /^#[0-9a-f]{6}$/.test(m.wb.refHex) && ["r", "g", "b"].every((k) => Number.isFinite(m.wb.gain[k])) && Number.isFinite(m.wb.cast) && m.dyed === false);
+    check("写真のデータは送らない（送信本文 2KB 未満・data: / base64 なし）", JSON.stringify(posted[0]).length < 2048 && !/data:|base64|iVBOR/.test(JSON.stringify(posted[0])));
+    const row = db.prepare("SELECT app_version, method, measure_json, captured_at FROM kotae_answers ORDER BY id DESC LIMIT 1").get();
+    check("D1 に版・photo・計測値・計測時刻が入る", row.app_version === "1.22.5" && row.method === "photo" && JSON.parse(row.measure_json).metrics.L === m.metrics.L && row.captured_at === m.ts);
+  }
   check("集計は 1件・1st 一致率 100%", /100%/.test(t) && /1 \/ 1 人/.test(t));
   check("応募方法: ハッシュタグ2つ・メンションはアプリの結果（イエベ春）→ @iebe_lab", /#答え合わせキャンペーン #ColorLabMINE を付けて\s*@iebe_lab をメンションしてください/.test(t));
   check("実施期間（Worker 未設定）は「近日お知らせします」", /実施期間：近日お知らせします/.test(t));

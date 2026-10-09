@@ -110,6 +110,19 @@ dl{display:grid;grid-template-columns:8em 1fr;gap:2px 10px;margin:0}dt{color:var
         t.appendChild(tr);
       });
       d.appendChild(t);
+      // 回答の CSV（計測値の列つき）。Bearer を付けて取得し、blob で保存させる
+      var dlb = el("button", { type: "button", style: "margin-top:12px;padding:6px 12px;border-radius:8px;border:1px solid #d9cfd8;background:#fff;cursor:pointer" }, "回答を CSV で保存（" + j.campaign + "）");
+      dlb.addEventListener("click", function () {
+        api("/kotae-answers.csv?campaign=" + encodeURIComponent(j.campaign)).then(function (r) {
+          if (!r.ok) throw new Error(String(r.status));
+          return r.blob();
+        }).then(function (b) {
+          var u = URL.createObjectURL(b), a = el("a", { href: u, download: "kotae_answers_" + j.campaign + ".csv" });
+          document.body.appendChild(a); a.click(); a.remove();
+          setTimeout(function () { URL.revokeObjectURL(u); }, 1000);
+        }).catch(function () { alert("CSV の取得に失敗しました。"); });
+      });
+      d.appendChild(dlb);
       c.appendChild(d); list.appendChild(c);
     }).catch(function () { list.textContent = "読み込みに失敗しました。"; });
   }

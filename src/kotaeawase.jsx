@@ -21,6 +21,8 @@ export const KOTAE = {
   // v1.22.4（2026-09-21 keisuke）: 第2弾（9/26〜10/4・各サイト2名）は別集計。Worker の KOTAE_ROUNDS に載っている ID。
   // Worker は第1弾・第2弾どちらの ID でも「今日の回」に記録するので、GTM の切替時刻に左右されない
   id: "kotae2026b",
+  // 回答に添えるアプリの版（v1.22.5〜・2026-10-09）。リリースのたびにタグと揃える
+  appVersion: "1.22.5",
   winners: 2,            // 当選人数の既定値（Worker が period.winners を返せばそちらを表示）
   hashtag: "#答え合わせキャンペーン #ColorLabMINE",
   // メンション先は診断結果で出し分ける（ブルベ → @blube_lab / イエベ → @iebe_lab）。
@@ -132,6 +134,9 @@ export function KotaeInput({ onStart }) {
       <p style={{ fontSize: 11, color: FAINT, lineHeight: 1.7, marginTop: 12 }}>
         写真はこの端末の中だけで解析し、送信・保存しません。集計に使うのはタイプ名（プロの結果とアプリの結果）だけで、1台の端末につき最初の1回だけを数えます。
       </p>
+      <p style={{ fontSize: 11, color: FAINT, lineHeight: 1.7, marginTop: 4 }}>
+        診断時の計測値(数値のみ・写真は保存されません)も、精度改善のため一緒に送信されます。
+      </p>
       <div style={{ marginTop: 22 }}>
         <KotaeStats />
       </div>
@@ -151,7 +156,9 @@ export function KotaeResult({ pro, app, site, onRetry }) {
     sent.current = true;
     fetch(ENDPOINT + "/campaign/answer", {
       method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ campaign: KOTAE.id, device_id: deviceId(), site, pro_first: pro.first, pro_second: pro.second, app_first: app.first, app_second: app.second }),
+      // v1.22.5〜: 版・診断方式・計測値（数値だけ）を添える。答え合わせの流れは「写真で診断」だけなので method は photo
+      body: JSON.stringify({ campaign: KOTAE.id, device_id: deviceId(), site, pro_first: pro.first, pro_second: pro.second, app_first: app.first, app_second: app.second,
+        app_version: KOTAE.appVersion, method: app.method || "photo", measure_json: app.measure || null }),
     })
       .then((r) => r.json().then((j) => ({ ok: r.ok, j })))
       .then(({ ok, j }) => {

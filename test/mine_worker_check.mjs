@@ -417,6 +417,51 @@ console.log("■ 回（KOTAE_ROUNDS）: 第1弾はそのまま・第2弾は別�
   env.KOTAE_CAMPAIGN = "kotae_test";
 }
 
+console.log("■ 答え合わせ v1.22.5: 版・方式・計測値（数値のみ）");
+{
+  env.SELFCARD_KV._m.clear();
+  env.KOTAE_CAMPAIGN = "kotae_m"; env.KOTAE_START = ""; env.KOTAE_END = ""; env.KOTAE_ROUNDS = "";
+  const good = { Authorization: "Bearer " + env.ADMIN_TOKEN };
+  const base = (dev) => ({ campaign: "kotae_m", device_id: "measure_dev_" + dev.padStart(8, "0"), site: "blubel", pro_first: "summer", pro_second: null, app_first: "spring", app_second: "winter" });
+  const row = (dev) => env.DB.raw.prepare("SELECT app_version, method, measure_json, captured_at FROM kotae_answers WHERE device_id = ?").get("measure_dev_" + dev.padStart(8, "0"));
+  const measure = { v: 1, ts: "2026-10-09T08:00:00.000Z", first: "spring", second: "winter",
+    axes: { warmth: 61, lightness: 70, clarity: 55 }, metrics: { L: 70.1, a: 12.3, b: 18.4, chroma: 22.2, contrast: 40.5, hairL: 29.6 },
+    wb: { refHex: "#e6e3df", gain: { r: 1.02, g: 1.01, b: 1.03 }, cast: 0.04 }, dyed: false, conf: "medium" };
+
+  const p = await call("POST", "/campaign/answer", { body: Object.assign(base("p"), { app_version: "1.22.5", method: "photo", measure_json: measure }) });
+  const rp = row("p");
+  check("写真: 版・photo・計測値・計測時刻を保存", p.status === 200 && p.j.recorded && rp.app_version === "1.22.5" && rp.method === "photo" &&
+    JSON.parse(rp.measure_json).metrics.b === 18.4 && rp.captured_at === measure.ts);
+  const q = await call("POST", "/campaign/answer", { body: Object.assign(base("q"), { app_version: "1.22.5", method: "quiz" }) });
+  const rq = row("q");
+  check("質問式: method=quiz・計測値なしは NULL", q.status === 200 && q.j.recorded && rq.method === "quiz" && rq.measure_json === null && rq.captured_at === null);
+  const o = await call("POST", "/campaign/answer", { body: base("old") });
+  const ro = row("old");
+  check("v1.22.4 の旧ペイロードもそのまま記録（付帯情報はすべて NULL）", o.status === 200 && o.j.recorded && ro.app_version === null && ro.method === null && ro.measure_json === null);
+
+  const big = Object.assign({}, measure, { pad: Array.from({ length: 700 }, (_, i) => i) });
+  const b1 = await call("POST", "/campaign/answer", { body: Object.assign(base("big"), { app_version: "1.22.5", method: "photo", measure_json: big }) });
+  check("2KB 超の計測値は捨てて回答は受理", b1.status === 200 && b1.j.recorded && row("big").measure_json === null && row("big").method === "photo");
+  const b2 = await call("POST", "/campaign/answer", { body: Object.assign(base("broken"), { method: "photo", measure_json: "{not json" }) });
+  check("JSON として読めない計測値は捨てて回答は受理", b2.status === 200 && b2.j.recorded && row("broken").measure_json === null);
+  const b3 = await call("POST", "/campaign/answer", { body: Object.assign(base("nan"), { method: "photo", measure_json: '{"v":1,"metrics":{"L":1e999}}' }) });
+  check("有限でない数値（1e999=Infinity）を含む計測値は捨てる", b3.status === 200 && b3.j.recorded && row("nan").measure_json === null);
+  const b4 = await call("POST", "/campaign/answer", { body: Object.assign(base("odd"), { app_version: "1.22.5; DROP", method: "video", measure_json: [1, 2] }) });
+  const r4 = row("odd");
+  check("版の形式違い・未知の方式・配列の計測値は NULL（回答は受理）", b4.status === 200 && r4.app_version === null && r4.method === null && r4.measure_json === null);
+
+  const pub = await call("GET", "/campaign/stats?campaign=kotae_m");
+  check("公開の集計 API に計測値は出ない", !/measure|warmth|app_version/.test(JSON.stringify(pub.j)));
+  const csv = await worker.fetch(new Request("https://w.example/admin/api/kotae-answers.csv?campaign=kotae_m", { headers: good }), env);
+  const ct = await csv.text();
+  const head = ct.replace(/^﻿/, "").split("\r\n")[0];
+  check("CSV（admin）: 新4列つき・7行", csv.status === 200 && /text\/csv/.test(csv.headers.get("Content-Type")) &&
+    head.endsWith("app_version,method,measure_json,captured_at") && ct.trim().split("\r\n").length === 1 + 7);
+  check("CSV（admin）: device_id は先頭6文字だけ", !/measure_dev_/.test(ct) && /,measur,/.test(ct));
+  const csvNg = await worker.fetch(new Request("https://w.example/admin/api/kotae-answers.csv?campaign=kotae_m"), env);
+  check("CSV はトークン無しでは 401", csvNg.status === 401);
+}
+
 globalThis.fetch = realFetch;
 console.log(`\n${pass} OK / ${fail} NG`);
 

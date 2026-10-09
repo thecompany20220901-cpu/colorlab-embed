@@ -58,6 +58,12 @@ CREATE TABLE IF NOT EXISTS kotae_answers (
   first_match  INTEGER NOT NULL,                           -- 1st シーズンが一致したら 1
   full_match   INTEGER,                                    -- プロの 2nd があるときだけ 0/1、無ければ NULL
   created_at   INTEGER NOT NULL,
+  -- v1.22.5〜（2026-10-09）校正用の付帯情報。数値だけで写真は持たない。旧行と v1.22.4 以前の回答は NULL。
+  -- 既存の D1 には migrations/20261009_kotae_measure.sql の ALTER TABLE で足す（CREATE は新規環境用）
+  app_version  TEXT,                                       -- 例 '1.22.5'
+  method       TEXT,                                       -- 'photo' | 'quiz'
+  measure_json TEXT,                                       -- {v, ts, first, second, axes, metrics, wb, dyed, conf}（2KB以下）
+  captured_at  TEXT,                                       -- 計測した時刻（measure_json.ts・ISO8601 UTC）
   UNIQUE (campaign, device_id)
 );
 CREATE INDEX IF NOT EXISTS idx_kotae_campaign ON kotae_answers(campaign);

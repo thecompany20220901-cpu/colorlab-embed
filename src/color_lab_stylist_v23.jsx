@@ -2255,6 +2255,25 @@ async function aiPhotoDiagnose(base64, mediaType) {
     value_pct: toward(m.axes.lightness, first === "spring" || first === "summer"), // Light側の強さ
     chroma_pct: toward(m.axes.clarity, first === "spring" || first === "winter"),  // Clear側の強さ
     reason: `白い紙で照明を補正したうえで、肌のb*${m.metrics.b}（黄み）・a*${m.metrics.a}（赤み）・明度L*${m.metrics.L}・彩度C*${m.metrics.chroma}・髪との明度差${m.metrics.contrast}を実測して判定しました。`,
+    // 校正ログ（v1.22.5〜・数値だけ・写真は含めない）。答え合わせの回答に添えて送る
+    measure: {
+      v: 1,
+      ts: new Date().toISOString(),
+      first: m.first,
+      second: m.second,
+      axes: { warmth: m.axes.warmth, lightness: m.axes.lightness, clarity: m.axes.clarity },
+      metrics: {
+        L: +m.metrics.L, a: +m.metrics.a, b: +m.metrics.b,
+        chroma: +m.metrics.chroma, contrast: +m.metrics.contrast, hairL: +m.metrics.hairL,
+      },
+      wb: {
+        refHex: hex(whiteRef.r, whiteRef.g, whiteRef.b),
+        gain: { r: +gain.r.toFixed(3), g: +gain.g.toFixed(3), b: +gain.b.toFixed(3) },
+        cast: +castRatio.toFixed(3),
+      },
+      dyed: !!photoHairDyed,
+      conf: m.confidence,
+    },
   };
 }
 
@@ -3747,7 +3766,7 @@ export default function App({ campaign = null, account = false } = {}) {
         }
         // 答え合わせキャンペーン：同じ結果 {first, second} を答え合わせ画面へ渡す
         if (kotae && kotaePro) {
-          setKotaeApp({ first: r.type, second: sKey });
+          setKotaeApp({ first: r.type, second: sKey, method: "photo", measure: r.measure || null });
           setMode("kotae_result");
           return;
         }
