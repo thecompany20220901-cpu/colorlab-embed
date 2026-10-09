@@ -3756,10 +3756,10 @@ export default function App({ campaign = null, account = false } = {}) {
           value: { pct: clamp(r.value_pct), label: r.type === "spring" || r.type === "summer" ? "Light（明るい）" : "Deep（深い）" },
           chroma: { pct: clamp(r.chroma_pct), label: r.type === "spring" || r.type === "winter" ? "Clear（クリア）" : "Soft（ソフト）" },
         };
-        const conf = r.confidence === "high" ? "高" : r.confidence === "medium" ? "中" : "低";
+        const conf = r.confidence === "high" ? "大" : r.confidence === "medium" ? "中" : "小";   // 表示は「判定の差」（1位と2位の差）。内部の3段階は変えない
         // 写真＋質問フロー：ここでは結果を出さず、写真の結果を持ったまま13問へ進む
         if (comboStage === "photo") {
-          setComboPhoto({ first: r.type, second: sKey, axes, note: `※お写真の色を実測した結果です（信頼度：${conf}）。${r.reason || ""}` });
+          setComboPhoto({ first: r.type, second: sKey, axes, note: `※お写真の色を実測した結果です（判定の差：${conf}・β版・校正中のため参考値です）。${r.reason || ""}` });
           setComboStage("quiz");
           startQuiz();
           return;
@@ -3774,7 +3774,7 @@ export default function App({ campaign = null, account = false } = {}) {
           first: r.type, second: sKey,
           url: RESULT_MAP[`${fT.num}-${sT.num}`] || fT.siteUrl,
           axes,
-          note: `※お写真の色を実測した結果です（信頼度：${conf}）。${r.reason || ""}`,
+          note: `※お写真の色を実測した結果です（判定の差：${conf}・β版・校正中のため参考値です）。${r.reason || ""}`,
         });
         setMode("quiz");
       } else {
@@ -3961,7 +3961,7 @@ export default function App({ campaign = null, account = false } = {}) {
                   label="質問で診断" sub="12タイプ診断から「今日に着る？」まで" onClick={startQuiz} />
               </div>
               <HomeTile wide t={TILE.combo} icon={<StarCameraIcon size={26} />}
-                label="写真＋質問で12タイプ診断！" sub="業界トップクラスの精度最強診断"
+                label="写真＋質問で12タイプ診断！" sub="肌の色の実測＋13問で判定（β版）"
                 soon={!PHOTO_DIAGNOSE_ENABLED}
                 onClick={() => { if (!PHOTO_DIAGNOSE_ENABLED) { setSoonOpen(true); return; } startCombo(); }} />
               <HomeTile wide t={TILE.stylist} icon={<HangerIcon size={26} />}
@@ -4128,7 +4128,7 @@ export default function App({ campaign = null, account = false } = {}) {
                       <Choice label={pair.a.label} chips={pair.a.colors} onClick={() => pickCardQ3("A")} />
                       <Choice label={pair.b.label} chips={pair.b.colors} onClick={() => pickCardQ3("B")} />
                       <p className="text-xs mt-4 leading-relaxed" style={{ color: C.faint }}>
-                        色の好みから、いちばん近いタイプを推定します。より正確に知りたい方は、あとで12タイプ診断へどうぞ。
+                        色の好みから、いちばん近いタイプを推定します。肌の色の実測や質問で判定する12タイプ診断は、あとでどうぞ。
                       </p>
                     </>
                   );
@@ -4268,12 +4268,12 @@ export default function App({ campaign = null, account = false } = {}) {
                   })}
                   className="flex items-center justify-center gap-1.5 w-full text-center px-6 py-3.5 rounded-full text-sm font-medium mb-3"
                   style={{ border: "1px solid " + C.line, color: C.sub }}>
-                  もっと正確に診断する <ExternalLink size={14} />
+                  12タイプ診断をする <ExternalLink size={14} />
                 </a>
                 <p className="text-xs leading-relaxed" style={{ color: C.faint }}>
                   {myType && mySecond
                     ? "この色は、あなたの12タイプ診断の結果（" + TYPES[cardResult.first].name + " → " + TYPES[cardResult.second].name + "）をそのまま使っています。"
-                    : "この色は、6問の色えらびから推定したものです。写真診断や12タイプ設問なら、もっと正確に分かります。"}
+                    : "この色は、6問の色えらびから推定したものです。写真診断は肌の色を実際に測って、12タイプ設問は質問の回答から判定します。"}
                 </p>
               </div>
             </div>
@@ -4965,7 +4965,7 @@ export default function App({ campaign = null, account = false } = {}) {
                     <p className="text-xs leading-relaxed" style={{ color: C.sub }}>{phReject.body}</p>
                   </div>
                   <p className="text-[11px] leading-relaxed mb-5" style={{ color: C.faint }}>
-                    正しく測れない写真で結果をお出しすることはしていません。条件を整えると精度が上がります。
+                    正しく測れない写真で結果をお出しすることはしていません。条件を整えると測定が安定します。
                   </p>
                   <button onClick={() => { setPhReject(null); setPhStep("guide"); }}
                     style={{ width: "100%", padding: 16, borderRadius: 999, border: "none", background: C.main, color: "#fff", fontSize: 14, cursor: "pointer" }}>

@@ -67,8 +67,8 @@ check(body.includes("陽だまりの情熱家"), "全A回答 → イエベ春→
 check(body.includes("ピーチ×ローズ."), "色名がpalette10の引用で出る");
 check(body.includes("#パーソナルカラーカード"), "フッター帯にハッシュタグ");
 check(body.includes("blubel.jp/pages/personalcolor") || body.includes("iebel.jp/pages/personalcolor"), "フッター帯にURL");
-check(await page.getByRole("link", { name: /もっと正確に診断する/ }).count() > 0, "「もっと正確に診断する」リンクがある");
-const href = await page.getByRole("link", { name: /もっと正確に診断する/ }).first().getAttribute("href");
+check(await page.getByRole("link", { name: /12タイプ診断をする/ }).count() > 0, "「12タイプ診断をする」リンクがある");
+const href = await page.getByRole("link", { name: /12タイプ診断をする/ }).first().getAttribute("href");
 check(/\?ref=colorcard$/.test(href || ""), "送客リンクに ?ref=colorcard が付く (" + href + ")");
 
 let dl = await page.evaluate(() => window.dataLayer.slice());
@@ -78,10 +78,10 @@ check(gen && gen.entry_point === "B", "entry_point=B");
 check(gen && gen.color_type === "1-2", "color_type=1-2 (全A回答の期待値)");
 check(gen && gen.personality_q1 === "intuition" && gen.personality_q2 === "action", "個性パラメータが乗る");
 
-await page.getByRole("link", { name: /もっと正確に診断する/ }).first().click({ modifiers: ["Alt"] }).catch(() => {});
+await page.getByRole("link", { name: /12タイプ診断をする/ }).first().click({ modifiers: ["Alt"] }).catch(() => {});
 await page.evaluate(() => {
   document.querySelectorAll("#colorlab-root a").forEach((a) => {
-    if (a.textContent.includes("もっと正確に診断する")) { a.removeAttribute("target"); a.setAttribute("href", "javascript:void 0"); a.click(); }
+    if (a.textContent.includes("12タイプ診断をする")) { a.removeAttribute("target"); a.setAttribute("href", "javascript:void 0"); a.click(); }
   });
 });
 await page.waitForTimeout(200);

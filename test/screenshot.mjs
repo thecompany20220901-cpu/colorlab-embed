@@ -461,7 +461,7 @@ try {
   const prof = await page.evaluate(() => { try { return JSON.parse(localStorage.getItem("colorlab-profile") || "{}"); } catch (e) { return {}; } });
   check("実測結果が localStorage に保存された (1st=" + prof.myType + " / 2nd=" + prof.mySecond + ")", prof.myType === "spring" && prof.mySecond === "summer");
   check("結果ページに 1st / 2nd が表示される", /【イエベ春】/.test(photoRes) && /2nd：ブルベ夏/.test(photoRes));
-  check("注記が実測ベースの文言になっている", /実測して判定しました/.test(photoRes) && /信頼度：高/.test(photoRes));
+  check("注記が実測ベースの文言になっている", /実測して判定しました/.test(photoRes) && /判定の差：大・β版・校正中のため参考値です/.test(photoRes) && !/信頼度/.test(photoRes));
   check("結果ページに勝ち色の体系化 / コスメ / LINE導線が通常どおり出る",
     /似合う色（勝ち色 \d+色）/.test(photoRes) && /仕上げのコスメはコレ/.test(photoRes) && /LINEに結果を保存する/.test(photoRes));
   const skuLinks = await page.locator('#colorlab-root a[href*="/items/"]').count();
@@ -502,7 +502,7 @@ try {
   check("ホーム上部に 写真で診断 / 質問で診断 / 骨格診断 / 写真＋質問 が揃っている",
     /写真で診断/.test(homeTiles) && /質問で診断/.test(homeTiles) && /骨格診断/.test(homeTiles) && /写真＋質問で12タイプ診断！/.test(homeTiles));
   // 金のバッジは廃止し、文言をサブコピーへ寄せた（2026-09-04）。バッジの残骸が出ていないことも見る。
-  check("写真＋質問タイルのサブコピーが「業界トップクラスの精度最強診断」", /業界トップクラスの精度最強診断/.test(homeTiles));
+  check("写真＋質問タイルのサブコピーが方式の説明「肌の色の実測＋13問で判定（β版）」（v1.22.6）", /肌の色の実測＋13問で判定（β版）/.test(homeTiles) && !/精度最強|業界トップ/.test(homeTiles));
   check("「精度最強」の単独バッジが残っていない", !/精度最強！/.test(homeTiles));
   check("旧「パーソナルカラー診断（12タイプ）」タイルは残っていない", !/パーソナルカラー診断（12タイプ）/.test(homeTiles));
   check("旧「顔写真で診断」タイルは残っていない（写真で診断へ改称）", !/顔写真で診断/.test(homeTiles));
