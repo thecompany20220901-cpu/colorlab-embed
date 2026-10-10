@@ -1,5 +1,5 @@
 {
-  "_note": "答え合わせキャンペーン（プロ診断実証キャンペーン）の景品候補。2026-09-19 keisuke 指定の BLUBEL 10点と、同じ商品の IEBEL 版（CC選定・即納/在庫あり/非表示でないを item_iebel (5).csv で確認）。name は LP 表示用の短い名前、price は税込の販売価格（マスタ price 列） 2026-09-27 v6: IEBEL は BLUBEL と別の IEBEL 独自10点に差し替え（keisuke 指定・1947/1951 は売り切れのため 1945/2137 に・在庫は実サイトで確認）",
+  "_note": "答え合わせキャンペーン（プロ診断実証キャンペーン）の景品候補。2026-09-19 keisuke 指定の BLUBEL 10点と、同じ商品の IEBEL 版（CC選定・即納/在庫あり/非表示でないを item_iebel (5).csv で確認）。name は LP 表示用の短い名前、price は税込の販売価格（マスタ price 列） 2026-09-27 v6: IEBEL は BLUBEL と別の IEBEL 独自10点に差し替え（keisuke 指定・1947/1951 は売り切れのため 1945/2137 に・在庫は実サイトで確認） 2026-10-10 第3弾: 1944 が売り切れ (実サイト OutOfStock・item_iebel (4).csv stock=false) のため、同じカテゴリ (アウター 5 / ファー 34) で在庫ありの 1391 に差し替え",
   "blubel": [
     {
       "item_id": 1910,
@@ -78,11 +78,11 @@
       "master_name": "イエベ春/イエベ秋服　体型カバー二重ボタンテーラードジャケット中丈アウター【即納】"
     },
     {
-      "item_id": 1944,
-      "name": "ふわふわファー付きニットストール ジャケット風",
-      "price": 4990,
-      "image": "https://fulmo-img-server.com/blubel/d297c7c0-c569-4f6d-a9f4-8f3ca3961a10.jpg",
-      "master_name": "イエベ春/イエベ秋服　ふわふわファー付きニットストール ジャケット風【即納】"
+      "item_id": 1391,
+      "name": "ふわもこファー金ボタンショートジャケット",
+      "price": 5270,
+      "image": "https://fulmo-img-server.com/blubel/1734012208855_qybrw19c_0g9y6jhf",
+      "master_name": "イエベ春/イエベ秋服　ふわもこファー金ボタンショートジャケット"
     },
     {
       "item_id": 1945,
