@@ -728,7 +728,7 @@
    {
     "kind": "旧名(1st×2nd)",
     "where": "h2",
-    "block": "theme(共通部)",
+    "block": "#09 item-list",
     "line": 210,
     "text": "1stブルベ夏×2ndイエベ春"
    },
@@ -3244,6 +3244,20 @@
    },
    {
     "line": 210,
+    "block": "#15 image-banner",
+    "where": "本文",
+    "text": "Previous slide",
+    "marks": []
+   },
+   {
+    "line": 210,
+    "block": "#15 image-banner",
+    "where": "本文",
+    "text": "Next slide",
+    "marks": []
+   },
+   {
+    "line": 210,
     "block": "#25 markdown-box",
     "where": "h2",
     "text": "ブルべ夏 & ブルべ冬専門ファッション通販ブランド｜BLUBEL（ブルベル）",
@@ -4197,7 +4211,7 @@
    {
     "kind": "シーズン名単独(置換対象外)",
     "where": "h2",
-    "block": "theme(共通部)",
+    "block": "#09 item-list",
     "line": 205,
     "text": "ブルベ夏"
    },
@@ -6660,6 +6674,20 @@
     "block": "#08 markdown-box",
     "where": "本文",
     "text": "顔の透明感アップ、顔の引き締め効果、細見えのスリムアップ等の効果が期待できるカラーアイテムばかりなので、是非チェックしてみてください。",
+    "marks": []
+   },
+   {
+    "line": 205,
+    "block": "#15 image-banner",
+    "where": "本文",
+    "text": "Previous slide",
+    "marks": []
+   },
+   {
+    "line": 205,
+    "block": "#15 image-banner",
+    "where": "本文",
+    "text": "Next slide",
     "marks": []
    },
    {
@@ -10250,6 +10278,20 @@
    },
    {
     "line": 249,
+    "block": "#16 image-banner",
+    "where": "本文",
+    "text": "Previous slide",
+    "marks": []
+   },
+   {
+    "line": 249,
+    "block": "#16 image-banner",
+    "where": "本文",
+    "text": "Next slide",
+    "marks": []
+   },
+   {
+    "line": 249,
     "block": "#27 markdown-box",
     "where": "h2",
     "text": "ブルべ夏 & ブルべ冬専門ファッション通販ブランド｜BLUBEL（ブルベル）",
@@ -13642,6 +13684,20 @@
    },
    {
     "line": 197,
+    "block": "#15 image-banner",
+    "where": "本文",
+    "text": "Previous slide",
+    "marks": []
+   },
+   {
+    "line": 197,
+    "block": "#15 image-banner",
+    "where": "本文",
+    "text": "Next slide",
+    "marks": []
+   },
+   {
+    "line": 197,
     "block": "#25 markdown-box",
     "where": "h2",
     "text": "ブルべ夏 & ブルべ冬専門ファッション通販ブランド｜BLUBEL（ブルベル）",
@@ -17014,6 +17070,20 @@
     "block": "#08 markdown-box",
     "where": "本文",
     "text": "顔の透明感アップ、顔の引き締め効果、細見えのスリムアップ等の効果が期待できるカラーアイテムばかりなので、是非チェックしてみてください。",
+    "marks": []
+   },
+   {
+    "line": 198,
+    "block": "#15 image-banner",
+    "where": "本文",
+    "text": "Previous slide",
+    "marks": []
+   },
+   {
+    "line": 198,
+    "block": "#15 image-banner",
+    "where": "本文",
+    "text": "Next slide",
     "marks": []
    },
    {
@@ -20578,6 +20648,20 @@
    },
    {
     "line": 200,
+    "block": "#15 image-banner",
+    "where": "本文",
+    "text": "Previous slide",
+    "marks": []
+   },
+   {
+    "line": 200,
+    "block": "#15 image-banner",
+    "where": "本文",
+    "text": "Next slide",
+    "marks": []
+   },
+   {
+    "line": 200,
     "block": "#26 markdown-box",
     "where": "h2",
     "text": "ブルべ夏 & ブルべ冬専門ファッション通販ブランド｜BLUBEL（ブルベル）",
@@ -21489,7 +21573,7 @@
    {
     "kind": "旧名(1st×2nd)",
     "where": "h2",
-    "block": "theme(共通部)",
+    "block": "#09 item-list",
     "line": 201,
     "text": "1stイエベ春×2ndブルベ夏"
    },
@@ -23731,6 +23815,20 @@
    },
    {
     "line": 201,
+    "block": "#13 image-banner",
+    "where": "本文",
+    "text": "Previous slide",
+    "marks": []
+   },
+   {
+    "line": 201,
+    "block": "#13 image-banner",
+    "where": "本文",
+    "text": "Next slide",
+    "marks": []
+   },
+   {
+    "line": 201,
     "block": "#24 markdown-box",
     "where": "h2",
     "text": "イエベ春&イエベ秋専門ファッション通販ブランド｜IEBEL（イエベル）",
@@ -24845,7 +24943,7 @@
    {
     "kind": "旧名(1st×2nd)",
     "where": "h2",
-    "block": "theme(共通部)",
+    "block": "#09 item-list",
     "line": 210,
     "text": "1stイエベ春×2ndイエベ秋"
    },
@@ -27158,6 +27256,20 @@
    },
    {
     "line": 210,
+    "block": "#13 image-banner",
+    "where": "本文",
+    "text": "Previous slide",
+    "marks": []
+   },
+   {
+    "line": 210,
+    "block": "#13 image-banner",
+    "where": "本文",
+    "text": "Next slide",
+    "marks": []
+   },
+   {
+    "line": 210,
     "block": "#24 markdown-box",
     "where": "h2",
     "text": "イエベ春&イエベ秋専門ファッション通販ブランド｜IEBEL（イエベル）",
@@ -28083,7 +28195,7 @@
    {
     "kind": "旧名(1st×2nd)",
     "where": "h2",
-    "block": "theme(共通部)",
+    "block": "#09 item-list",
     "line": 208,
     "text": "1stイエベ春×2ndブルベ冬"
    },
@@ -30345,6 +30457,20 @@
    },
    {
     "line": 208,
+    "block": "#13 image-banner",
+    "where": "本文",
+    "text": "Previous slide",
+    "marks": []
+   },
+   {
+    "line": 208,
+    "block": "#13 image-banner",
+    "where": "本文",
+    "text": "Next slide",
+    "marks": []
+   },
+   {
+    "line": 208,
     "block": "#23 markdown-box",
     "where": "h2",
     "text": "イエベ春&イエベ秋専門ファッション通販ブランド｜IEBEL（イエベル）",
@@ -31256,7 +31382,7 @@
    {
     "kind": "旧名(1st×2nd)",
     "where": "h2",
-    "block": "theme(共通部)",
+    "block": "#09 item-list",
     "line": 206,
     "text": "1stイエベ秋×2ndイエベ春"
    },
@@ -33366,6 +33492,20 @@
    },
    {
     "line": 206,
+    "block": "#13 image-banner",
+    "where": "本文",
+    "text": "Previous slide",
+    "marks": []
+   },
+   {
+    "line": 206,
+    "block": "#13 image-banner",
+    "where": "本文",
+    "text": "Next slide",
+    "marks": []
+   },
+   {
+    "line": 206,
     "block": "#23 markdown-box",
     "where": "h2",
     "text": "イエベ春&イエベ秋専門ファッション通販ブランド｜IEBEL（イエベル）",
@@ -34284,7 +34424,7 @@
    {
     "kind": "旧名(1st×2nd)",
     "where": "h2",
-    "block": "theme(共通部)",
+    "block": "#09 item-list",
     "line": 204,
     "text": "1stイエベ秋×2ndブルベ夏"
    },
@@ -36541,6 +36681,20 @@
    },
    {
     "line": 204,
+    "block": "#13 image-banner",
+    "where": "本文",
+    "text": "Previous slide",
+    "marks": []
+   },
+   {
+    "line": 204,
+    "block": "#13 image-banner",
+    "where": "本文",
+    "text": "Next slide",
+    "marks": []
+   },
+   {
+    "line": 204,
     "block": "#24 markdown-box",
     "where": "h2",
     "text": "イエベ春&イエベ秋専門ファッション通販ブランド｜IEBEL（イエベル）",
@@ -37466,7 +37620,7 @@
    {
     "kind": "旧名(1st×2nd)",
     "where": "h2",
-    "block": "theme(共通部)",
+    "block": "#09 item-list",
     "line": 203,
     "text": "1stイエベ秋×2ndブルベ冬"
    },
@@ -39733,6 +39887,20 @@
     "block": "#08 markdown-box",
     "where": "本文",
     "text": "顔の透明感アップ、顔の引き締め効果、細見えのスリムアップ等の効果が期待できるカラーアイテムばかりなので、是非チェックしてみてください。",
+    "marks": []
+   },
+   {
+    "line": 203,
+    "block": "#13 image-banner",
+    "where": "本文",
+    "text": "Previous slide",
+    "marks": []
+   },
+   {
+    "line": 203,
+    "block": "#13 image-banner",
+    "where": "本文",
+    "text": "Next slide",
     "marks": []
    },
    {

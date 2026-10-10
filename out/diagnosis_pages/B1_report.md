@@ -47,7 +47,7 @@ title / meta description / og:title / og:description / twitter:* はサイト共
 | 16 | L207 | #08 markdown-box | h2 | 旧名(1st×2nd) | 1stブルベ夏×2ndイエベ春 |
 | 17 | L209 | #09 item-list | h2 | 旧名(1st×2nd) | 1stブルベ夏×2ndイエベ春 |
 | 18 | L209 | #09 item-list | 本文 | 旧名(1st×2nd) | 1stブルベ夏×2ndイエベ春 |
-| 19 | L210 | theme(共通部) | h2 | 旧名(1st×2nd) | 1stブルベ夏×2ndイエベ春 |
+| 19 | L210 | #09 item-list | h2 | 旧名(1st×2nd) | 1stブルベ夏×2ndイエベ春 |
 | 20 | L210 | #17 item-list | h2 | 旧名(1st×2nd) | 1stブルベ夏×2ndイエベ春 |
 | 21 | L210 | #18 item-list | h2 | 旧名(1st×2nd) | 1stブルベ夏×2ndイエベ春 |
 | 22 | L210 | #19 item-list | h2 | 旧名(1st×2nd) | 1stブルベ夏×2ndイエベ春 |
@@ -94,7 +94,7 @@ title / meta description / og:title / og:description / twitter:* はサイト共
 | 27 | L254 | theme(共通部) | リンクテキスト | 既存カタカナ12タイプ名 | ディープウィンター |
 | 28 | L254 | theme(共通部) | リンクテキスト | 既存カタカナ12タイプ名 | ソフトサマー |
 
-シーズン名単独(対象外)の内訳: custom-markdown-box・本文 4 / head・meta description 2 / head・meta og:description 2 / head・meta og:title 2 / head・meta twitter:description 2 / head・meta twitter:title 2 / item-list・h3 116 / item-list・img[alt] 116 / item-list・リンクテキスト 1 / markdown-box・h2 12 / markdown-box・h3 4 / markdown-box・本文 8 / theme(共通部)・h2 1 / theme(共通部)・title 2 / theme(共通部)・リンクテキスト 2
+シーズン名単独(対象外)の内訳: custom-markdown-box・本文 4 / head・meta description 2 / head・meta og:description 2 / head・meta og:title 2 / head・meta twitter:description 2 / head・meta twitter:title 2 / item-list・h2 1 / item-list・h3 116 / item-list・img[alt] 116 / item-list・リンクテキスト 1 / markdown-box・h2 12 / markdown-box・h3 4 / markdown-box・本文 8 / theme(共通部)・title 2 / theme(共通部)・リンクテキスト 2
 
 ### blubel_diagnosis5.html — ブルベ夏×ブルベ冬 → クールサマー
 
@@ -260,7 +260,7 @@ title / meta description / og:title / og:description / twitter:* はサイト共
 | 17 | L198 | #08 markdown-box | h2 | 旧名(1st×2nd) | 1stイエベ春×2ndブルベ夏 |
 | 18 | L200 | #09 item-list | h2 | 旧名(1st×2nd) | 1stイエベ春×2ndブルベ夏 |
 | 19 | L200 | #09 item-list | 本文 | 旧名(1st×2nd) | 1stイエベ春×2ndブルベ夏 |
-| 20 | L201 | theme(共通部) | h2 | 旧名(1st×2nd) | 1stイエベ春×2ndブルベ夏 |
+| 20 | L201 | #09 item-list | h2 | 旧名(1st×2nd) | 1stイエベ春×2ndブルベ夏 |
 | 21 | L201 | #15 item-list | h2 | 旧名(略記) | イエベ春×ブルベ夏 |
 | 22 | L201 | #16 item-list | h2 | 旧名(略記) | イエベ春×ブルベ夏 |
 | 23 | L201 | #17 item-list | h2 | 旧名(略記) | イエベ春×ブルベ夏 |
@@ -295,7 +295,7 @@ title / meta description / og:title / og:description / twitter:* はサイト共
 | 17 | L208 | #08 markdown-box | h2 | 旧名(略記) | イエベ春 × イエベ秋 |
 | 18 | L210 | #09 item-list | h2 | 旧名(1st×2nd) | 1stイエベ春×2ndイエベ秋 |
 | 19 | L210 | #09 item-list | 本文 | 旧名(1st×2nd) | 1stイエベ春×2ndイエベ秋 |
-| 20 | L210 | theme(共通部) | h2 | 旧名(1st×2nd) | 1stイエベ春×2ndイエベ秋 |
+| 20 | L210 | #09 item-list | h2 | 旧名(1st×2nd) | 1stイエベ春×2ndイエベ秋 |
 | 21 | L210 | #16 item-list | h2 | 旧名(略記) | イエベ春×イエベ秋 |
 | 22 | L210 | #17 item-list | h2 | 旧名(略記) | イエベ春×イエベ秋 |
 | 23 | L210 | #18 item-list | h2 | 旧名(略記) | イエベ春×イエベ秋 |
@@ -329,7 +329,7 @@ title / meta description / og:title / og:description / twitter:* はサイト共
 | 17 | L206 | #08 markdown-box | h2 | 旧名(略記) | イエベ春 × ブルベ冬 |
 | 18 | L208 | #09 item-list | h2 | 旧名(1st×2nd) | 1stイエベ春×2ndブルベ冬 |
 | 19 | L208 | #09 item-list | 本文 | 旧名(1st×2nd) | 1stイエベ春×2ndブルベ冬 |
-| 20 | L208 | theme(共通部) | h2 | 旧名(1st×2nd) | 1stイエベ春×2ndブルベ冬 |
+| 20 | L208 | #09 item-list | h2 | 旧名(1st×2nd) | 1stイエベ春×2ndブルベ冬 |
 | 21 | L208 | #15 item-list | h2 | 旧名(略記) | イエベ春×ブルベ冬 |
 | 22 | L208 | #16 item-list | h2 | 旧名(略記) | イエベ春×ブルベ冬 |
 | 23 | L208 | #17 item-list | h2 | 旧名(略記) | イエベ春×ブルベ冬 |
@@ -364,7 +364,7 @@ title / meta description / og:title / og:description / twitter:* はサイト共
 | 17 | L203 | #08 markdown-box | h2 | 旧名(略記) | イエベ秋 × イエベ春 |
 | 18 | L205 | #09 item-list | h2 | 旧名(1st×2nd) | 1stイエベ秋×2ndイエベ春 |
 | 19 | L205 | #09 item-list | 本文 | 旧名(1st×2nd) | 1stイエベ秋×2ndイエベ春 |
-| 20 | L206 | theme(共通部) | h2 | 旧名(1st×2nd) | 1stイエベ秋×2ndイエベ春 |
+| 20 | L206 | #09 item-list | h2 | 旧名(1st×2nd) | 1stイエベ秋×2ndイエベ春 |
 | 21 | L206 | #15 item-list | h2 | 旧名(略記) | イエベ秋×イエベ春 |
 | 22 | L206 | #16 item-list | h2 | 旧名(略記) | イエベ秋×イエベ春 |
 | 23 | L206 | #17 item-list | h2 | 旧名(略記) | イエベ秋×イエベ春 |
@@ -397,7 +397,7 @@ title / meta description / og:title / og:description / twitter:* はサイト共
 | 16 | L202 | #08 markdown-box | h2 | 旧名(略記) | イエベ秋 × ブルベ夏 |
 | 17 | L204 | #09 item-list | h2 | 旧名(1st×2nd) | 1stイエベ秋×2ndブルベ夏 |
 | 18 | L204 | #09 item-list | 本文 | 旧名(1st×2nd) | 1stイエベ秋×2ndブルベ夏 |
-| 19 | L204 | theme(共通部) | h2 | 旧名(1st×2nd) | 1stイエベ秋×2ndブルベ夏 |
+| 19 | L204 | #09 item-list | h2 | 旧名(1st×2nd) | 1stイエベ秋×2ndブルベ夏 |
 | 20 | L204 | #15 item-list | h2 | 旧名(1st×2nd) | 1stイエベ秋×2ndブルベ夏 |
 | 21 | L204 | #16 item-list | h2 | 旧名(1st×2nd) | 1stイエベ秋×2ndブルベ夏 |
 | 22 | L204 | #17 item-list | h2 | 旧名(1st×2nd) | 1stイエベ秋×2ndブルベ夏 |
@@ -431,7 +431,7 @@ title / meta description / og:title / og:description / twitter:* はサイト共
 | 16 | L201 | #08 markdown-box | h2 | 旧名(略記) | イエベ秋 × ブルベ冬 |
 | 17 | L203 | #09 item-list | h2 | 旧名(1st×2nd) | 1stイエベ秋×2ndブルべ冬 |
 | 18 | L203 | #09 item-list | 本文 | 旧名(1st×2nd) | 1stイエベ秋×2ndブルべ冬 |
-| 19 | L203 | theme(共通部) | h2 | 旧名(1st×2nd) | 1stイエベ秋×2ndブルベ冬 |
+| 19 | L203 | #09 item-list | h2 | 旧名(1st×2nd) | 1stイエベ秋×2ndブルベ冬 |
 | 20 | L203 | #15 item-list | h2 | 旧名(1st×2nd) | 1stイエベ秋×2ndブルベ冬 |
 | 21 | L203 | #16 item-list | h2 | 旧名(1st×2nd) | 1stイエベ秋×2ndブルベ冬 |
 | 22 | L203 | #17 item-list | h2 | 旧名(1st×2nd) | 1stイエベ秋×2ndブルベ冬 |
@@ -610,6 +610,8 @@ title / meta description / og:title / og:description / twitter:* はサイト共
 |  | L207 | #08 markdown-box | h2 | 1stブルベ夏×2ndイエベ春のあなたに似合う服はコレ！ |  |
 |  | L208 | #08 markdown-box | 本文 | 色相（Hue）・明度（Value）・彩度（Chroma）の3軸分析の結果から、あなたの特性と調和するカラーのファッションアイテムをご紹介します。 |  |
 |  | L209 | #08 markdown-box | 本文 | 顔の透明感アップ、顔の引き締め効果、細見えのスリムアップ等の効果が期待できるカラーアイテムばかりなので、是非チェックしてみてください。 |  |
+|  | L210 | #15 image-banner | 本文 | Previous slide |  |
+|  | L210 | #15 image-banner | 本文 | Next slide |  |
 |  | L210 | #25 markdown-box | h2 | ブルべ夏 & ブルべ冬専門ファッション通販ブランド｜BLUBEL（ブルベル） |  |
 |  | L212 | #25 markdown-box | h3 | BULBEL（ブルベル）では、ブルベカラーに沿った商品を2,000点以上揃えてます！毎月新商品が続々登場中！ |  |
 |  | L214 | #25 markdown-box | h3 | BULBEL（ブルベル）では、ブルべさんに似合い、肌の透明感を上げるブルベカラーだけを用意しているので、一瞬で自分が引き立つ神色アイテムと出会えます。 |  |
@@ -798,6 +800,8 @@ title / meta description / og:title / og:description / twitter:* はサイト共
 |  | L202 | #08 markdown-box | h2 | 1stブルベ夏×2ndイエベ秋のあなたに似合う服はコレ！ |  |
 |  | L203 | #08 markdown-box | 本文 | 色相（Hue）・明度（Value）・彩度（Chroma）の3軸分析の結果から、あなたの特性と調和するカラーのファッションアイテムをご紹介します。 |  |
 |  | L204 | #08 markdown-box | 本文 | 顔の透明感アップ、顔の引き締め効果、細見えのスリムアップ等の効果が期待できるカラーアイテムばかりなので、是非チェックしてみてください。 |  |
+|  | L205 | #15 image-banner | 本文 | Previous slide |  |
+|  | L205 | #15 image-banner | 本文 | Next slide |  |
 |  | L205 | #24 markdown-box | h2 | ブルべ夏 & ブルべ冬専門ファッション通販ブランド｜BLUBEL（ブルベル） |  |
 |  | L207 | #24 markdown-box | h3 | BULBEL（ブルベル）では、ブルベカラーに沿った商品を2,000点以上揃えてます！毎月新商品が続々登場中！ |  |
 |  | L209 | #24 markdown-box | h3 | BULBEL（ブルベル）では、ブルべさんに似合い、肌の透明感を上げるブルベカラーだけを用意しているので、一瞬で自分が引き立つ神色アイテムと出会えます。 |  |
@@ -988,6 +992,8 @@ title / meta description / og:title / og:description / twitter:* はサイト共
 |  | L246 | #09 markdown-box | h2 | 1stブルベ夏×2ndブルベ冬のあなたに似合う服はコレ！ |  |
 |  | L247 | #09 markdown-box | 本文 | 色相（Hue）・明度（Value）・彩度（Chroma）の3軸分析の結果から、あなたの特性と調和するカラーのファッションアイテムをご紹介します。 |  |
 |  | L248 | #09 markdown-box | 本文 | 顔の透明感アップ、顔の引き締め効果、細見えのスリムアップ等の効果が期待できるカラーアイテムばかりなので、是非チェックしてみてください。 |  |
+|  | L249 | #16 image-banner | 本文 | Previous slide |  |
+|  | L249 | #16 image-banner | 本文 | Next slide |  |
 |  | L249 | #27 markdown-box | h2 | ブルべ夏 & ブルべ冬専門ファッション通販ブランド｜BLUBEL（ブルベル） |  |
 |  | L251 | #27 markdown-box | h3 | BULBEL（ブルベル）では、ブルベカラーに沿った商品を2,000点以上揃えてます！毎月新商品が続々登場中！ |  |
 |  | L253 | #27 markdown-box | h3 | BULBEL（ブルベル）では、ブルべさんに似合い、肌の透明感を上げるブルベカラーだけを用意しているので、一瞬で自分が引き立つ神色アイテムと出会えます。 |  |
@@ -1171,6 +1177,8 @@ title / meta description / og:title / og:description / twitter:* はサイト共
 |  | L194 | #08 markdown-box | h2 | 1stブルベ冬×2ndイエベ春のあなたに似合う服はコレ！ |  |
 |  | L195 | #08 markdown-box | 本文 | 色相（Hue）・明度（Value）・彩度（Chroma）の3軸分析の結果から、あなたの特性と調和するカラーのファッションアイテムをご紹介します。 |  |
 |  | L196 | #08 markdown-box | 本文 | 顔の透明感アップ、顔の引き締め効果、細見えのスリムアップ等の効果が期待できるカラーアイテムばかりなので、是非チェックしてみてください。 |  |
+|  | L197 | #15 image-banner | 本文 | Previous slide |  |
+|  | L197 | #15 image-banner | 本文 | Next slide |  |
 |  | L197 | #25 markdown-box | h2 | ブルべ夏 & ブルべ冬専門ファッション通販ブランド｜BLUBEL（ブルベル） |  |
 |  | L199 | #25 markdown-box | h3 | BULBEL（ブルベル）では、ブルベカラーに沿った商品を2,000点以上揃えてます！毎月新商品が続々登場中！ |  |
 |  | L201 | #25 markdown-box | h3 | BULBEL（ブルベル）では、ブルべさんに似合い、肌の透明感を上げるブルベカラーだけを用意しているので、一瞬で自分が引き立つ神色アイテムと出会えます。 |  |
@@ -1354,6 +1362,8 @@ title / meta description / og:title / og:description / twitter:* はサイト共
 |  | L195 | #08 markdown-box | h2 | 1stブルベ冬×2ndブルベ夏のあなたに似合う服はコレ！ |  |
 |  | L196 | #08 markdown-box | 本文 | 色相（Hue）・明度（Value）・彩度（Chroma）の3軸分析の結果から、あなたの特性と調和するカラーのファッションアイテムをご紹介します。 |  |
 |  | L197 | #08 markdown-box | 本文 | 顔の透明感アップ、顔の引き締め効果、細見えのスリムアップ等の効果が期待できるカラーアイテムばかりなので、是非チェックしてみてください。 |  |
+|  | L198 | #15 image-banner | 本文 | Previous slide |  |
+|  | L198 | #15 image-banner | 本文 | Next slide |  |
 |  | L198 | #26 markdown-box | h2 | ブルべ夏 & ブルべ冬専門ファッション通販ブランド｜BLUBEL（ブルベル） |  |
 |  | L200 | #26 markdown-box | h3 | BULBEL（ブルベル）では、ブルベカラーに沿った商品を2,000点以上揃えてます！毎月新商品が続々登場中！ |  |
 |  | L202 | #26 markdown-box | h3 | BULBEL（ブルベル）では、ブルべさんに似合い、肌の透明感を上げるブルベカラーだけを用意しているので、一瞬で自分が引き立つ神色アイテムと出会えます。 |  |
@@ -1537,6 +1547,8 @@ title / meta description / og:title / og:description / twitter:* はサイト共
 |  | L197 | #08 markdown-box | h2 | 1stブルベ冬×2ndイエベ秋のあなたに似合う服はコレ！ |  |
 |  | L198 | #08 markdown-box | 本文 | 色相（Hue）・明度（Value）・彩度（Chroma）の3軸分析の結果から、あなたの特性と調和するカラーのファッションアイテムをご紹介します。 |  |
 |  | L199 | #08 markdown-box | 本文 | 顔の透明感アップ、顔の引き締め効果、細見えのスリムアップ等の効果が期待できるカラーアイテムばかりなので、是非チェックしてみてください。 |  |
+|  | L200 | #15 image-banner | 本文 | Previous slide |  |
+|  | L200 | #15 image-banner | 本文 | Next slide |  |
 |  | L200 | #26 markdown-box | h2 | ブルべ夏 & ブルべ冬専門ファッション通販ブランド｜BLUBEL（ブルベル） |  |
 |  | L202 | #26 markdown-box | h3 | BULBEL（ブルベル）では、ブルベカラーに沿った商品を2,000点以上揃えてます！毎月新商品が続々登場中！ |  |
 |  | L204 | #26 markdown-box | h3 | BULBEL（ブルベル）では、ブルべさんに似合い、肌の透明感を上げるブルベカラーだけを用意しているので、一瞬で自分が引き立つ神色アイテムと出会えます。 |  |
@@ -1726,6 +1738,8 @@ title / meta description / og:title / og:description / twitter:* はサイト共
 |  | L198 | #08 markdown-box | h2 | 1stイエベ春×2ndブルベ夏に似合う服はコレ！ |  |
 |  | L199 | #08 markdown-box | 本文 | 色相（Hue）・明度（Value）・彩度（Chroma）の3軸分析の結果から、イエベ秋のあなたの特性と調和するカラーのファッションアイテムをご紹介します。 |  |
 |  | L200 | #08 markdown-box | 本文 | 顔の透明感アップ、顔の引き締め効果、細見えのスリムアップ等の効果が期待できるカラーアイテムばかりなので、是非チェックしてみてください。 |  |
+|  | L201 | #13 image-banner | 本文 | Previous slide |  |
+|  | L201 | #13 image-banner | 本文 | Next slide |  |
 |  | L201 | #24 markdown-box | h2 | イエベ春&イエベ秋専門ファッション通販ブランド｜IEBEL（イエベル） |  |
 |  | L203 | #24 markdown-box | h3 | IEBEL（イエベル）では、イエベカラーに沿った商品を2,000点以上揃えてます！毎月新商品が続々登場中！ |  |
 |  | L205 | #24 markdown-box | h3 | IEBEL（イエベル）では、イエベさんに似合い、肌の透明感を上げるイエベカラーだけを用意しているので、一瞬で自分が引き立つ神色アイテムと出会えます。 |  |
@@ -1923,6 +1937,8 @@ title / meta description / og:title / og:description / twitter:* はサイト共
 |  | L208 | #08 markdown-box | h2 | イエベ春 × イエベ秋のあなたに似合う服はコレ！ |  |
 |  | L209 | #08 markdown-box | 本文 | 色相（Hue）・明度（Value）・彩度（Chroma）の3軸分析の結果から、イエベ秋のあなたの特性と調和するカラーのファッションアイテムをご紹介します。 |  |
 |  | L210 | #08 markdown-box | 本文 | 顔の透明感アップ、顔の引き締め効果、細見えのスリムアップ等の効果が期待できるカラーアイテムばかりなので、是非チェックしてみてください。 |  |
+|  | L210 | #13 image-banner | 本文 | Previous slide |  |
+|  | L210 | #13 image-banner | 本文 | Next slide |  |
 |  | L210 | #24 markdown-box | h2 | イエベ春&イエベ秋専門ファッション通販ブランド｜IEBEL（イエベル） |  |
 |  | L212 | #24 markdown-box | h3 | IEBEL（イエベル）では、イエベカラーに沿った商品を2,000点以上揃えてます！毎月新商品が続々登場中！ |  |
 |  | L214 | #24 markdown-box | h3 | IEBEL（イエベル）では、イエベさんに似合い、肌の透明感を上げるイエベカラーだけを用意しているので、一瞬で自分が引き立つ神色アイテムと出会えます。 |  |
@@ -2120,6 +2136,8 @@ title / meta description / og:title / og:description / twitter:* はサイト共
 |  | L206 | #08 markdown-box | h2 | イエベ春 × ブルベ冬のあなたに似合う服はコレ！ |  |
 |  | L207 | #08 markdown-box | 本文 | 色相（Hue）・明度（Value）・彩度（Chroma）の3軸分析の結果から、イエベ秋のあなたの特性と調和するカラーのファッションアイテムをご紹介します。 |  |
 |  | L208 | #08 markdown-box | 本文 | 顔の透明感アップ、顔の引き締め効果、細見えのスリムアップ等の効果が期待できるカラーアイテムばかりなので、是非チェックしてみてください。 |  |
+|  | L208 | #13 image-banner | 本文 | Previous slide |  |
+|  | L208 | #13 image-banner | 本文 | Next slide |  |
 |  | L208 | #23 markdown-box | h2 | イエベ春&イエベ秋専門ファッション通販ブランド｜IEBEL（イエベル） |  |
 |  | L210 | #23 markdown-box | h3 | IEBEL（イエベル）では、イエベカラーに沿った商品を2,000点以上揃えてます！毎月新商品が続々登場中！ |  |
 |  | L212 | #23 markdown-box | h3 | IEBEL（イエベル）では、イエベさんに似合い、肌の透明感を上げるイエベカラーだけを用意しているので、一瞬で自分が引き立つ神色アイテムと出会えます。 |  |
@@ -2312,6 +2330,8 @@ title / meta description / og:title / og:description / twitter:* はサイト共
 |  | L203 | #08 markdown-box | h2 | イエベ秋 × イエベ春のあなたに似合う服はコレ！ |  |
 |  | L204 | #08 markdown-box | 本文 | 色相（Hue）・明度（Value）・彩度（Chroma）の3軸分析の結果から、イエベ秋のあなたの特性と調和するカラーのファッションアイテムをご紹介します。 |  |
 |  | L205 | #08 markdown-box | 本文 | 顔の透明感アップ、顔の引き締め効果、細見えのスリムアップ等の効果が期待できるカラーアイテムばかりなので、是非チェックしてみてください。 |  |
+|  | L206 | #13 image-banner | 本文 | Previous slide |  |
+|  | L206 | #13 image-banner | 本文 | Next slide |  |
 |  | L206 | #23 markdown-box | h2 | イエベ春&イエベ秋専門ファッション通販ブランド｜IEBEL（イエベル） |  |
 |  | L208 | #23 markdown-box | h3 | IEBEL（イエベル）では、イエベカラーに沿った商品を2,000点以上揃えてます！毎月新商品が続々登場中！ |  |
 |  | L210 | #23 markdown-box | h3 | IEBEL（イエベル）では、イエベさんに似合い、肌の透明感を上げるイエベカラーだけを用意しているので、一瞬で自分が引き立つ神色アイテムと出会えます。 |  |
@@ -2502,6 +2522,8 @@ title / meta description / og:title / og:description / twitter:* はサイト共
 |  | L202 | #08 markdown-box | h2 | イエベ秋 × ブルベ夏のあなたに似合う服はコレ！ |  |
 |  | L203 | #08 markdown-box | 本文 | 色相（Hue）・明度（Value）・彩度（Chroma）の3軸分析の結果から、イエベ秋のあなたの特性と調和するカラーのファッションアイテムをご紹介します。 |  |
 |  | L204 | #08 markdown-box | 本文 | 顔の透明感アップ、顔の引き締め効果、細見えのスリムアップ等の効果が期待できるカラーアイテムばかりなので、是非チェックしてみてください。 |  |
+|  | L204 | #13 image-banner | 本文 | Previous slide |  |
+|  | L204 | #13 image-banner | 本文 | Next slide |  |
 |  | L204 | #24 markdown-box | h2 | イエベ春&イエベ秋専門ファッション通販ブランド｜IEBEL（イエベル） |  |
 |  | L206 | #24 markdown-box | h3 | IEBEL（イエベル）では、イエベカラーに沿った商品を2,000点以上揃えてます！毎月新商品が続々登場中！ |  |
 |  | L208 | #24 markdown-box | h3 | IEBEL（イエベル）では、イエベさんに似合い、肌の透明感を上げるイエベカラーだけを用意しているので、一瞬で自分が引き立つ神色アイテムと出会えます。 |  |
@@ -2694,6 +2716,8 @@ title / meta description / og:title / og:description / twitter:* はサイト共
 |  | L201 | #08 markdown-box | h2 | イエベ秋 × ブルベ冬のあなたに似合う服はコレ！ |  |
 |  | L202 | #08 markdown-box | 本文 | 色相（Hue）・明度（Value）・彩度（Chroma）の3軸分析の結果から、イエベ秋のあなたの特性と調和するカラーのファッションアイテムをご紹介します。 |  |
 |  | L203 | #08 markdown-box | 本文 | 顔の透明感アップ、顔の引き締め効果、細見えのスリムアップ等の効果が期待できるカラーアイテムばかりなので、是非チェックしてみてください。 |  |
+|  | L203 | #13 image-banner | 本文 | Previous slide |  |
+|  | L203 | #13 image-banner | 本文 | Next slide |  |
 |  | L203 | #24 markdown-box | h2 | イエベ春&イエベ秋専門ファッション通販ブランド｜IEBEL（イエベル） |  |
 |  | L205 | #24 markdown-box | h3 | IEBEL（イエベル）では、イエベカラーに沿った商品を2,000点以上揃えてます！毎月新商品が続々登場中！ |  |
 |  | L207 | #24 markdown-box | h3 | IEBEL（イエベル）では、イエベさんに似合い、肌の透明感を上げるイエベカラーだけを用意しているので、一瞬で自分が引き立つ神色アイテムと出会えます。 |  |
