@@ -455,8 +455,8 @@ console.log("■ 答え合わせ v1.22.5: 版・方式・計測値（数値の�
   const csv = await worker.fetch(new Request("https://w.example/admin/api/kotae-answers.csv?campaign=kotae_m", { headers: good }), env);
   const ct = await csv.text();
   const head = ct.replace(/^﻿/, "").split("\r\n")[0];
-  check("CSV（admin）: 新4列つき・7行", csv.status === 200 && /text\/csv/.test(csv.headers.get("Content-Type")) &&
-    head.endsWith("app_version,method,measure_json,captured_at") && ct.trim().split("\r\n").length === 1 + 7);
+  check("CSV（admin）: 新4列つき（2026-10-10〜 末尾に type12）・7行", csv.status === 200 && /text\/csv/.test(csv.headers.get("Content-Type")) &&
+    head.endsWith("app_version,method,measure_json,captured_at,type12") && ct.trim().split("\r\n").length === 1 + 7);
   check("CSV（admin）: device_id は先頭6文字だけ", !/measure_dev_/.test(ct) && /,measur,/.test(ct));
   const csvNg = await worker.fetch(new Request("https://w.example/admin/api/kotae-answers.csv?campaign=kotae_m"), env);
   check("CSV はトークン無しでは 401", csvNg.status === 401);
@@ -519,6 +519,16 @@ console.log("■ 答え合わせ 2026-10-10: 12タイプ名 type12（サーバ�
   check("migration: 変更前は type12 列なし → ALTER 後に TEXT・NULL可で増える", !colsBefore.includes("type12") && !!t12 && t12.type === "TEXT" && t12.notnull === 0);
   check("migration: 既存行は残り、type12 は NULL のまま", kept.n === 1 && kept.t === null);
   console.log("  type12 実測: " + got.join(" / "));
+
+  // 管理画面 CSV: 既存列の順序・名前はそのまま、末尾に type12
+  const csv = await worker.fetch(new Request("https://w.example/admin/api/kotae-answers.csv?campaign=kotae_t12", { headers: { Authorization: "Bearer " + env.ADMIN_TOKEN } }), env);
+  const lines = (await csv.text()).replace(/^﻿/, "").trim().split("\r\n");
+  check("CSV（admin）: ヘッダーは既存15列の順序・名前のまま + 末尾 type12", csv.status === 200 &&
+    lines[0] === "id,campaign,site,pro_first,pro_second,app_first,app_second,first_match,full_match,created_at,device6,app_version,method,measure_json,captured_at,type12");
+  const t12col = lines.slice(1).map((l) => l.split(",").pop());
+  check("CSV（admin）: type12 列に12タイプ名が出る（12通り + 旧ペイロード + 申告無視 = ブライトサマー3行）",
+    Object.values(WANT).every((n) => t12col.includes(n)) && t12col.filter((x) => x === "ブライトサマー").length === 3);
+  check("CSV（admin）: 1位=2位の行は type12 が空欄", t12col.includes(""));
 }
 
 globalThis.fetch = realFetch;

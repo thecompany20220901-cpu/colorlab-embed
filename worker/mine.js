@@ -660,10 +660,11 @@ async function routeAdmin(request, env, path) {
     if (!kotaeKnownId(env, want)) return json({ ok: false, reason: "no_campaign" }, 404);
     const rows = (await env.DB.prepare(
       "SELECT id, campaign, site, pro_first, pro_second, app_first, app_second, first_match, full_match, created_at, " +
-      "substr(device_id, 1, 6) AS device6, app_version, method, measure_json, captured_at FROM kotae_answers WHERE campaign = ? ORDER BY id"
+      "substr(device_id, 1, 6) AS device6, app_version, method, measure_json, captured_at, type12 FROM kotae_answers WHERE campaign = ? ORDER BY id"
     ).bind(want).all()).results || [];
     const cols = ["id", "campaign", "site", "pro_first", "pro_second", "app_first", "app_second", "first_match", "full_match", "created_at", "device6",
-                  "app_version", "method", "measure_json", "captured_at"];
+                  "app_version", "method", "measure_json", "captured_at",
+                  "type12"];  // 2026-10-10: 末尾に追加（既存列の順序・名前は変えない）
     const body = "﻿" + [cols.join(",")].concat(rows.map((r) => cols.map((c) => csvCell(r[c])).join(","))).join("\r\n") + "\r\n";
     return new Response(body, { headers: Object.assign({
       "Content-Type": "text/csv; charset=utf-8",
