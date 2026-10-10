@@ -1931,6 +1931,8 @@ function diagnoseByMeasure(skinLab, hairLab, skinRGB, hairDyed) {
     skinHex: hex(skinRGB.r, skinRGB.g, skinRGB.b),
     confidence,
     gap: gap.toFixed(2),
+    // 4タイプそれぞれの理想座標までの距離（上で計算済みの値をそのまま返すだけ。判定には使わない）
+    dist: Object.fromEntries(scored.map((s) => [s.key, +s.dist.toFixed(3)])),
   };
 }
 
@@ -2296,6 +2298,8 @@ async function aiPhotoDiagnose(base64, mediaType) {
       },
       dyed: !!photoHairDyed,
       conf: m.confidence,
+      // v1.22.7〜: 4タイプ別の距離（小さいほど近い。1位=最小）
+      dist: m.dist,
     },
   };
 }

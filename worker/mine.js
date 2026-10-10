@@ -372,11 +372,12 @@ export async function routeMine(request, env, allowOrigins) {
     // v1.22.5〜: 校正用の付帯情報（数値のみ）。どれも不正なら NULL にするだけで、回答そのものは落とさない。
     // v1.22.4 以前はこれらを送らないので、すべて NULL で今までどおり記録される
     const extra = kotaeExtra(b);
+    // 2026-10-10〜: 12タイプ名はクライアントの申告ではなく app_first / app_second からサーバで決める（旧アプリの回答にも入る）
     const r = await env.DB.prepare(
       "INSERT OR IGNORE INTO kotae_answers (campaign, device_id, site, pro_first, pro_second, app_first, app_second, first_match, full_match, created_at, " +
-      "app_version, method, measure_json, captured_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+      "app_version, method, measure_json, captured_at, type12) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
     ).bind(round.id, b.device_id, site, b.pro_first, proSecond, b.app_first, b.app_second, firstMatch, fullMatch, now(),
-           extra.app_version, extra.method, extra.measure_json, extra.captured_at).run();
+           extra.app_version, extra.method, extra.measure_json, extra.captured_at, kotaeType12(b.app_first, b.app_second)).run();
     return json({
       ok: true,
       recorded: !!(r.meta && r.meta.changes),   // false = この端末は記録済み（2回目以降は集計に入れない）
@@ -487,6 +488,16 @@ export async function publicStats(env, campaign) {
   if (String(env.KOTAE_STATS_PUBLIC || "") === "1") return kotaeStats(env, campaign);
   return { hidden: true, period: kotaePeriod(env) };
 }
+
+// 12タイプ名（1位-2位）。アプリの TYPE12_NAME（src/color_lab_stylist_v23.jsx）と同じ対応。
+// 1位と2位が同じ・未知のシーズンは NULL。
+export const KOTAE_TYPE12 = {
+  "spring-summer": "ライトスプリング", "spring-autumn": "ウォームスプリング", "spring-winter": "ブライトスプリング",
+  "autumn-spring": "ウォームオータム", "autumn-summer": "ソフトオータム", "autumn-winter": "ディープオータム",
+  "summer-spring": "ブライトサマー", "summer-autumn": "ソフトサマー", "summer-winter": "クールサマー",
+  "winter-spring": "ブライトウィンター", "winter-summer": "クールウィンター", "winter-autumn": "ディープウィンター",
+};
+export const kotaeType12 = (first, second) => KOTAE_TYPE12[first + "-" + second] || null;
 
 // 答え合わせ回答の付帯情報（v1.22.5〜・2026-10-09 keisuke）。写真は受け取らない・数値だけ。
 // measure_json は 2KB 以下・JSON として読める・数値はすべて有限値 のときだけ残す。

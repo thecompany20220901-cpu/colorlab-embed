@@ -232,12 +232,20 @@ console.log("■ ?campaign=kotaeawase：入力 → 写真で診断 → 一致");
   {
     const m = posted[0].measure_json || {};
     const nums = [m.axes && m.axes.warmth, m.axes && m.axes.lightness, m.axes && m.axes.clarity].concat(m.metrics ? ["L", "a", "b", "chroma", "contrast", "hairL"].map((k) => m.metrics[k]) : []);
-    check("計測値は校正ログ形式（v/ts/first/second/axes/metrics/wb/dyed/conf）・数値は有限", posted[0].app_version === "1.22.6" && posted[0].method === "photo" &&
-      Object.keys(m).sort().join() === "axes,conf,dyed,first,metrics,second,ts,v,wb" && m.first === "spring" && nums.length === 9 && nums.every((x) => typeof x === "number" && Number.isFinite(x)) &&
+    check("計測値は校正ログ形式（v/ts/first/second/axes/metrics/wb/dyed/conf/dist）・数値は有限", posted[0].app_version === "1.22.7" && posted[0].method === "photo" &&
+      Object.keys(m).sort().join() === "axes,conf,dist,dyed,first,metrics,second,ts,v,wb" && m.first === "spring" && nums.length === 9 && nums.every((x) => typeof x === "number" && Number.isFinite(x)) &&
       /^#[0-9a-f]{6}$/.test(m.wb.refHex) && ["r", "g", "b"].every((k) => Number.isFinite(m.wb.gain[k])) && Number.isFinite(m.wb.cast) && m.dyed === false);
+    // 2026-10-10: 4タイプ別の距離 dist。判定（1位=最小・2位=2番目）と食い違わないこと
+    const dist = m.dist || {};
+    const order = Object.keys(dist).sort((x, y) => dist[x] - dist[y]);
+    check("計測値に4タイプ別の距離 dist（spring/summer/autumn/winter・有限値）", Object.keys(dist).sort().join() === "autumn,spring,summer,winter" && Object.values(dist).every((x) => typeof x === "number" && Number.isFinite(x) && x >= 0));
+    check("dist の小さい順の1位・2位が判定の first / second と同じ", order[0] === m.first && order[1] === m.second);
     check("写真のデータは送らない（送信本文 2KB 未満・data: / base64 なし）", JSON.stringify(posted[0]).length < 2048 && !/data:|base64|iVBOR/.test(JSON.stringify(posted[0])));
-    const row = db.prepare("SELECT app_version, method, measure_json, captured_at FROM kotae_answers ORDER BY id DESC LIMIT 1").get();
-    check("D1 に版・photo・計測値・計測時刻が入る", row.app_version === "1.22.6" && row.method === "photo" && JSON.parse(row.measure_json).metrics.L === m.metrics.L && row.captured_at === m.ts);
+    let row = {};
+    try { row = db.prepare("SELECT app_version, method, measure_json, captured_at, type12 FROM kotae_answers ORDER BY id DESC LIMIT 1").get(); } catch (e) { row = { err: e.message }; }
+    check("D1 に12タイプ名 type12 が入る（イエベ春 x ブルベ夏 = ライトスプリング） " + (row.err || row.type12), row.type12 === "ライトスプリング");
+    check("D1 の measure_json に dist が残る", !!row.measure_json && JSON.stringify(JSON.parse(row.measure_json).dist) === JSON.stringify(dist));
+    check("D1 に版・photo・計測値・計測時刻が入る", row.app_version === "1.22.7" && row.method === "photo" && JSON.parse(row.measure_json).metrics.L === m.metrics.L && row.captured_at === m.ts);
   }
   check("集計は 1件・1st 一致率 100%", /100%/.test(t) && /1 \/ 1 人/.test(t));
   check("応募方法: ハッシュタグ2つ・メンションはアプリの結果（イエベ春）→ @iebe_lab", /#答え合わせキャンペーン #ColorLabMINE を付けて\s*@iebe_lab をメンションしてください/.test(t));
