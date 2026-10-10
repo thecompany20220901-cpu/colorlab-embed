@@ -1,0 +1,64 @@
+diff --git a/src/color_lab_stylist_v23.jsx b/src/color_lab_stylist_v23.jsx
+index 3e41d05..4c506b6 100644
+--- a/src/color_lab_stylist_v23.jsx
++++ b/src/color_lab_stylist_v23.jsx
+@@ -862,6 +862,23 @@ const RESULT_MAP = {
+   "4-3": "https://www.blubel.jp/pages/diagnosis8",
+ };
+ 
++// 12タイプ名（1位-2位。キーは RESULT_MAP と同じ）。判定は4タイプのままで、表示名だけ引く。
++const TYPE12_NAME = {
++  "1-2": "ライトスプリング",
++  "1-3": "ウォームスプリング",
++  "1-4": "ブライトスプリング",
++  "3-1": "ウォームオータム",
++  "3-2": "ソフトオータム",
++  "3-4": "ディープオータム",
++  "2-1": "ブライトサマー",
++  "2-3": "ソフトサマー",
++  "2-4": "クールサマー",
++  "4-1": "ブライトウィンター",
++  "4-2": "クールウィンター",
++  "4-3": "ディープウィンター",
++};
++const type12Name = (first, second) => TYPE12_NAME[`${TYPES[first].num}-${TYPES[second].num}`];
++
+ // 1位/2位確定（本番と同一：同点は優先順1→2→3→4）
+ const sortTypes = (scores) =>
+   [1, 2, 3, 4]
+@@ -1164,7 +1181,7 @@ async function buildCardImage(res, selfImage) {
+   y += AV_H;
+ 
+   // 1st / 2nd のタイプ名。どのタイプの結果なのかがカード単体で分かるようにする。
+-  stack("1st " + TYPES[res.first].name + "　2nd " + TYPES[res.second].name,
++  stack(type12Name(res.first, res.second),
+         34, "500", "#6b6470", 47.6);
+   stack("あなたの色は", 48, "400", "#333333", 67.19);
+   stack(res.copy.cn, 81, "700", T.accent, 89.09);
+@@ -4156,7 +4173,7 @@ export default function App({ campaign = null, account = false } = {}) {
+                       style={{ maxWidth: 280, aspectRatio: "2 / 3", objectFit: "contain" }}
+                       onError={(e) => { e.currentTarget.style.visibility = "hidden"; }} />
+                     <div className="text-[11px] mt-1" style={{ color: "#6b6470" }}>
+-                      1st {TYPES[cardResult.first].name}　2nd {TYPES[cardResult.second].name}
++                      {type12Name(cardResult.first, cardResult.second)}
+                     </div>
+                     <div className="text-base" style={{ color: "#333" }}>あなたの色は</div>
+                     <div className="font-bold leading-tight" style={{ fontSize: 27, color: T.accent }}>{cardResult.copy.cn}</div>
+@@ -4272,7 +4289,7 @@ export default function App({ campaign = null, account = false } = {}) {
+                 </a>
+                 <p className="text-xs leading-relaxed" style={{ color: C.faint }}>
+                   {myType && mySecond
+-                    ? "この色は、あなたの12タイプ診断の結果（" + TYPES[cardResult.first].name + " → " + TYPES[cardResult.second].name + "）をそのまま使っています。"
++                    ? "この色は、あなたの12タイプ診断の結果（" + type12Name(cardResult.first, cardResult.second) + "）をそのまま使っています。"
+                     : "この色は、6問の色えらびから推定したものです。写真診断は肌の色を実際に測って、12タイプ設問は質問の回答から判定します。"}
+                 </p>
+               </div>
+@@ -4493,7 +4510,7 @@ export default function App({ campaign = null, account = false } = {}) {
+               {myType && (
+                 <>
+                   <div className="inline-flex items-center gap-2 mb-5 px-3 py-1.5 rounded-full text-xs" style={{ background: TYPES[myType].accent + "14", color: TYPES[myType].accent }}>
+-                    {TYPES[myType].name}{mySecond ? ` × 2nd ${TYPES[mySecond].name}` : ""} <button onClick={() => { setMyType(null); setMySecond(null); setStResult(null); }} className="underline text-xs font-normal" style={{ color: C.faint }}>変更</button>
++                    {mySecond ? type12Name(myType, mySecond) : TYPES[myType].name} <button onClick={() => { setMyType(null); setMySecond(null); setStResult(null); }} className="underline text-xs font-normal" style={{ color: C.faint }}>変更</button>
+                   </div>
+                   <div className="text-base font-bold mb-2.5" style={{ color: C.ink }}>今日のシーン</div>
+                   <div className="flex gap-2 mb-5">
