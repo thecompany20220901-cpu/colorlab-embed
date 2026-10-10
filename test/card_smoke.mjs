@@ -65,6 +65,9 @@ await page.waitForTimeout(400);
 let body = await page.textContent("#colorlab-root");
 check(body.includes("陽だまりの情熱家"), "全A回答 → イエベ春→ブルベ夏×情熱家の称号が出る");
 check(body.includes("ピーチ×ローズ."), "色名がpalette10の引用で出る");
+// types12 (2026-10-10): カードのタイプ表示は12タイプ名。旧「1st イエベ春　2nd ブルベ夏」は出さない
+check(body.includes("ライトスプリング"), "カードのタイプ表示が12タイプ名「ライトスプリング」(1-2)");
+check(!/1st\s*イエベ春/.test(body) && !/2nd\s*ブルベ夏/.test(body), "カードに旧表示「1st イエベ春　2nd ブルベ夏」が無い");
 check(body.includes("#パーソナルカラーカード"), "フッター帯にハッシュタグ");
 check(body.includes("blubel.jp/pages/personalcolor") || body.includes("iebel.jp/pages/personalcolor"), "フッター帯にURL");
 check(await page.getByRole("link", { name: /12タイプ診断をする/ }).count() > 0, "「12タイプ診断をする」リンクがある");
@@ -104,6 +107,9 @@ body = await page.textContent("#colorlab-root");
 check(body.includes("透明感の知性派"), "夏→冬×知性派 = 透明感の知性派");
 check(body.includes("ラベンダー×マゼンタ."), "色名も12タイプに追随する");
 check(body.includes("あなたの言葉に説得力を与えます。"), "4行目もテストカードと一致");
+check(body.includes("クールサマー"), "診断済みカードのタイプ表示が12タイプ名「クールサマー」(2-4)");
+check(body.includes("12タイプ診断の結果（クールサマー）"), "注記が「12タイプ診断の結果（クールサマー）」");
+check(!body.includes("ブルベ夏 → ブルベ冬") && !/1st\s*ブルベ夏/.test(body), "注記・カードに旧表示「ブルベ夏 → ブルベ冬」「1st ブルベ夏」が無い");
 dl = await page.evaluate(() => window.dataLayer.slice());
 const gen2 = dl.filter((d) => d.event === "personalcolor_card_generated").pop();
 check(gen2 && gen2.color_type === "2-4", "診断済みの色をそのまま使う (color_type=2-4)");
@@ -111,6 +117,10 @@ check(gen2 && gen2.color_type === "2-4", "診断済みの色をそのまま使�
 await page.evaluate(() => {
   window.__dl = []; const el = document.createElement("a");
   HTMLAnchorElement.prototype.click = function () { window.__dl.push(this.download); };
+  // カード画像(canvas)に描いた文字を控える（types12: 12タイプ名が描かれているかを見る）
+  window.__ft = [];
+  const ft = CanvasRenderingContext2D.prototype.fillText;
+  CanvasRenderingContext2D.prototype.fillText = function (t, ...a) { window.__ft.push(String(t)); return ft.call(this, t, ...a); };
 });
 await page.getByRole("button", { name: /カードを画像で保存/ }).first().click();
 await page.waitForTimeout(2500);
@@ -118,6 +128,9 @@ dl = await page.evaluate(() => window.dataLayer.slice());
 check(!!dl.find((d) => d.event === "card_saved"), "card_saved が発火");
 const dls = await page.evaluate(() => window.__dl || []);
 check(dls.includes("personal_color_card.png"), "PNGとして保存される (CDN画像が無くても落ちない)");
+const drawn = await page.evaluate(() => window.__ft || []);
+check(drawn.includes("クールサマー"), "保存カード画像に12タイプ名「クールサマー」が描かれる");
+check(!drawn.some((t) => /1st\s*ブルベ夏/.test(t)), "保存カード画像に旧表示「1st ブルベ夏　2nd ブルベ冬」が無い");
 const base = await page.evaluate(() => document.querySelectorAll("#colorlab-root img").length);
 check(base >= 0, "アバターimgのエラーで画面が壊れない");
 
