@@ -45,7 +45,7 @@ import { FAMILY_ORDER, COLOR_FAMILIES, COLOR_EN, CHIP_HEX, SKU_IMG } from "./col
 import { COLOR70, COLOR70_FAMILY_ORDER } from "./color70_data.js";
 // 商品マスタ item_{site}.csv の color 列（test/build_sku_colors.py が生成）
 import { SKU_COLORS } from "./sku_color_data.js";
-import { KotaeInput, KotaeResult, KotaeHomeBanner } from "./kotaeawase.jsx";
+import { KotaeInput, KotaeResult, KotaeHomeBanner, KOTAE } from "./kotaeawase.jsx";
 import { MineAccount } from "./mine_account.jsx";
 
 const TYPE_FACE_IMG = { spring: FACE_SPRING, summer: FACE_SUMMER, autumn: FACE_AUTUMN, winter: FACE_WINTER };
@@ -57,6 +57,8 @@ const TYPE_FACE_IMG = { spring: FACE_SPRING, summer: FACE_SUMMER, autumn: FACE_A
 const UTM = "utm_source=colorlab&utm_medium=app&utm_campaign=ai_stylist";
 const ITEM_URL = (site, id) => `https://${site}.jp/items/${id}?${UTM}`;
 const SITE_URL = (site) => `https://${site}.jp?${UTM}`;
+// 結果画面の「タイプが分かっている方はこちら」（v1.22.9）。既存のサイトURLに utm_content だけ足す
+const SELF_SELECT_URL = (site) => `${SITE_URL(site)}&utm_content=self_select`;
 
 // ── 閲覧中のサイト（blubel.jp / iebel.jp）──
 // 同じ colorlab.iife.js を両サイトの共通ヘッダーに置いているので、どちらで見られているかは
@@ -574,6 +576,7 @@ const mergeCombo = (photo, quizScores, quizPick, quizAxes) => {
     url: RESULT_MAP[`${TYPES[first].num}-${TYPES[second].num}`] || TYPES[first].siteUrl,
     axes: mergeAxes(photo.axes, quizAxes),
     note: note + (photo.note ? " " + photo.note : ""),
+    method: "combo",
   };
 };
 
@@ -3701,7 +3704,7 @@ export default function App({ campaign = null, account = false } = {}) {
       setComboStage(null); setComboPhoto(null);
       return;
     }
-    setQuizResult({ first: fKey, second: sKey, url: RESULT_MAP[`${first}-${second}`] || TYPES[fKey].siteUrl, axes });
+    setQuizResult({ first: fKey, second: sKey, url: RESULT_MAP[`${first}-${second}`] || TYPES[fKey].siteUrl, axes, method: "quiz" });
   };
 
   const answerQ = (choice) => {
@@ -3775,6 +3778,7 @@ export default function App({ campaign = null, account = false } = {}) {
           url: RESULT_MAP[`${fT.num}-${sT.num}`] || fT.siteUrl,
           axes,
           note: `※お写真の色を実測した結果です（判定の差：${conf}・β版・校正中のため参考値です）。${r.reason || ""}`,
+          method: "photo",
         });
         setMode("quiz");
       } else {
@@ -3864,6 +3868,21 @@ export default function App({ campaign = null, account = false } = {}) {
 
   const tpoJa = { work: "通勤", date: "デート", casual: "休日" };
   const RT = quizResult ? TYPES[quizResult.first] : null;
+  // v1.22.9: 診断完了を GA4 で数える（GTM のカスタムイベント diag_complete）。
+  // 結果オブジェクト1つにつき1回だけ送る（再描画・画面の行き来で同じ結果を出し直しても送らない）。
+  // 送るのはタイプと経路だけ。写真・計測値（measure 等）は入れない。
+  const diagSentRef = useRef(null);
+  useEffect(() => {
+    if (mode !== "quiz" || !quizResult || diagSentRef.current === quizResult) return;
+    diagSentRef.current = quizResult;
+    ga4("diag_complete", {
+      method: quizResult.method || "quiz",
+      app_first: quizResult.first,
+      app_second: quizResult.second,
+      site: embedSite() || TYPES[quizResult.first].site,
+      app_version: KOTAE.appVersion,
+    });
+  }, [mode, quizResult]);
 
   return (
     <div ref={rootRef} className="min-h-screen w-full flex items-start justify-center p-4 font-sans" style={{ background: "linear-gradient(160deg,#fbf9f7 0%,#f3eef2 50%,#eef2f4 100%)" }}>
@@ -4430,6 +4449,12 @@ export default function App({ campaign = null, account = false } = {}) {
                     {top6Only && list.length === 0 && (
                       <p className="text-xs mb-3" style={{ color: C.sub }}>いまの在庫にTOP6の色展開がありません。絞り込みを外すと全商品が出ます。</p>
                     )}
+                    {/* v1.22.9: プロ診断などでタイプが分かっている人が自分で選べる入口。アプリの結果に関係なく両方出す */}
+                    <p className="text-xs leading-relaxed text-center mt-1 mb-2" style={{ color: C.sub }}>
+                      プロ診断でタイプが分かっている方は、こちらから選べます:{" "}
+                      <a href={SELF_SELECT_URL("blubel")} target="_blank" rel="noreferrer" className="underline" style={{ color: TYPES.summer.accent, whiteSpace: "nowrap" }}>ブルベの商品を見る</a>{" "}
+                      <a href={SELF_SELECT_URL("iebel")} target="_blank" rel="noreferrer" className="underline" style={{ color: TYPES.autumn.accent, whiteSpace: "nowrap" }}>イエベの商品を見る</a>
+                    </p>
                   </>
                 );
               })()}

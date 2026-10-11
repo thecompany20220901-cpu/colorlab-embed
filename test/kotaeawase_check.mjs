@@ -232,12 +232,12 @@ console.log("■ ?campaign=kotaeawase：入力 → 写真で診断 → 一致");
   {
     const m = posted[0].measure_json || {};
     const nums = [m.axes && m.axes.warmth, m.axes && m.axes.lightness, m.axes && m.axes.clarity].concat(m.metrics ? ["L", "a", "b", "chroma", "contrast", "hairL"].map((k) => m.metrics[k]) : []);
-    check("計測値は校正ログ形式（v/ts/first/second/axes/metrics/wb/dyed/conf）・数値は有限", posted[0].app_version === "1.22.6" && posted[0].method === "photo" &&
+    check("計測値は校正ログ形式（v/ts/first/second/axes/metrics/wb/dyed/conf）・数値は有限", posted[0].app_version === "1.22.9" && posted[0].method === "photo" &&
       Object.keys(m).sort().join() === "axes,conf,dyed,first,metrics,second,ts,v,wb" && m.first === "spring" && nums.length === 9 && nums.every((x) => typeof x === "number" && Number.isFinite(x)) &&
       /^#[0-9a-f]{6}$/.test(m.wb.refHex) && ["r", "g", "b"].every((k) => Number.isFinite(m.wb.gain[k])) && Number.isFinite(m.wb.cast) && m.dyed === false);
     check("写真のデータは送らない（送信本文 2KB 未満・data: / base64 なし）", JSON.stringify(posted[0]).length < 2048 && !/data:|base64|iVBOR/.test(JSON.stringify(posted[0])));
     const row = db.prepare("SELECT app_version, method, measure_json, captured_at FROM kotae_answers ORDER BY id DESC LIMIT 1").get();
-    check("D1 に版・photo・計測値・計測時刻が入る", row.app_version === "1.22.6" && row.method === "photo" && JSON.parse(row.measure_json).metrics.L === m.metrics.L && row.captured_at === m.ts);
+    check("D1 に版・photo・計測値・計測時刻が入る", row.app_version === "1.22.9" && row.method === "photo" && JSON.parse(row.measure_json).metrics.L === m.metrics.L && row.captured_at === m.ts);
   }
   check("集計は 1件・1st 一致率 100%", /100%/.test(t) && /1 \/ 1 人/.test(t));
   check("応募方法: ハッシュタグ2つ・メンションはアプリの結果（イエベ春）→ @iebe_lab", /#答え合わせキャンペーン #ColorLabMINE を付けて\s*@iebe_lab をメンションしてください/.test(t));
