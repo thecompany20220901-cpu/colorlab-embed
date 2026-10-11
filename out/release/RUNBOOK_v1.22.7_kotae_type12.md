@@ -93,6 +93,10 @@ curl -s -H "Origin: https://www.blubel.jp" "https://colorlab-selfcard.the-compan
 
 ## 控え（実施時に書く）
 
-- (2) Time Travel bookmark:
-- (2) export ファイル / 件数:
-- (5) 本番 Worker 新 Version ID:
+- 10/11 実施（keisuke 承認後）。実施前に staging の確認用の行（id 8・kotae_stg1010）を DELETE（2行 → 1行）。
+- (1) main の 0045941 を取り込み（衝突なし・merge 238cedd）→ build:colorlab → 全テスト合格（facecheck_check の既知5件のみ FAIL）
+- (2) Time Travel bookmark: `000000b0-00000000-00005101-1d814d08a18db5c1afb5da0602a0d3b6`
+- (2) export ファイル / 件数: `C:/Users/newfa/Downloads/app/backup_kotae_20261011_before_type12.sql`（INSERT 117行）/ kotae2026 30（id 2〜49）・kotae2026b 87（id 50〜197）
+- (4) ALTER → type12 TEXT・notnull 0（cid 15）。既存117行の id・device_id 先頭6文字・app_first/app_second は ALTER 前後とバックフィル後で同一
+- (4) バックフィル: 117行書き込み・NULL 0・内訳はローカル D1 と同じ・対応表との食い違い 0
+- (5) 本番 Worker 新 Version ID: `994ba8a4-d52e-4cdd-a39a-b1542040cfec`（戻し先 793f203f）。/campaign/stats は両サイトとも ok:true・kotae2026c before
