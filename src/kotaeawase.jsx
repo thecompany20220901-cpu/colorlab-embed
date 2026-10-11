@@ -22,7 +22,7 @@ export const KOTAE = {
   // Worker は第1弾・第2弾どちらの ID でも「今日の回」に記録するので、GTM の切替時刻に左右されない
   id: "kotae2026b",
   // 回答に添えるアプリの版（v1.22.5〜・2026-10-09）。リリースのたびにタグと揃える
-  appVersion: "1.22.6",
+  appVersion: "1.22.7",
   winners: 2,            // 当選人数の既定値（Worker が period.winners を返せばそちらを表示）
   hashtag: "#答え合わせキャンペーン #ColorLabMINE",
   // メンション先は診断結果で出し分ける（ブルベ → @blube_lab / イエベ → @iebe_lab）。

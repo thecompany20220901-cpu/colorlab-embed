@@ -64,6 +64,8 @@ CREATE TABLE IF NOT EXISTS kotae_answers (
   method       TEXT,                                       -- 'photo' | 'quiz'
   measure_json TEXT,                                       -- {v, ts, first, second, axes, metrics, wb, dyed, conf}（2KB以下）
   captured_at  TEXT,                                       -- 計測した時刻（measure_json.ts・ISO8601 UTC）
+  -- 2026-10-10〜 12タイプ名（Worker が app_first/app_second から決める）。既存の D1 には migrations/20261010_kotae_type12.sql で足す
+  type12       TEXT,                                       -- 例 'ブライトサマー'。それ以前の行は NULL
   UNIQUE (campaign, device_id)
 );
 CREATE INDEX IF NOT EXISTS idx_kotae_campaign ON kotae_answers(campaign);

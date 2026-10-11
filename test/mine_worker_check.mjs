@@ -455,11 +455,80 @@ console.log("■ 答え合わせ v1.22.5: 版・方式・計測値（数値の�
   const csv = await worker.fetch(new Request("https://w.example/admin/api/kotae-answers.csv?campaign=kotae_m", { headers: good }), env);
   const ct = await csv.text();
   const head = ct.replace(/^﻿/, "").split("\r\n")[0];
-  check("CSV（admin）: 新4列つき・7行", csv.status === 200 && /text\/csv/.test(csv.headers.get("Content-Type")) &&
-    head.endsWith("app_version,method,measure_json,captured_at") && ct.trim().split("\r\n").length === 1 + 7);
+  check("CSV（admin）: 新4列つき（2026-10-10〜 末尾に type12）・7行", csv.status === 200 && /text\/csv/.test(csv.headers.get("Content-Type")) &&
+    head.endsWith("app_version,method,measure_json,captured_at,type12") && ct.trim().split("\r\n").length === 1 + 7);
   check("CSV（admin）: device_id は先頭6文字だけ", !/measure_dev_/.test(ct) && /,measur,/.test(ct));
   const csvNg = await worker.fetch(new Request("https://w.example/admin/api/kotae-answers.csv?campaign=kotae_m"), env);
   check("CSV はトークン無しでは 401", csvNg.status === 401);
+}
+
+console.log("■ 答え合わせ 2026-10-10: 12タイプ名 type12（サーバで決定）・4タイプ別の距離 dist");
+{
+  env.SELFCARD_KV._m.clear();
+  env.KOTAE_CAMPAIGN = "kotae_t12"; env.KOTAE_START = ""; env.KOTAE_END = ""; env.KOTAE_ROUNDS = "";
+  const dev = (k) => "type12_dev_" + k.padStart(10, "0");
+  const ans = (k, af, as, extra = {}) => call("POST", "/campaign/answer", { body: Object.assign({ campaign: "kotae_t12", device_id: dev(k), site: "blubel", pro_first: "summer", pro_second: null, app_first: af, app_second: as }, extra) });
+  // 列が無い（＝変更前）なら SELECT が落ちるので、落ちたこと自体を NG として残す
+  const row = (k) => { try { return env.DB.raw.prepare("SELECT type12, measure_json FROM kotae_answers WHERE device_id = ?").get(dev(k)) || {}; } catch (e) { return { err: e.message }; } };
+  const WANT = {
+    "spring-summer": "ライトスプリング", "spring-autumn": "ウォームスプリング", "spring-winter": "ブライトスプリング",
+    "autumn-spring": "ウォームオータム", "autumn-summer": "ソフトオータム", "autumn-winter": "ディープオータム",
+    "summer-spring": "ブライトサマー", "summer-autumn": "ソフトサマー", "summer-winter": "クールサマー",
+    "winter-spring": "ブライトウィンター", "winter-summer": "クールウィンター", "winter-autumn": "ディープウィンター",
+  };
+  const got = [];
+  for (const [k, name] of Object.entries(WANT)) {
+    const [af, as] = k.split("-");
+    const r = await ans(k, af, as, { app_version: "1.22.7", method: "photo" });
+    const t = row(k);
+    got.push(`${k}=${t.type12 || t.err}`);
+    check(`type12: ${k} → ${name}（実際 ${t.type12 || t.err}）`, r.status === 200 && r.j.recorded && t.type12 === name);
+  }
+  // 旧アプリ（v1.22.4 / v1.22.6）の送信内容でも、サーバが決めるので入る
+  await ans("old", "summer", "spring");
+  check("旧ペイロード（付帯情報なし）でも type12 が入る（" + (row("old").type12 || row("old").err) + "）", row("old").type12 === "ブライトサマー");
+  // クライアントが type12 を送ってきても使わない
+  await ans("spoof", "summer", "spring", { type12: "ディープオータム" });
+  check("クライアント申告の type12 は無視（app_first/app_second から決める）", row("spoof").type12 === "ブライトサマー");
+  // 1位と2位が同じ（通常は起きない）→ NULL・回答は受理
+  const same = await ans("same", "summer", "summer");
+  check("1位=2位は type12 を NULL にして回答は受理", same.status === 200 && same.j.recorded && row("same").type12 === null && !row("same").err);
+
+  const measure = { v: 1, ts: "2026-10-10T08:00:00.000Z", first: "winter", second: "spring",
+    axes: { warmth: 40, lightness: 40, clarity: 100 }, metrics: { L: 64, a: 14, b: 17.3, chroma: 22.3, contrast: 58, hairL: 6 },
+    wb: { refHex: "#ebebeb", gain: { r: 1, g: 1, b: 1 }, cast: 0 }, dyed: false, conf: "medium",
+    dist: { winter: 0.645, spring: 0.967, summer: 1.27, autumn: 1.32 } };
+  await ans("dist", "winter", "spring", { app_version: "1.22.7", method: "photo", measure_json: measure });
+  const rd = row("dist");
+  const dm = rd.measure_json ? JSON.parse(rd.measure_json).dist : null;
+  check("measure_json の dist（4タイプ別の距離）がそのまま保存される", !!dm && dm.winter === 0.645 && dm.autumn === 1.32 && Object.keys(dm).length === 4);
+  check("dist 込みの計測値も 2KB 以下", new TextEncoder().encode(JSON.stringify(measure)).length < 2048);
+  const pub = await call("GET", "/campaign/stats?campaign=kotae_t12");
+  check("公開の集計 API に type12・dist は出ない", !/type12|dist|スプリング|サマー|オータム|ウィンター/.test(JSON.stringify(pub.j)));
+
+  // マイグレーション: 変更前の schema（type12 なし）に既存行がある状態から ALTER を当てる
+  const old = new DatabaseSync(":memory:");
+  const schemaNow = readFileSync(join(HERE, "../worker/schema.sql"), "utf8");
+  old.exec(schemaNow.split("\n").filter((l) => !/^\s*type12\s/.test(l)).join("\n"));
+  old.prepare("INSERT INTO kotae_answers (campaign, device_id, site, pro_first, app_first, app_second, first_match, created_at) VALUES ('kotae2026b', 'old_device_0000000001', 'blubel', 'summer', 'spring', 'summer', 0, 1)").run();
+  const colsBefore = old.prepare("PRAGMA table_info(kotae_answers)").all().map((c) => c.name);
+  old.exec(readFileSync(join(HERE, "../worker/migrations/20261010_kotae_type12.sql"), "utf8"));
+  const cols = old.prepare("PRAGMA table_info(kotae_answers)").all();
+  const t12 = cols.find((c) => c.name === "type12");
+  const kept = old.prepare("SELECT COUNT(*) AS n, MAX(type12) AS t FROM kotae_answers").get();
+  check("migration: 変更前は type12 列なし → ALTER 後に TEXT・NULL可で増える", !colsBefore.includes("type12") && !!t12 && t12.type === "TEXT" && t12.notnull === 0);
+  check("migration: 既存行は残り、type12 は NULL のまま", kept.n === 1 && kept.t === null);
+  console.log("  type12 実測: " + got.join(" / "));
+
+  // 管理画面 CSV: 既存列の順序・名前はそのまま、末尾に type12
+  const csv = await worker.fetch(new Request("https://w.example/admin/api/kotae-answers.csv?campaign=kotae_t12", { headers: { Authorization: "Bearer " + env.ADMIN_TOKEN } }), env);
+  const lines = (await csv.text()).replace(/^﻿/, "").trim().split("\r\n");
+  check("CSV（admin）: ヘッダーは既存15列の順序・名前のまま + 末尾 type12", csv.status === 200 &&
+    lines[0] === "id,campaign,site,pro_first,pro_second,app_first,app_second,first_match,full_match,created_at,device6,app_version,method,measure_json,captured_at,type12");
+  const t12col = lines.slice(1).map((l) => l.split(",").pop());
+  check("CSV（admin）: type12 列に12タイプ名が出る（12通り + 旧ペイロード + 申告無視 = ブライトサマー3行）",
+    Object.values(WANT).every((n) => t12col.includes(n)) && t12col.filter((x) => x === "ブライトサマー").length === 3);
+  check("CSV（admin）: 1位=2位の行は type12 が空欄", t12col.includes(""));
 }
 
 globalThis.fetch = realFetch;

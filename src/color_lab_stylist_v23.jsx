@@ -862,6 +862,23 @@ const RESULT_MAP = {
   "4-3": "https://www.blubel.jp/pages/diagnosis8",
 };
 
+// 12タイプ名（1位-2位。キーは RESULT_MAP と同じ）。判定は4タイプのままで、表示名だけ引く。
+const TYPE12_NAME = {
+  "1-2": "ライトスプリング",
+  "1-3": "ウォームスプリング",
+  "1-4": "ブライトスプリング",
+  "3-1": "ウォームオータム",
+  "3-2": "ソフトオータム",
+  "3-4": "ディープオータム",
+  "2-1": "ブライトサマー",
+  "2-3": "ソフトサマー",
+  "2-4": "クールサマー",
+  "4-1": "ブライトウィンター",
+  "4-2": "クールウィンター",
+  "4-3": "ディープウィンター",
+};
+const type12Name = (first, second) => TYPE12_NAME[`${TYPES[first].num}-${TYPES[second].num}`];
+
 // 1位/2位確定（本番と同一：同点は優先順1→2→3→4）
 const sortTypes = (scores) =>
   [1, 2, 3, 4]
@@ -981,7 +998,7 @@ const pairKey = (a, b) => {
 // ════════════════════════════════════════════
 // 診断結果シェア画像（IGストーリー 1080x1920）
 // ════════════════════════════════════════════
-function buildShareImage(RT, secondName, axes) {
+function buildShareImage(RT, typeName, axes) {
   const W = 1080, H = 1920;
   const cv = document.createElement("canvas");
   cv.width = W; cv.height = H;
@@ -1027,8 +1044,14 @@ function buildShareImage(RT, secondName, axes) {
   ctx.font = "700 130px serif";
   ctx.fillText(RT.name, W / 2, cardY + 400);
   ctx.fillStyle = "#8a828d";
-  ctx.font = "40px sans-serif";
-  ctx.fillText("2nd " + secondName, W / 2, cardY + 480);
+  // 12タイプ名。キャンバス幅から左右の余白(cardX)を引いた幅を超える時だけ、文字幅を実測して縮める。
+  let typeFont = 40;
+  ctx.font = typeFont + "px sans-serif";
+  while (typeFont > 10 && ctx.measureText(typeName).width > W - cardX * 2) {
+    typeFont -= 1;
+    ctx.font = typeFont + "px sans-serif";
+  }
+  ctx.fillText(typeName, W / 2, cardY + 480);
 
   // パレット丸
   const dotR = 52, gap = 30;
@@ -1102,8 +1125,8 @@ function buildShareImage(RT, secondName, axes) {
   return cv;
 }
 
-async function shareResultImage(RT, secondName, axes) {
-  const cv = buildShareImage(RT, secondName, axes);
+async function shareResultImage(RT, typeName, axes) {
+  const cv = buildShareImage(RT, typeName, axes);
   const blob = await new Promise((r) => cv.toBlob(r, "image/png"));
   const file = new File([blob], "my_personal_color.png", { type: "image/png" });
   if (navigator.canShare && navigator.canShare({ files: [file] })) {
@@ -1164,7 +1187,7 @@ async function buildCardImage(res, selfImage) {
   y += AV_H;
 
   // 1st / 2nd のタイプ名。どのタイプの結果なのかがカード単体で分かるようにする。
-  stack("1st " + TYPES[res.first].name + "　2nd " + TYPES[res.second].name,
+  stack(type12Name(res.first, res.second),
         34, "500", "#6b6470", 47.6);
   stack("あなたの色は", 48, "400", "#333333", 67.19);
   stack(res.copy.cn, 81, "700", T.accent, 89.09);
@@ -1908,6 +1931,8 @@ function diagnoseByMeasure(skinLab, hairLab, skinRGB, hairDyed) {
     skinHex: hex(skinRGB.r, skinRGB.g, skinRGB.b),
     confidence,
     gap: gap.toFixed(2),
+    // 4タイプそれぞれの理想座標までの距離（上で計算済みの値をそのまま返すだけ。判定には使わない）
+    dist: Object.fromEntries(scored.map((s) => [s.key, +s.dist.toFixed(3)])),
   };
 }
 
@@ -2273,6 +2298,8 @@ async function aiPhotoDiagnose(base64, mediaType) {
       },
       dyed: !!photoHairDyed,
       conf: m.confidence,
+      // v1.22.7〜: 4タイプ別の距離（小さいほど近い。1位=最小）
+      dist: m.dist,
     },
   };
 }
@@ -4156,7 +4183,7 @@ export default function App({ campaign = null, account = false } = {}) {
                       style={{ maxWidth: 280, aspectRatio: "2 / 3", objectFit: "contain" }}
                       onError={(e) => { e.currentTarget.style.visibility = "hidden"; }} />
                     <div className="text-[11px] mt-1" style={{ color: "#6b6470" }}>
-                      1st {TYPES[cardResult.first].name}　2nd {TYPES[cardResult.second].name}
+                      {type12Name(cardResult.first, cardResult.second)}
                     </div>
                     <div className="text-base" style={{ color: "#333" }}>あなたの色は</div>
                     <div className="font-bold leading-tight" style={{ fontSize: 27, color: T.accent }}>{cardResult.copy.cn}</div>
@@ -4272,7 +4299,7 @@ export default function App({ campaign = null, account = false } = {}) {
                 </a>
                 <p className="text-xs leading-relaxed" style={{ color: C.faint }}>
                   {myType && mySecond
-                    ? "この色は、あなたの12タイプ診断の結果（" + TYPES[cardResult.first].name + " → " + TYPES[cardResult.second].name + "）をそのまま使っています。"
+                    ? "この色は、あなたの12タイプ診断の結果（" + type12Name(cardResult.first, cardResult.second) + "）をそのまま使っています。"
                     : "この色は、6問の色えらびから推定したものです。写真診断は肌の色を実際に測って、12タイプ設問は質問の回答から判定します。"}
                 </p>
               </div>
@@ -4346,7 +4373,7 @@ export default function App({ campaign = null, account = false } = {}) {
                 あなたは<span className="text-3xl mx-0.5" style={{ color: RT.accent }}>【{RT.name}】</span>タイプです！
               </h2>
               <div className="inline-flex items-center gap-2 text-xl font-bold mt-3 mb-4 px-5 py-2.5 rounded-full" style={{ background: TYPES[quizResult.second].accent + "14", color: TYPES[quizResult.second].accent, border: `2px solid ${TYPES[quizResult.second].accent}44` }}>
-                2nd：{TYPES[quizResult.second].name}
+                {type12Name(RT.key, quizResult.second)}
               </div>
               {/* タイプ別イラスト（既存素材）＋プロ資料と同じ専門表記 */}
               <SpecBadges first={RT.key} second={quizResult.second} accent={RT.accent} />
@@ -4463,7 +4490,7 @@ export default function App({ campaign = null, account = false } = {}) {
                 <Sparkles size={15} /> あなたのパーソナルカラーカードを見る
               </button>
               <button onClick={() => { if (!STYLIST_ENABLED) { setSoonOpen(true); return; } setStResult(null); setMode("stylist"); }} className="block w-full text-center px-6 py-3.5 rounded-full text-white text-sm font-medium mb-3 mt-2 transition-transform hover:scale-105" style={{ background: RT.accent }}>このタイプで「今日なに着る？」→</button>
-              <button onClick={() => shareResultImage(RT, TYPES[quizResult.second].name, quizResult.axes)} className="flex items-center justify-center gap-2 w-full text-center px-6 py-3.5 rounded-full text-sm font-medium mb-3 transition-transform hover:scale-105" style={{ border: `2px solid ${RT.accent}`, color: RT.accent, background: RT.accent + "0a" }}>
+              <button onClick={() => shareResultImage(RT, type12Name(RT.key, quizResult.second), quizResult.axes)} className="flex items-center justify-center gap-2 w-full text-center px-6 py-3.5 rounded-full text-sm font-medium mb-3 transition-transform hover:scale-105" style={{ border: `2px solid ${RT.accent}`, color: RT.accent, background: RT.accent + "0a" }}>
                 <Sparkles size={15} /> 結果を画像で保存・シェア
               </button>
               <a href={quizResult.url} target="_blank" rel="noreferrer" className="flex items-center justify-center gap-1.5 w-full text-center px-6 py-3.5 rounded-full text-sm font-medium mb-3" style={{ border: `1px solid ${C.line}`, color: C.sub }}>
@@ -4493,7 +4520,7 @@ export default function App({ campaign = null, account = false } = {}) {
               {myType && (
                 <>
                   <div className="inline-flex items-center gap-2 mb-5 px-3 py-1.5 rounded-full text-xs" style={{ background: TYPES[myType].accent + "14", color: TYPES[myType].accent }}>
-                    {TYPES[myType].name}{mySecond ? ` × 2nd ${TYPES[mySecond].name}` : ""} <button onClick={() => { setMyType(null); setMySecond(null); setStResult(null); }} className="underline text-xs font-normal" style={{ color: C.faint }}>変更</button>
+                    {mySecond ? type12Name(myType, mySecond) : TYPES[myType].name} <button onClick={() => { setMyType(null); setMySecond(null); setStResult(null); }} className="underline text-xs font-normal" style={{ color: C.faint }}>変更</button>
                   </div>
                   <div className="text-base font-bold mb-2.5" style={{ color: C.ink }}>今日のシーン</div>
                   <div className="flex gap-2 mb-5">

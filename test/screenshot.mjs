@@ -460,7 +460,8 @@ try {
   const photoRes = await page.locator("#colorlab-root").innerText();
   const prof = await page.evaluate(() => { try { return JSON.parse(localStorage.getItem("colorlab-profile") || "{}"); } catch (e) { return {}; } });
   check("実測結果が localStorage に保存された (1st=" + prof.myType + " / 2nd=" + prof.mySecond + ")", prof.myType === "spring" && prof.mySecond === "summer");
-  check("結果ページに 1st / 2nd が表示される", /【イエベ春】/.test(photoRes) && /2nd：ブルベ夏/.test(photoRes));
+  // types12 (2026-10-10): 見出し下の 2nd 行は12タイプ名（イエベ春 x ブルベ夏 = ライトスプリング）
+  check("結果ページに 1st と12タイプ名が表示される", /【イエベ春】/.test(photoRes) && /ライトスプリング/.test(photoRes) && !/2nd：ブルベ夏/.test(photoRes));
   check("注記が実測ベースの文言になっている", /実測して判定しました/.test(photoRes) && /判定の差：大・β版・校正中のため参考値です/.test(photoRes) && !/信頼度/.test(photoRes));
   check("結果ページに勝ち色の体系化 / コスメ / LINE導線が通常どおり出る",
     /似合う色（勝ち色 \d+色）/.test(photoRes) && /仕上げのコスメはコレ/.test(photoRes) && /LINEに結果を保存する/.test(photoRes));
@@ -566,7 +567,8 @@ try {
   }
   await page.waitForSelector("#colorlab-root >> text=タイプです！", { timeout: 15000 });
   const comboRes = await page.locator("#colorlab-root").innerText();
-  check("写真＋質問: 統合結果ページ（1st / 2nd）まで到達する", /タイプです！/.test(comboRes) && /2nd：/.test(comboRes));
+  // types12 (2026-10-10): 2nd 行は12タイプ名になった
+  check("写真＋質問: 統合結果ページ（1st / 12タイプ名）まで到達する", /タイプです！/.test(comboRes) && /(ライト|ブライト|ソフト|クール|ディープ|ウォーム)(スプリング|サマー|オータム|ウィンター)/.test(comboRes) && !/2nd：/.test(comboRes.split("タイプです！")[1].slice(0, 40)));
   check("写真＋質問: 統合の根拠が注記に出る",
     /写真の実測/.test(comboRes) && (/一致したので/.test(comboRes) || /写真6：質問4/.test(comboRes)));
   check("写真＋質問: 結果ページの中身は通常どおり（勝ち色の体系化・コスメ）",
