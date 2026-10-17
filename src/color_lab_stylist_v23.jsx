@@ -4500,7 +4500,10 @@ export default function App({ campaign = null, account = false } = {}) {
               <MetalChips typeKey={RT.key} accent={RT.accent} site={RT.site} siteName={RT.siteName} />
               {/* 公式フォーマット：似合う服セクション */}
               <h3 className="font-serif text-xl leading-snug mb-2" style={{ color: C.ink, textWrap: "balance" }}>
-                <span style={{ whiteSpace: "nowrap" }}>{RT12}</span>のあなたに似合う服はコレ！
+                {/* 折り返してよいのは「○○の」「あなたに」「似合う服はコレ！」の間だけ（各まとまりは nowrap） */}
+                <span style={{ whiteSpace: "nowrap" }}>{RT12}の</span>
+                <span style={{ whiteSpace: "nowrap" }}>あなたに</span>
+                <span style={{ whiteSpace: "nowrap" }}>似合う服はコレ！</span>
               </h3>
               <p className="text-xs leading-relaxed mb-4" style={{ color: C.sub }}>
                 色相（Hue）・明度（Value）・彩度（Chroma）の3軸分析の結果から、{RT12}のあなたの特性と調和するカラーのファッションアイテムをご紹介します。顔の透明感アップ、顔の引き締め効果、細見えのスリムアップ等の効果が期待できるカラーアイテムばかりなので、是非チェックしてみてください。

@@ -9,6 +9,7 @@
 //   (vii) 見出しの【12タイプ名】が1行に収まる（字の大きさも出す）。「○○のあなたに似合う服はコレ！」も途中で折り返さない
 //   (viii) 結果画面最上部のアバターが読み込み完了する（complete かつ naturalWidth > 0。最大20秒待つ）
 //   (ix)  見出し下のタグ行に 明度・彩度・清濁 のタグが無い
+//   (x)   「○○のあなたに似合う服はコレ！」の「あなたに」が途中で割れない（1文字ごとの y 位置が同じ）
 //   スクリーンショットを撮る時は、撮った画像のアバター枠が単色でないことも画素で確かめる
 // あわせて「結果を画像で保存・シェア」で canvas に描かれた文字を12通りぶん出す。
 // 期待値はこのファイルに直接書く（src から読まない。読むと src が壊れても一致してしまう）。
@@ -27,6 +28,8 @@ const BUNDLE = resolve(process.argv[2] || join(ROOT, "dist", "colorlab.iife.js")
 const SHOOT = !process.argv[2];
 const OUT = resolve(ROOT, "out", "result12");
 if (SHOOT) mkdirSync(OUT, { recursive: true });
+const CROP_OUT = resolve(OUT, "crop");
+const CROP_TYPES = ["ライトスプリング", "ディープウィンター"];
 
 const UTM = "?utm_source=colorlab&utm_medium=result&utm_campaign=type12";
 // [1位-2位, 12タイプ名, サイト, カテゴリ番号, 10色]
@@ -145,7 +148,7 @@ const ok = [], ng = [];
 const check = (c, l) => (c ? ok : ng).push(l);
 const seasonHits = [];
 const shareTexts = [];
-const avatarLog = [], fontLog = [], shotLog = [];
+const avatarLog = [], fontLog = [], shotLog = [], cropLog = [];
 
 const browser = await chromium.launch();
 const page = await browser.newPage({ viewport: { width: 390, height: 900 } });
@@ -276,7 +279,20 @@ for (const [key, name, site, cat, hexes] of EXPECT) {
       return -1;
     };
     const h3 = [...root.querySelectorAll("h3")].find((h) => /似合う服はコレ/.test(h.textContent));
-    const h3span = h3 && [...h3.querySelectorAll("span")].find((s) => s.textContent === name);
+    const h3span = h3 && [...h3.querySelectorAll("span")].find((s) => s.textContent === name || s.textContent === name + "の");
+    // (x) 「あなたに」の1文字ごとの y 位置
+    const charTops = (el, sub) => {
+      const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
+      for (let n = walker.nextNode(); n; n = walker.nextNode()) {
+        const i = n.textContent.indexOf(sub);
+        if (i < 0) continue;
+        return [...sub].map((_, k) => {
+          const r = document.createRange(); r.setStart(n, i + k); r.setEnd(n, i + k + 1);
+          return Math.round(r.getBoundingClientRect().top);
+        });
+      }
+      return [];
+    };
     // タグ行は「① 色相 …」の行の親（見出しの直後とは限らない。v1.22.8 は直後がピル）
     const specLine = [...root.querySelectorAll("div")].find((d) => /^① 色相/.test(d.textContent.trim()));
     const tagRow = specLine && specLine.parentElement;
@@ -285,11 +301,13 @@ for (const [key, name, site, cat, hexes] of EXPECT) {
       h2W: h2 ? h2.clientWidth : 0, h2Total: h2 ? lines(h2) : 0, h2TailLines: h2 ? subLines(h2, "タイプです！") : -1,
       h3NameLines: h3span ? lines(h3span) : (h3 ? subLines(h3, name) : -1), h3TailLines: h3 ? subLines(h3, "似合う服はコレ！") : -1, h3Total: h3 ? lines(h3) : 0,
       tags: tagRow ? tagRow.textContent.trim() : "",
+      anataTops: h3 ? charTops(h3, "あなたに") : [],
     };
   }, name);
   check(lay.h2Lines === 1, `${key} ${name}: (vii) 見出しの【${name}】が1行 (${lay.h2Lines}行・${lay.font}・幅${lay.spanW}/${lay.h2W}px)`);
   check(lay.h2TailLines === 1, `${key} ${name}: (vii) 見出しの「タイプです！」が途中で折り返さない (${lay.h2TailLines}行)`);
   check(lay.h3NameLines === 1 && lay.h3TailLines === 1, `${key} ${name}: (vii) 「${name}のあなたに似合う服はコレ！」で名前と「似合う服はコレ！」が途中で折り返さない (名前${lay.h3NameLines}行・「似合う服はコレ！」${lay.h3TailLines}行・見出し全体${lay.h3Total}行)`);
+  check(lay.anataTops.length === 4 && new Set(lay.anataTops).size === 1, `${key} ${name}: (x) 「あなたに」が途中で割れない (1文字ごとの y=${lay.anataTops.join(",") || "なし"})`);
   check(!/(高|中|低)明度|(高|中|低)彩度|清色|濁色/.test(lay.tags), `${key} ${name}: (ix) タグ行に明度・彩度・清濁のタグが無い (${lay.tags.slice(0, 40)})`);
   fontLog.push(`${key} ${name}: ${lay.font}（【${name}】の幅 ${lay.spanW}px / 見出しの幅 ${lay.h2W}px・見出し全体 ${lay.h2Total}行）`);
 
@@ -326,6 +344,22 @@ for (const [key, name, site, cat, hexes] of EXPECT) {
     }, { b64: buf.toString("base64"), box: abox }) : null;
     const pxOk = !!px && px.colors > 50 && px.sd > 5;
     check(pxOk, `${key} ${name}: 撮った画像のアバター枠が単色でない (${px ? `${px.w}x${px.h}px・色数${px.colors}・輝度の標準偏差${px.sd.toFixed(1)}` : "アバター枠が無い"})`);
+    // 見出し周辺を実寸で切り出す（2タイプだけ）: 「監修の診断結果」〜10色の帯（約900px）と、「似合う服」の見出し〜ボタン（約500px）
+    if (CROP_TYPES.includes(name)) {
+      mkdirSync(CROP_OUT, { recursive: true });
+      const at = await page.evaluate(() => {
+        const root = document.querySelector("#colorlab-root");
+        const y = (el) => el.getBoundingClientRect().top + scrollY;
+        const sup = [...root.querySelectorAll("div")].find((d) => /監修の診断結果$/.test(d.textContent.trim()) && d.children.length === 0);
+        const h3 = [...root.querySelectorAll("h3")].find((h) => /似合う服はコレ/.test(h.textContent));
+        return { head: sup ? y(sup) : 0, h3: h3 ? y(h3) : 0, H: document.documentElement.scrollHeight };
+      });
+      for (const [tag, top, h] of [["head", at.head - 16, 900], ["clothes", at.h3 - 16, 500]]) {
+        const p = resolve(CROP_OUT, `crop_${site}_${name}_${tag}.png`);
+        await page.screenshot({ path: p, fullPage: true, clip: { x: 0, y: Math.max(0, Math.round(top)), width: 390, height: Math.min(h, at.H - Math.max(0, Math.round(top))) } });
+        cropLog.push(p);
+      }
+    }
     shotLog.push(`${shot} | アバター枠: ${px ? `色数${px.colors}・標準偏差${px.sd.toFixed(1)} → ${pxOk ? "空白でない" : "空白"}` : "無し"} | 読み込めなかった画像 ${broken.length}枚${broken.length ? ": " + broken.join(" ") : ""}`);
     console.log(`  ${key} ${name} ${route} -> ${shot}`);
   } else console.log(`  ${key} ${name} ${route}`);
@@ -354,6 +388,7 @@ fontLog.forEach((l) => console.log("  " + l));
 console.log("\n(viii) アバターの読み込み");
 avatarLog.forEach((l) => console.log("  " + l));
 if (shotLog.length) { console.log("\nスクリーンショット"); shotLog.forEach((l) => console.log("  " + l)); }
+if (cropLog.length) { console.log("\n切り出し"); cropLog.forEach((l) => console.log("  " + l)); }
 console.log("\nPASS " + ok.length + " / FAIL " + ng.length);
 ok.forEach((l) => console.log("  [OK] " + l));
 ng.forEach((l) => console.log("  [NG] " + l));
