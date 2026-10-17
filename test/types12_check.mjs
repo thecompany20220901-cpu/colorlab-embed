@@ -182,8 +182,9 @@ for (const [key, name, file] of EXPECT) {
     const pill = h2 && h2.nextElementSibling;
     return { h2: h2 ? h2.textContent : "", pill: pill ? pill.textContent.trim() : "" };
   });
-  check(info.h2.includes(`【${JA[f1]}】`), `${key}: 見出し「あなたは【${JA[f1]}】タイプです！」が残る (${info.h2})`);
-  check(info.pill === name, `${key}: 見出し下の行が「${name}」 (実際「${info.pill}」)`);
+  // v1.22.10: 見出しが12タイプ名になり、見出し下のピル（12タイプ名だけの行）は外した
+  check(info.h2.includes(`【${name}】`), `${key}: 見出し「あなたは【${name}】タイプです！」 (${info.h2})`);
+  check(info.pill !== name, `${key}: 見出し下に12タイプ名だけのピルが無い (直後の行「${info.pill.slice(0, 30)}」)`);
   check(!/2nd：/.test(info.pill) && !info.pill.includes(JA[f2]), `${key}: 旧表示「2nd：${JA[f2]}」が無い`);
 
   // 結果名の表示（見出しまわり）を保存

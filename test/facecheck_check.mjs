@@ -169,9 +169,10 @@ const readResult = (page) => page.evaluate(() => {
     const cells = [...d.querySelectorAll(".grid.grid-cols-4 > div")].map((c) => c.textContent.trim());
     return { name: nm.textContent.trim(), cells };
   }).filter(Boolean) : [];
-  const t6 = [...root.querySelectorAll("div")].filter((d) => d.textContent.trim() === "Best Color TOP6").pop();
+  // v1.22.10: 帯は12タイプ別の10色（BEST COLOR 10・5列）になった
+  const t6 = [...root.querySelectorAll("div")].filter((d) => d.textContent.trim() === "BEST COLOR 10").pop();
   const t6sec = t6 ? t6.parentElement : null;
-  const top6 = t6sec ? [...t6sec.querySelectorAll(".grid.grid-cols-6 > div")].map((d) => d.textContent.trim()) : [];
+  const top6 = t6sec ? [...t6sec.querySelectorAll(".grid.grid-cols-5 > div")].map((d) => d.textContent.trim()) : [];
   const tipHead = [...root.querySelectorAll("div")].filter((d) => d.textContent.trim() === "避けたい色を着たいときは").pop();
   const tips = tipHead ? [...tipHead.parentElement.querySelectorAll(".text-\\[11px\\].font-medium.leading-tight")].map((d) => d.textContent.trim()) : [];
   const toggle = [...root.querySelectorAll("button")].filter((b) => /^TOP6の色だけ（\d+点）$/.test(b.textContent.trim())).pop();
@@ -226,12 +227,12 @@ for (const pat of ANSWER_PATTERNS) {
   ok(/のアクセサリー/.test(r.text), "既存のアクセサリー在庫（SKUS）につながっている");
 
   // ── B案：ベストカラーTOP6 ──
-  const want6 = expectTop6(key).map((c) => c.name);
-  ok(r.top6.length === 6, `TOP6の帯に6色ある (実測 ${r.top6.length})`);
-  ok(r.top6.join("・") === want6.join("・"), `TOP6が期待どおり: ${r.top6.join("・")}`);
-  ok(r.top6Title === "まずはこの6色から", `帯の見出し: ${r.top6Title}`);
+  // v1.22.10: 4タイプ別 TOP6 → 12タイプ別 10色。色の一致は test/result12_check.mjs (iii) が12通りで見る。
+  // 「TOP6の色だけ」の絞り込みは結果画面から外したので、無いことを確かめる。
+  ok(r.top6.length === 10, `BEST COLOR 10 の帯に10色ある (実測 ${r.top6.length})`);
+  ok(r.top6Title === "まずはこの10色から", `帯の見出し: ${r.top6Title}`);
   const wantHit = expectTop6Skus(SITE_OF[key], key);
-  ok(r.toggle === `TOP6の色だけ（${wantHit.length}点）`, `絞り込みトグルの件数が在庫と一致: ${r.toggle} / 全${SKUS[SITE_OF[key]].length}点`);
+  ok(r.toggle === null, `「TOP6の色だけ」の絞り込みトグルが無い: ${r.toggle}`);
   ok(wantHit.length > 0 && wantHit.length < SKUS[SITE_OF[key]].length, `絞り込みが実際に効く件数になっている (${wantHit.length}/${SKUS[SITE_OF[key]].length})`);
 
   // ── C案：苦手な色を着るときのポイント ──

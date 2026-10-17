@@ -31,6 +31,13 @@ const base = "http://127.0.0.1:" + server.address().port;
 
 const EXPECT = { spring: "sensibility", summer: "intellect", autumn: "action", winter: "passion" };
 const JA = { spring: "イエベ春", summer: "ブルベ夏", autumn: "イエベ秋", winter: "ブルベ冬" };
+// 1位シーズン -> その1位になる12タイプ名（src の TYPE12_NAME と同じ対応）
+const NAME12 = {
+  spring: ["ライトスプリング", "ウォームスプリング", "ブライトスプリング"],
+  summer: ["ブライトサマー", "ソフトサマー", "クールサマー"],
+  autumn: ["ウォームオータム", "ソフトオータム", "ディープオータム"],
+  winter: ["ブライトウィンター", "クールウィンター", "ディープウィンター"],
+};
 
 // 13問の回答パターン。黄み/青み軸と明度軸の押し分けで1位のシーズンが変わる。
 const PATTERNS = [
@@ -81,7 +88,8 @@ for (const pat of PATTERNS) {
     };
   });
 
-  const key = Object.keys(JA).find((k) => JA[k] === info.first);
+  // v1.22.10: 見出しは12タイプ名になったので、12タイプ名から1位シーズンを引く
+  const key = Object.keys(NAME12).find((k) => NAME12[k].includes(info.first));
   const want = key ? `avatar_${key}_${EXPECT[key]}.webp` : null;
   check(!!info.first, `${pat.name}: 既存の見出し「あなたは【…】タイプです！」が残っている`);
   check(info.has2nd, `${pat.name}: 既存の2nd表示が残っている`);

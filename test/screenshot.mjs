@@ -319,9 +319,9 @@ try {
   check("結果ページに色相ファミリーの8行がある",
     ["ピンク系", "レッド系", "オレンジ・コーラル系", "イエロー系", "グリーン系", "ブルー系", "パープル系", "ベーシック"]
       .every((k) => resText.includes(k)));
-  check("結果ページにプロ資料と同じ専門表記（ベース/明度/彩度/清濁）がある",
-    /(イエローベース|ブルーベース|ニュートラル)/.test(resText) && /(高|中|低)明度/.test(resText) &&
-    /(高|中|低)彩度/.test(resText) && /(清色|濁色)/.test(resText));
+  // v1.22.10: 明度・彩度・清濁のタグ（4タイプの値）は外し、ベースと「① 色相」だけ残した（無いことは result12_check の (ix) で見る）
+  check("結果ページにプロ資料と同じ専門表記（ベース/色相）がある",
+    /(イエローベース|ブルーベース|ニュートラル)/.test(resText) && /① 色相\s*(Warm|Cool)/.test(resText));
   check("苦手色ブロックが1箇所に統合されている（出現1回）", countOf(resText, "苦手な色") === 1);
   check("苦手色の見出しが「苦手な色（顔まわりでは注意）」", /苦手な色（顔まわりでは注意）/.test(resText));
   check("結果ページに「仕上げのコスメはコレ！」がある", /仕上げのコスメはコレ/.test(resText));
@@ -461,7 +461,8 @@ try {
   const prof = await page.evaluate(() => { try { return JSON.parse(localStorage.getItem("colorlab-profile") || "{}"); } catch (e) { return {}; } });
   check("実測結果が localStorage に保存された (1st=" + prof.myType + " / 2nd=" + prof.mySecond + ")", prof.myType === "spring" && prof.mySecond === "summer");
   // types12 (2026-10-10): 見出し下の 2nd 行は12タイプ名（イエベ春 x ブルベ夏 = ライトスプリング）
-  check("結果ページに 1st と12タイプ名が表示される", /【イエベ春】/.test(photoRes) && /ライトスプリング/.test(photoRes) && !/2nd：ブルベ夏/.test(photoRes));
+  // v1.22.10: 見出しが12タイプ名「あなたは【ライトスプリング】タイプです！」になった
+  check("結果ページに 1st と12タイプ名が表示される", /【ライトスプリング】/.test(photoRes) && /ライトスプリング/.test(photoRes) && !/2nd：ブルベ夏/.test(photoRes));
   check("注記が実測ベースの文言になっている", /実測して判定しました/.test(photoRes) && /判定の差：大・β版・校正中のため参考値です/.test(photoRes) && !/信頼度/.test(photoRes));
   check("結果ページに勝ち色の体系化 / コスメ / LINE導線が通常どおり出る",
     /似合う色（勝ち色 \d+色）/.test(photoRes) && /仕上げのコスメはコレ/.test(photoRes) && /LINEに結果を保存する/.test(photoRes));

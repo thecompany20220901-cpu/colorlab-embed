@@ -122,7 +122,7 @@ function checkEvent(label, ev, method, site) {
   check(ev.method === method, `${label}: method=${method} (${ev.method})`);
   check(SEASONS.includes(ev.app_first) && SEASONS.includes(ev.app_second) && ev.app_first !== ev.app_second, `${label}: app_first/app_second が4シーズン名 (${ev.app_first}/${ev.app_second})`);
   check(ev.site === site, `${label}: site=${site} (${ev.site})`);
-  check(ev.app_version === VERSION && VERSION === "1.22.8", `${label}: app_version=${VERSION} (${ev.app_version})`);
+  check(ev.app_version === VERSION && VERSION === "1.22.10", `${label}: app_version=${VERSION} (${ev.app_version})`);
   const s = JSON.stringify(ev);
   check(s.length < 200 && !/data:|base64|measure|metrics|wb|dist|axes|note|url/i.test(s), `${label}: 写真・計測値・URL を含まない (${s})`);
 }
@@ -166,10 +166,8 @@ let evs = await diagEvents();
 check(evs.length === 1, `質問: 結果表示で1回 (${evs.length})`);
 checkEvent("質問", evs[0], "quiz", "blubel");
 await checkLinks("質問");
-// 再描画（TOP6 の絞り込みを2回切り替え）→ 増えない
-const top6 = page.getByRole("button", { name: /TOP6の色だけ/ }).first();
-await top6.click(); await page.waitForTimeout(150); await top6.click(); await page.waitForTimeout(300);
-check((await diagEvents()).length === 1, `質問: 再描画で増えない (${(await diagEvents()).length})`);
+// v1.22.10: 再描画に使っていた「TOP6の色だけ」が結果画面から無くなったので、
+// 再描画の確認は下の2回目の診断のあと（「今日なに着る？」へ移る）に移した
 // メニューへ戻る → 増えない
 await page.getByRole("button", { name: /メニューへ戻る/ }).first().click(); await page.waitForTimeout(300);
 check((await diagEvents()).length === 1, `質問: メニューへ戻るで増えない (${(await diagEvents()).length})`);
@@ -184,6 +182,9 @@ await page.getByRole("button", { name: /メニューへ戻る/ }).first().click(
 await page.getByRole("button", { name: /質問で診断/ }).first().click();
 await answer13(); await waitResult(); await page.waitForTimeout(400);
 check((await diagEvents()).length === 2, `質問: 同じページで2回診断すると2回 (${(await diagEvents()).length})`);
+// 再描画（結果画面から「今日なに着る？」へ移る）→ 増えない
+await page.getByRole("button", { name: /このタイプで「今日なに着る？」/ }).first().click(); await page.waitForTimeout(300);
+check((await diagEvents()).length === 2, `質問: 再描画で増えない (${(await diagEvents()).length})`);
 
 // ── 2) 写真で診断（IEBEL）──
 await fresh("iebel");

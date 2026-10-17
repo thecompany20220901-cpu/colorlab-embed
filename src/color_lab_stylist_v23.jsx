@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useRef, useEffect, useLayoutEffect } from "react";
 import { createPortal } from "react-dom";
 import { Sparkles, ArrowRight, ArrowLeft, RotateCcw, Copy, Check, Camera, Heart, Palette, Shirt, Upload, ExternalLink, Brush, Scissors, Ban, Droplet, Paintbrush, ShoppingBag, Eraser, Star, ListChecks, PersonStanding, Download } from "lucide-react";
 import { CARD_COPY, CARD_Q3, CARD_PERSONA, cardAvatarUrl, cardKey } from "./card_data.js";
@@ -882,6 +882,49 @@ const TYPE12_NAME = {
 };
 const type12Name = (first, second) => TYPE12_NAME[`${TYPES[first].num}-${TYPES[second].num}`];
 
+// v1.22.10: 結果画面の一言説明。カテゴリ14〜19の seo_text の1文目（原文のまま）。
+// 出典: category_blubel (5).csv / category_iebel (1).csv（Fulmo のカテゴリ書き出し）
+const TYPE12_FEATURE = {
+  "ブライトサマー": "ブライトサマーは、ブルベ夏の中でも「明るく澄んだ、やわらかな色」が得意なタイプです。",
+  "ソフトサマー": "ソフトサマーは、ブルベ夏の中でも「くすみ感のある、やさしく落ち着いた色」が得意なタイプです。",
+  "クールサマー": "クールサマーは、ブルベ夏の中でも「青みがはっきりした、すっきり涼しげな色」が得意なタイプです。",
+  "ディープウィンター": "ディープウィンターは、ブルベ冬の中でも「深く濃い、重厚感のある色」が得意なタイプです。",
+  "クールウィンター": "クールウィンターは、ブルベ冬の中でも「青みがクリアで、シャープな色」が得意なタイプです。",
+  "ブライトウィンター": "ブライトウィンターは、ブルベ冬の中でも「鮮やかで、くっきりしたビビッドな色」が得意なタイプです。",
+  "ライトスプリング": "ライトスプリングは、イエベ春の中でも「明るくやわらかい、透明感のある暖色」が得意なタイプです。",
+  "ブライトスプリング": "ブライトスプリングは、イエベ春の中でも「鮮やかで、クリアな暖色」が得意なタイプです。",
+  "ウォームスプリング": "ウォームスプリングは、イエベ春の中でも「黄みが強く、温かみのある色」が得意なタイプです。",
+  "ソフトオータム": "ソフトオータムは、イエベ秋の中でも「くすみ感のある、穏やかな暖色」が得意なタイプです。",
+  "ディープオータム": "ディープオータムは、イエベ秋の中でも「深く濃い、リッチな暖色」が得意なタイプです。",
+  "ウォームオータム": "ウォームオータムは、イエベ秋の中でも「黄みが強く、こっくりした暖色」が得意なタイプです。",
+};
+
+// v1.22.10: 結果画面「BEST COLOR 10」。IG投稿の画像から色コード化した値（PC12_PALETTE_BLUBEL_v1 / PC12_PALETTE_IEBEL_v1・順序もそのまま）。
+// IEBEL は資料に色名が無いので名前は null（スウォッチだけ出す）。
+// IEBEL ウォームオータムの下段3〜5番目は、元画像で一部が隠れていたため見える部分から採った値。
+const TYPE12_PALETTE = {
+  "ブライトサマー": [["ペールピンク", "#FECFD9"], ["オーキッドピンク", "#D698C1"], ["ペールブルー", "#ACCEF1"], ["クリームイエロー", "#FEFFDB"], ["レモンクリーム", "#FEF898"], ["ライラックピンク", "#FDD4F2"], ["ラベンダー", "#B4B2D9"], ["スカイブルー", "#98CEF2"], ["ミントグリーン", "#73D6BA"], ["ブルーグレー", "#D2D9E1"]],
+  "ソフトサマー": [["ダスティローズ", "#A16F7B"], ["セージグリーン", "#709D89"], ["ペリウィンクル", "#A2A7CF"], ["ペールイエロー", "#FAF399"], ["グレー", "#A6A2A3"], ["ダスティピンク", "#CD8DA5"], ["ミストグリーン", "#A1BBB8"], ["モーヴ", "#CAA9C6"], ["くすみイエロー", "#F3DD87"], ["ダークネイビー", "#323558"]],
+  "クールサマー": [["ペールピンク", "#FFD2D9"], ["レモンイエロー", "#F6F17B"], ["ライトブルー", "#71B3E3"], ["クリアレッド", "#DC4647"], ["ミッドナイトネイビー", "#080240"], ["ベビーピンク", "#F9ADD3"], ["エメラルドグリーン", "#47B68B"], ["ロイヤルブルー", "#0D43C9"], ["ベリー", "#A7194B"], ["アイボリー", "#FDFFE7"]],
+  "ディープウィンター": [["ディープマゼンタ", "#990C50"], ["プラム", "#6B016D"], ["イエロー", "#F6E073"], ["オリーブ", "#989701"], ["チャコール", "#383836"], ["ワイン", "#55072E"], ["ロイヤルネイビー", "#011971"], ["インディゴ", "#3B4374"], ["フォレストグリーン", "#345F55"], ["ブラック", "#010101"]],
+  "クールウィンター": [["ペールピンク", "#EEB6CF"], ["ラズベリーピンク", "#C53F72"], ["スカイブルー", "#34A9DE"], ["コバルトブルー", "#334A9A"], ["ブラック", "#000000"], ["レモンイエロー", "#FDE755"], ["ティールグリーン", "#1E9A82"], ["ティールブルー", "#13749E"], ["アメジスト", "#7E4B86"], ["ホワイト", "#FDFDFB"]],
+  "ブライトウィンター": [["ペールラベンダー", "#E7DDFF"], ["ビビッドシアン", "#3DCFFE"], ["ビビッドイエロー", "#F9FE02"], ["ビビッドレッド", "#E30037"], ["ホワイト", "#FDFDFD"], ["ペールライラック", "#FEE4FF"], ["ビビッドブルー", "#0815BB"], ["ライムグリーン", "#83DD3D"], ["マゼンタ", "#E92BE3"], ["ブラック", "#000000"]],
+  "ライトスプリング": ["#ECC6D9", "#EAB7B9", "#D48473", "#E4D594", "#F0F2BF", "#DCE2AC", "#BADAC4", "#D3E9EE", "#AED2D8", "#A1CBCB"].map((h) => [null, h]),
+  "ブライトスプリング": ["#C53F83", "#C45D51", "#D36D3D", "#ECDF5E", "#D7CF83", "#B0CC5A", "#78B664", "#77BEC0", "#4B9BB7", "#6BA5B4"].map((h) => [null, h]),
+  "ウォームスプリング": ["#EBC051", "#D1766F", "#D6EA95", "#CF7250", "#568C5F", "#516D36", "#1F3F54", "#6AB3AB", "#763E29", "#DBB891"].map((h) => [null, h]),
+  "ウォームオータム": ["#E59A95", "#E8B87F", "#DE824B", "#AC4234", "#497849", "#37143A", "#4D2F22", "#22435F", "#62A49F", "#E3B199"].map((h) => [null, h]),
+  "ソフトオータム": ["#F8D8D7", "#ECE392", "#C3918F", "#BFC3A6", "#B3696B", "#4B7173", "#7B5973", "#86605C", "#8493B4", "#E3DACB"].map((h) => [null, h]),
+  "ディープオータム": ["#9F563D", "#CAA744", "#71292D", "#D07150", "#656742", "#65284A", "#3B6A7E", "#234563", "#523224", "#000328"].map((h) => [null, h]),
+};
+
+// v1.22.10: 12タイプ別のカテゴリページ（BLUBEL / IEBEL とも 14〜19）。結果画面の「一覧で見る」の行き先
+const TYPE12_CATEGORY = {
+  "ブライトサマー": 14, "ソフトサマー": 15, "クールサマー": 16, "ディープウィンター": 17, "クールウィンター": 18, "ブライトウィンター": 19,
+  "ライトスプリング": 14, "ブライトスプリング": 15, "ウォームスプリング": 16, "ソフトオータム": 17, "ディープオータム": 18, "ウォームオータム": 19,
+};
+const TYPE12_CATEGORY_URL = (site, name12) =>
+  `https://www.${site}.jp/category/${TYPE12_CATEGORY[name12]}?utm_source=colorlab&utm_medium=result&utm_campaign=type12`;
+
 // 1位/2位確定（本番と同一：同点は優先順1→2→3→4）
 const sortTypes = (scores) =>
   [1, 2, 3, 4]
@@ -1044,17 +1087,15 @@ function buildShareImage(RT, typeName, axes) {
   ctx.font = "42px serif";
   ctx.fillText("わたしのパーソナルカラーは", W / 2, cardY + 230);
   ctx.fillStyle = RT.accent;
-  ctx.font = "700 130px serif";
-  ctx.fillText(RT.name, W / 2, cardY + 400);
-  ctx.fillStyle = "#8a828d";
-  // 12タイプ名。キャンバス幅から左右の余白(cardX)を引いた幅を超える時だけ、文字幅を実測して縮める。
-  let typeFont = 40;
-  ctx.font = typeFont + "px sans-serif";
+  // v1.22.10: 4タイプ名の位置に12タイプ名を出す（下の40pxの12タイプ名の行は、同じ名前が2回になるので外した）。
+  // キャンバス幅から左右の余白(cardX)を引いた幅を超える時だけ、文字幅を実測して縮める。
+  let typeFont = 130;
+  ctx.font = "700 " + typeFont + "px serif";
   while (typeFont > 10 && ctx.measureText(typeName).width > W - cardX * 2) {
     typeFont -= 1;
-    ctx.font = typeFont + "px sans-serif";
+    ctx.font = "700 " + typeFont + "px serif";
   }
-  ctx.fillText(typeName, W / 2, cardY + 480);
+  ctx.fillText(typeName, W / 2, cardY + 400);
 
   // パレット丸
   const dotR = 52, gap = 30;
@@ -1124,7 +1165,7 @@ function buildShareImage(RT, typeName, axes) {
   ctx.fillText(RT.sns + "  |  " + RT.siteName, W / 2, cardY + cardH - 55);
 
   ctx.fillStyle = "#b3aab2"; ctx.font = "32px sans-serif";
-  ctx.fillText("#パーソナルカラー診断 #" + RT.name, W / 2, H - 40);
+  ctx.fillText("#パーソナルカラー診断 #" + typeName, W / 2, H - 40);
   return cv;
 }
 
@@ -2665,13 +2706,31 @@ function SpecBadges({ first, second, accent }) {
   const badge = (t) => (
     <span key={t} className="inline-block text-[10px] px-2.5 py-1 rounded-full mr-1.5 mb-1.5" style={{ background: accent + "12", border: `1px solid ${accent}44`, color: accent }}>{t}</span>
   );
+  // v1.22.10: 明度・彩度・清濁のタグ（TYPE_SPEC の4タイプの値）は12タイプの見出しと食い違うので外し、ベースと色相だけ残す
   return (
     <div className="mb-4">
-      {[baseLabel(first, second), s.value, s.chroma, s.clarity].map(badge)}
+      {[baseLabel(first, second)].map(badge)}
       <div className="text-[11px] leading-relaxed" style={{ color: C.sub }}>
-        ① 色相 <b style={{ color: C.ink }}>{s.hue}</b>　② 明度 <b style={{ color: C.ink }}>{s.value}</b>　③ 彩度 <b style={{ color: C.ink }}>{s.chroma}・{s.clarity}</b>
+        ① 色相 <b style={{ color: C.ink }}>{s.hue}</b>
       </div>
     </div>
+  );
+}
+
+// v1.22.10: 結果見出しの【12タイプ名】。名前の途中で折り返さないよう1つのまとまりにし、
+// 見出しの幅に収まらない時だけ text-3xl → text-2xl → text-xl と1段ずつ小さくする（幅は描画後に実測）。
+const FIT_TYPE_SIZES = ["text-3xl", "text-2xl", "text-xl"];
+function FitTypeName({ name12, accent }) {
+  const ref = useRef(null);
+  const [step, setStep] = useState(0);
+  useLayoutEffect(() => { setStep(0); }, [name12]);
+  useLayoutEffect(() => {
+    const el = ref.current, box = el && el.parentElement;
+    if (!el || !box || step >= FIT_TYPE_SIZES.length - 1) return;
+    if (el.getBoundingClientRect().width > box.clientWidth) setStep(step + 1);
+  });
+  return (
+    <span ref={ref} className={FIT_TYPE_SIZES[step] + " inline-block mx-0.5"} style={{ color: accent, whiteSpace: "nowrap" }}>【{name12}】</span>
   );
 }
 
@@ -3018,24 +3077,24 @@ function top6ColorsOfSku(site, sku, top6) {
   return colors.filter((c) => (MASTER_COLOR_ALIAS[c] || []).some((n) => names.has(n)));
 }
 
-/* ベストカラーTOP6 の帯。結果画面のいちばん上に置く。 */
-function Top6Band({ typeKey, accent }) {
-  const top6 = pickTop6(typeKey);
+/* ベストカラー10色の帯。結果画面のいちばん上に置く。
+   v1.22.10: 4タイプ別の TOP6（70色の ✓）から、12タイプ別の10色パレット TYPE12_PALETTE に替えた。
+   枠・スウォッチは TOP6 の時のまま。10色を2段にそろえるため列だけ 6→5 にした。
+   IEBEL のパレットは色名が無いので、スウォッチだけ出す（名前の行も出さない）。 */
+function Best10Band({ name12, accent }) {
+  const colors = TYPE12_PALETTE[name12] || [];
   return (
     <div className="rounded-2xl p-4 mb-5" style={{ background: accent + "0d", border: `1px solid ${accent}33` }}>
-      <div className="text-[10px] tracking-widest uppercase mb-0.5" style={{ color: accent }}>Best Color TOP6</div>
-      <div className="text-sm font-medium mb-2" style={{ color: C.ink }}>まずはこの6色から</div>
-      <div className="grid grid-cols-6 gap-1.5">
-        {top6.map((c) => (
-          <div key={c.name} className="text-center">
-            <div className="w-full rounded-lg" style={{ height: 34, background: c.hex, border: "1px solid #e3dce3" }} />
-            <span className="block text-[8.5px] mt-0.5 leading-tight" style={{ color: C.sub }}>{c.name}</span>
+      <div className="text-[10px] tracking-widest uppercase mb-0.5" style={{ color: accent }}>BEST COLOR 10</div>
+      <div className="text-sm font-medium mb-2" style={{ color: C.ink }}>まずはこの10色から</div>
+      <div className="grid grid-cols-5 gap-1.5">
+        {colors.map(([name, hex], i) => (
+          <div key={i} className="text-center">
+            <div className="w-full rounded-lg" style={{ height: 34, background: hex, border: "1px solid #e3dce3" }} />
+            {name && <span className="block text-[8.5px] mt-0.5 leading-tight" style={{ color: C.sub }}>{name}</span>}
           </div>
         ))}
       </div>
-      <p className="text-[10px] leading-relaxed mt-2" style={{ color: C.sub }}>
-        勝ち色70色のうち、いちばん得意な色から6色。買い物で迷ったらこの中から選べば外しません。
-      </p>
     </div>
   );
 }
@@ -3360,8 +3419,6 @@ export default function App({ campaign = null, account = false } = {}) {
   const [stHair, setStHair] = useState(null);
   const [stMeet, setStMeet] = useState(null);
   const [cosmeCat, setCosmeCat] = useState("すべて");
-  // 「似合う服はコレ！」を ベストカラーTOP6 の色展開がある商品だけに絞るか
-  const [top6Only, setTop6Only] = useState(false);
   const [stMood, setStMood] = useState("");
   const [stResult, setStResult] = useState(null);
   const [stLoading, setStLoading] = useState(false);
@@ -3895,6 +3952,8 @@ export default function App({ campaign = null, account = false } = {}) {
 
   const tpoJa = { work: "通勤", date: "デート", casual: "休日" };
   const RT = quizResult ? TYPES[quizResult.first] : null;
+  // v1.22.10: 結果画面の見出し・文言に出す12タイプ名（判定は4タイプのまま。1位x2位から引くだけ）
+  const RT12 = quizResult ? type12Name(quizResult.first, quizResult.second) : null;
   // v1.22.8: 診断完了を GA4 で数える（GTM のカスタムイベント diag_complete）。
   // 結果オブジェクト1つにつき1回だけ送る（再描画・画面の行き来で同じ結果を出し直しても送らない）。
   // 送るのはタイプと経路だけ。写真・計測値（measure 等）は入れない。
@@ -4389,18 +4448,15 @@ export default function App({ campaign = null, account = false } = {}) {
                 {RT.site === "iebel" ? "イエベ研究所" : "ブルベ研究所"}監修の診断結果
               </div>
               <h2 className="font-serif text-2xl leading-snug mb-1" style={{ color: C.ink }}>
-                あなたは<span className="text-3xl mx-0.5" style={{ color: RT.accent }}>【{RT.name}】</span>タイプです！
+                あなたは<FitTypeName name12={RT12} accent={RT.accent} /><span style={{ whiteSpace: "nowrap" }}>タイプです！</span>
               </h2>
-              <div className="inline-flex items-center gap-2 text-xl font-bold mt-3 mb-4 px-5 py-2.5 rounded-full" style={{ background: TYPES[quizResult.second].accent + "14", color: TYPES[quizResult.second].accent, border: `2px solid ${TYPES[quizResult.second].accent}44` }}>
-                {type12Name(RT.key, quizResult.second)}
-              </div>
               {/* タイプ別イラスト（既存素材）＋プロ資料と同じ専門表記 */}
               <SpecBadges first={RT.key} second={quizResult.second} accent={RT.accent} />
               {quizResult.note && <p className="text-xs leading-relaxed mb-4" style={{ color: C.faint }}>{quizResult.note}</p>}
 
               {/* 3軸バー（回答から算出したあなただけの数値） */}
               <div className="rounded-2xl p-5 mb-4" style={{ background: "#faf7f9", border: "1px solid #f0e9ef" }}>
-                <Top6Band typeKey={RT.key} accent={RT.accent} />
+                <Best10Band name12={RT12} accent={RT.accent} />
                 <div className="text-xs font-medium mb-4" style={{ color: C.ink }}>あなたの色相 / 明度 / 彩度</div>
                 {[
                   { no: "①", name: "色相", ax: quizResult.axes.hue },
@@ -4423,7 +4479,7 @@ export default function App({ campaign = null, account = false } = {}) {
                 </p>
               </div>
 
-              <p className="text-sm mb-6" style={{ color: "#8a828d" }}>{RT.catch}。2ndの{TYPES[quizResult.second].name}らしさも少し持っているタイプです。</p>
+              <p className="text-sm mb-6" style={{ color: "#8a828d" }}>{TYPE12_FEATURE[RT12]}</p>
               {/* 勝ち色は8つの色相ファミリーで体系化して見せる（プロ資料の見せ方に合わせた） */}
               <ColorFamilies typeKey={RT.key} accent={RT.accent} />
               <div className="text-xs mb-2" style={{ color: C.faint }}>苦手な色（顔まわりでは注意）</div>
@@ -4443,51 +4499,25 @@ export default function App({ campaign = null, account = false } = {}) {
               <FaceCheckTable typeKey={RT.key} accent={RT.accent} />
               <MetalChips typeKey={RT.key} accent={RT.accent} site={RT.site} siteName={RT.siteName} />
               {/* 公式フォーマット：似合う服セクション */}
-              <h3 className="font-serif text-xl leading-snug mb-2" style={{ color: C.ink }}>
-                {RT.name}のあなたに似合う服はコレ！
+              <h3 className="font-serif text-xl leading-snug mb-2" style={{ color: C.ink, textWrap: "balance" }}>
+                <span style={{ whiteSpace: "nowrap" }}>{RT12}</span>のあなたに似合う服はコレ！
               </h3>
               <p className="text-xs leading-relaxed mb-4" style={{ color: C.sub }}>
-                色相（Hue）・明度（Value）・彩度（Chroma）の3軸分析の結果から、{RT.name}のあなたの特性と調和するカラーのファッションアイテムをご紹介します。顔の透明感アップ、顔の引き締め効果、細見えのスリムアップ等の効果が期待できるカラーアイテムばかりなので、是非チェックしてみてください。
+                色相（Hue）・明度（Value）・彩度（Chroma）の3軸分析の結果から、{RT12}のあなたの特性と調和するカラーのファッションアイテムをご紹介します。顔の透明感アップ、顔の引き締め効果、細見えのスリムアップ等の効果が期待できるカラーアイテムばかりなので、是非チェックしてみてください。
               </p>
-              {(() => {
-                // TOP6 の色で買える商品だけに絞れるようにする。色の出所は商品マスタの color 列。
-                const top6 = pickTop6(RT.key);
-                const hit = SKUS[RT.site].filter((sku) => skuHasTop6(RT.site, sku, top6));
-                const list = (top6Only ? hit : SKUS[RT.site]).slice(0, 3);
-                return (
-                  <>
-                    <div className="flex items-center gap-2 mb-3">
-                      <button onClick={() => setTop6Only(!top6Only)} className="px-3 py-1.5 rounded-full text-[11px] transition-all"
-                        style={{ border: top6Only ? `2px solid ${RT.accent}` : "1px solid " + C.line, color: top6Only ? RT.accent : C.sub, background: top6Only ? RT.accent + "0d" : "white" }}>
-                        TOP6の色だけ（{hit.length}点）
-                      </button>
-                      {top6Only && <span className="text-[10px]" style={{ color: C.faint }}>色展開にTOP6が入っている商品</span>}
-                    </div>
-                    {list.map((sku) => (
-                      <div key={sku.id}>
-                        <SkuCard sku={sku} site={RT.site} accent={RT.accent} />
-                        {top6Only && (
-                          <div className="text-[10px] -mt-1.5 mb-3 pl-1" style={{ color: C.faint }}>
-                            この商品のTOP6カラー: {top6ColorsOfSku(RT.site, sku, top6).join("・")}
-                          </div>
-                        )}
-                      </div>
-                    ))}
-                    {top6Only && list.length === 0 && (
-                      <p className="text-xs mb-3" style={{ color: C.sub }}>いまの在庫にTOP6の色展開がありません。絞り込みを外すと全商品が出ます。</p>
-                    )}
-                    {/* v1.22.8: プロ診断などでタイプが分かっている人が自分で選べる入口。アプリの結果に関係なく両方出す */}
-                    <p className="text-xs leading-relaxed text-center mt-1 mb-2" style={{ color: C.sub }}>
-                      プロ診断でタイプが分かっている方は、こちらから選べます:{" "}
-                      <a href={SELF_SELECT_URL("blubel")} target="_blank" rel="noreferrer" className="underline" style={{ color: TYPES.summer.accent, whiteSpace: "nowrap" }}>ブルベの商品を見る</a>{" "}
-                      <a href={SELF_SELECT_URL("iebel")} target="_blank" rel="noreferrer" className="underline" style={{ color: TYPES.autumn.accent, whiteSpace: "nowrap" }}>イエベの商品を見る</a>
-                    </p>
-                  </>
-                );
-              })()}
+              {/* v1.22.10: 固定3点の商品と「TOP6の色だけ」をやめ、12タイプ別のカテゴリ一覧へ送る。ボタンはカラーカードと同じ見た目 */}
+              <a href={TYPE12_CATEGORY_URL(RT.site, RT12)} target="_blank" rel="noreferrer" className="flex items-center justify-center gap-2 w-full text-center px-6 py-3.5 rounded-full text-white text-sm font-medium mb-3 mt-2 transition-transform hover:scale-105" style={{ background: RT.accent }}>
+                <Sparkles size={15} /> {RT12}に似合う服を、一覧で見る
+              </a>
+              {/* v1.22.8: プロ診断などでタイプが分かっている人が自分で選べる入口。アプリの結果に関係なく両方出す */}
+              <p className="text-xs leading-relaxed text-center mt-1 mb-2" style={{ color: C.sub }}>
+                プロ診断でタイプが分かっている方は、こちらから選べます:{" "}
+                <a href={SELF_SELECT_URL("blubel")} target="_blank" rel="noreferrer" className="underline" style={{ color: TYPES.summer.accent, whiteSpace: "nowrap" }}>ブルベの商品を見る</a>{" "}
+                <a href={SELF_SELECT_URL("iebel")} target="_blank" rel="noreferrer" className="underline" style={{ color: TYPES.autumn.accent, whiteSpace: "nowrap" }}>イエベの商品を見る</a>
+              </p>
 
               <h3 className="font-serif text-lg mt-6 mb-1" style={{ color: C.ink }}>仕上げのコスメはコレ！</h3>
-              <p className="text-xs leading-relaxed mb-3" style={{ color: C.sub }}>{RT.name}の肌と調和する色番だけを選びました。</p>
+              <p className="text-xs leading-relaxed mb-3" style={{ color: C.sub }}>肌と調和する色番だけを選びました。</p>
               {COSME[RT.key].slice(0, 3).map((item, i) => (
                 <div key={i}>
                   <CosmeCard item={item} />
@@ -4503,7 +4533,7 @@ export default function App({ campaign = null, account = false } = {}) {
                 <div className="text-xs tracking-widest uppercase mb-1" style={{ color: TYPES[quizResult.second].accent }}>2nd Type Styling</div>
                 <h4 className="font-serif text-lg mb-1" style={{ color: C.ink }}>1stで無難に、2ndで冒険する</h4>
                 <p className="text-xs leading-relaxed mb-3" style={{ color: C.sub }}>
-                  ベースは{RT.name}の得意色で固めつつ、小物や1点だけ2nd（{TYPES[quizResult.second].name}）の色を効かせると、「似合うのに人と被らない」コーデになります。2ndの得意トーンはこちら。
+                  ベースは{RT12}の得意色で固めつつ、小物や1点だけ2nd（{TYPES[quizResult.second].name}）の色を効かせると、「似合うのに人と被らない」コーデになります。2ndの得意トーンはこちら。
                 </p>
                 <div className="flex gap-1.5 mb-4">{TYPES[quizResult.second].palette.map((c, i) => <div key={i} className="w-7 h-7 rounded-full" style={{ background: c, border: "1px solid #eee" }} />)}</div>
                 {SKUS[TYPES[quizResult.second].site].slice(0, 1).map((sku) => <SkuCard key={sku.id} sku={sku} site={TYPES[quizResult.second].site} accent={TYPES[quizResult.second].accent} />)}
