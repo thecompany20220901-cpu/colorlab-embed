@@ -11,6 +11,7 @@
 //   (ix)  見出し下のタグ行に 明度・彩度・清濁 のタグが無い
 //   (x)   「○○のあなたに似合う服はコレ！」の「あなたに」が途中で割れない（1文字ごとの y 位置が同じ）
 //   (xi)  「○○に似合う服を、一覧で見る」ボタンの「一覧で見る」が途中で割れない（1文字ごとの y 位置が同じ）
+//   (xii) 「仕上げのコスメはコレ！」先頭の KATE リップモンスターの表示名・楽天とAmazonの検索語・説明文が下の KATE 表と一致する
 //   スクリーンショットを撮る時は、撮った画像のアバター枠が単色でないことも画素で確かめる
 // あわせて「結果を画像で保存・シェア」で canvas に描かれた文字を12通りぶん出す。
 // 期待値はこのファイルに直接書く（src から読まない。読むと src が壊れても一致してしまう）。
@@ -48,6 +49,22 @@ const EXPECT = [
   ["3-4", "ディープオータム", "iebel", 18, ["#9F563D", "#CAA744", "#71292D", "#D07150", "#656742", "#65284A", "#3B6A7E", "#234563", "#523224", "#000328"]],
   ["3-1", "ウォームオータム", "iebel", 19, ["#E59A95", "#E8B87F", "#DE824B", "#AC4234", "#497849", "#37143A", "#4D2F22", "#22435F", "#62A49F", "#E3B199"]],
 ];
+// (xii) KATE リップモンスターの色番（公式カラーチャートに合わせる。夏 04→13 / 秋 03→04、春・冬は変えない）。1位の番号で引く
+//   name=表示名 / q=楽天の検索語 / amz=Amazonの検索語 / note=説明文
+const KATE = {
+  1: { name: "KATE リップモンスター 02 Pink banana", q: "KATE リップモンスター 02", amz: "KATE リップモンスター 02", note: "イエベ春の血色感を引き出す定番" },
+  2: { name: "KATE リップモンスター 13 3:00AMの微酔", q: "KATE リップモンスター 13", amz: "KATE リップモンスター 13", note: "ブルベ夏に寄り添う青み系の上品カラー" },
+  3: { name: "KATE リップモンスター 04 パンプキンワイン", q: "KATE リップモンスター 04", amz: "KATE リップモンスター 04", note: "イエベ秋に寄り添う黄み系の上品カラー" },
+  4: { name: "KATE リップモンスター 06 2:00AM", q: "KATE リップモンスター 06", amz: "KATE リップモンスター 06", note: "ブルベ冬の鮮烈な深みレッド" },
+};
+// Amazon リンク（/s?k=）から検索語を取り出す
+const amazonQuery = (href) => {
+  try { return new URL(href).searchParams.get("k"); } catch (e) { return null; }
+};
+// 楽天リンク（アフィリエイトURLの pc= に入った検索URL）から検索語を取り出す
+const rakutenQuery = (href) => {
+  try { const m = (new URL(href).searchParams.get("pc") || "").match(/\/search\/mall\/(.*)\/$/); return m ? m[1] : null; } catch (e) { return null; }
+};
 
 // ── 回答パターンの探索（test/types12_check.mjs と同じ。本番の answerQ / finishQuiz / sortTypes と同じ規則）──
 const src = readFileSync(resolve(ROOT, "src", "color_lab_stylist_v23.jsx"), "utf-8");
@@ -218,7 +235,17 @@ for (const [key, name, site, cat, hexes] of EXPECT) {
       const t = n.textContent.trim();
       if (/イエベ春|イエベ秋|ブルベ夏|ブルベ冬/.test(t)) hits.push({ t: t.slice(0, 80), head: lastHead, tag: p ? p.tagName.toLowerCase() : "" });
     }
+    // (xii) 「仕上げのコスメはコレ！」の先頭カード
+    const cosH = [...root.querySelectorAll("h3")].find((h) => /仕上げのコスメはコレ/.test(h.textContent));
+    const cos = cosH && [...root.querySelectorAll("div.rounded-2xl.p-4.mb-3")].find((d) => cosH.compareDocumentPosition(d) & Node.DOCUMENT_POSITION_FOLLOWING);
+    const cosme = cos ? {
+      name: cos.querySelector(".text-sm.font-medium")?.textContent?.trim() || "",
+      note: cos.querySelector("div.text-xs")?.textContent?.trim() || "",
+      rakuten: [...cos.querySelectorAll("a")].find((a) => a.textContent.trim() === "楽天で見る")?.getAttribute("href") || null,
+      amazon: [...cos.querySelectorAll("a")].find((a) => a.textContent.trim() === "Amazonで見る")?.getAttribute("href") || null,
+    } : null;
     return {
+      cosme,
       h2: h2 ? h2.textContent.trim() : "",
       next: next ? next.textContent.trim().slice(0, 40) : "",
       nextClass: next ? String(next.className) : "",
@@ -236,6 +263,11 @@ for (const [key, name, site, cat, hexes] of EXPECT) {
   check(info.listHref === wantHref, `${key} ${name}: (iv) href=${wantHref} (実際 ${info.listHref || "なし"})`);
   check(info.itemCards === 0, `${key} ${name}: (v) 「似合う服はコレ！」直下に商品カードが無い (${info.itemCards}件)`);
   check(!info.top6Btn, `${key} ${name}: (v) 「TOP6の色だけ」ボタンが無い`);
+  const kw = KATE[key[0]], kc = info.cosme || {};
+  check(kc.name === kw.name, `${key} ${name}: (xii) KATE の表示名 (${kc.name || "なし"} / 期待 ${kw.name})`);
+  check(rakutenQuery(kc.rakuten) === kw.q, `${key} ${name}: (xii) KATE の楽天検索語 (${rakutenQuery(kc.rakuten)} / 期待 ${kw.q})`);
+  check(amazonQuery(kc.amazon) === kw.amz, `${key} ${name}: (xii) KATE のAmazon検索語 (${amazonQuery(kc.amazon)} / 期待 ${kw.amz})`);
+  check(kc.note === kw.note + "・¥1,540", `${key} ${name}: (xii) KATE の説明文 (${kc.note || "なし"} / 期待 ${kw.note}・¥1,540)`);
   info.hits.forEach((h) => seasonHits.push(`${key} ${name} | 直前の見出し「${h.head}」 | <${h.tag}> ${h.t}`));
 
   // (viii) アバター: complete かつ naturalWidth > 0 になるまで最大20秒待ち、待った時間と最終状態を残す

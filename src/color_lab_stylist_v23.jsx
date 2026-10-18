@@ -137,7 +137,7 @@ const SKUS = {
 };
 
 // ════════════════════════════════════════════
-// 実データ：コスメAFF（Lip Monster: 春02/秋03/夏04/冬06）
+// 実データ：コスメAFF（Lip Monster: 春02/秋04/夏13/冬06・公式カラーチャートに合わせた）
 // ════════════════════════════════════════════
 const RK = (q) =>
   `https://hb.afl.rakuten.co.jp/hgc/359b13c2.b94cf15e.359b13c3.1f2a5b4f/?pc=${encodeURIComponent(
@@ -156,14 +156,14 @@ const COSME = {
     { name: "キャンメイク クリーミータッチライナー 04 グレージュ", price: 715, cat: "アイライナー", rakuten: RK("キャンメイク クリーミータッチライナー 04"), amazon: AMZ("キャンメイク クリーミータッチライナー 04"), note: "抜け感のあるグレージュライン" },
   ],
   autumn: [
-    { name: "KATE リップモンスター 03 ちょっと不機嫌なピンク", price: 1540, cat: "リップ", rakuten: RK("KATE リップモンスター 03"), amazon: AMZ("KATE リップモンスター 03"), note: "イエベ秋の最大人気色" },
+    { name: "KATE リップモンスター 04 パンプキンワイン", price: 1540, cat: "リップ", rakuten: RK("KATE リップモンスター 04"), amazon: AMZ("KATE リップモンスター 04"), note: "イエベ秋に寄り添う黄み系の上品カラー" },
     { name: "CANMAKE パーフェクトスタイリストアイズ 14 アンティークテラコッタ", price: 858, cat: "アイシャドウ", rakuten: RK("CANMAKE パーフェクトスタイリストアイズ 14"), amazon: AMZ("CANMAKE パーフェクトスタイリスト 14"), note: "こっくり深みのある目元に" },
     { name: "CEZANNE ナチュラルチークN 04 シャインベージュ", price: 396, cat: "チーク", rakuten: RK("CEZANNE ナチュラルチーク 04"), amazon: AMZ("CEZANNE ナチュラルチーク 04"), note: "肌なじみ抜群のベージュチーク" },
     { name: "ヒロインメイク ロング&カールマスカラ ブラウン", price: 1100, cat: "マスカラ", rakuten: RK("ヒロインメイク ロングアンドカール マスカラ ブラウン"), amazon: AMZ("ヒロインメイク マスカラ ブラウン"), note: "深みブラウンで上品な存在感" },
     { name: "キャンメイク クリーミータッチライナー 03 ダークブラウン", price: 715, cat: "アイライナー", rakuten: RK("キャンメイク クリーミータッチライナー 03"), amazon: AMZ("キャンメイク クリーミータッチライナー 03"), note: "濃茶でやさしく引き締め" },
   ],
   summer: [
-    { name: "KATE リップモンスター 04 パンプキンワイン", price: 1540, cat: "リップ", rakuten: RK("KATE リップモンスター 04"), amazon: AMZ("KATE リップモンスター 04"), note: "ブルベ夏に寄り添う上品カラー" },
+    { name: "KATE リップモンスター 13 3:00AMの微酔", price: 1540, cat: "リップ", rakuten: RK("KATE リップモンスター 13"), amazon: AMZ("KATE リップモンスター 13"), note: "ブルベ夏に寄り添う青み系の上品カラー" },
     { name: "ETUDE プレイカラーアイズ ジューシーペブル", price: 2200, cat: "アイシャドウ", rakuten: RK("ETUDE プレイカラーアイズ ジューシーペブル"), amazon: AMZ("ETUDE プレイカラー ジューシーペブル"), note: "淡くやわらかいパレット" },
     { name: "CEZANNE ナチュラルチークN 02 ピンク", price: 396, cat: "チーク", rakuten: RK("CEZANNE ナチュラルチーク 02"), amazon: AMZ("CEZANNE ナチュラルチーク 02"), note: "青みピンクで透明感UP" },
     { name: "キャンメイク クイックラッシュカーラー ワインモーヴ", price: 748, cat: "マスカラ", rakuten: RK("キャンメイク クイックラッシュカーラー ワインモーヴ"), amazon: AMZ("キャンメイク クイックラッシュカーラー ワインモーヴ"), note: "モーヴの色気を目元に" },
@@ -222,7 +222,7 @@ const COSME_FULL = {
       note: "南国フルーツを思わせる艶やかカラー。イエベ春の肌を華やかに引き立てる限定色" },
   ],
   autumn: [
-    { name: "KATE リップモンスター 03 ちょっと不機嫌なピンク", price: 1540, cat: "リップ", set: true, rakuten: RK("KATE リップモンスター 03"), amazon: AMZ("KATE リップモンスター 03"), note: "イエベ秋の最大人気色" },
+    { name: "KATE リップモンスター 04 パンプキンワイン", price: 1540, cat: "リップ", set: true, rakuten: RK("KATE リップモンスター 04"), amazon: AMZ("KATE リップモンスター 04"), note: "イエベ秋に寄り添う黄み系の上品カラー" },
     { name: "KATE リップモンスター 11 5時の黄昏", price: 1540, cat: "リップ", rakuten: RK("KATE リップモンスター 11"), amazon: AMZ("KATE リップモンスター 11"), note: "深みのある黄昏テラコッタ" },
     { name: "メイベリン スーパーステイ ヴィニルインク 100", price: 1650, cat: "リップ", rakuten: RK("メイベリン ヴィニルインク 100"), amazon: AMZ("メイベリン ヴィニルインク 100"), note: "落ちにくいツヤブラウンレッド" },
     { name: "rom&nd ジューシーラスティングティント 08 アップルブラウン", price: 1485, cat: "リップ", rakuten: RK("rom&nd ジューシーラスティングティント 08"), amazon: AMZ("rom%26nd ジューシーラスティングティント 08"), note: "こっくりアップルブラウン" },
@@ -259,7 +259,7 @@ const COSME_FULL = {
       note: "温かみのある赤みカラー。イエベ秋の肌に溶け込む上質な発色" },
   ],
   summer: [
-    { name: "KATE リップモンスター 04 パンプキンワイン", price: 1540, cat: "リップ", set: true, rakuten: RK("KATE リップモンスター 04"), amazon: AMZ("KATE リップモンスター 04"), note: "ブルベ夏に寄り添う上品カラー" },
+    { name: "KATE リップモンスター 13 3:00AMの微酔", price: 1540, cat: "リップ", set: true, rakuten: RK("KATE リップモンスター 13"), amazon: AMZ("KATE リップモンスター 13"), note: "ブルベ夏に寄り添う青み系の上品カラー" },
     { name: "rom&nd ジューシーラスティングティント 06 フィグフィグ", price: 1485, cat: "リップ", rakuten: RK("rom&nd ジューシーラスティングティント 06"), amazon: AMZ("rom%26nd ジューシーラスティングティント 06"), note: "青みローズの水光ティント" },
     { name: "オペラ リップティント N 03 シフォンピンク", price: 1650, cat: "リップ", rakuten: RK("オペラ リップティント 03 シフォンピンク"), amazon: AMZ("オペラ リップティント 03"), note: "透けるシフォンピンク" },
     { name: "セザンヌ ラスティンググロスリップ RS4 ローズ", price: 528, cat: "リップ", rakuten: RK("セザンヌ ラスティンググロスリップ RS4"), amazon: AMZ("セザンヌ ラスティンググロスリップ RS4"), note: "青みローズのプチプラグロス" },

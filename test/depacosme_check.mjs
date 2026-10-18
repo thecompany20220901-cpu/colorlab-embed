@@ -3,6 +3,7 @@
 //   ・A8 の商品リンク（px.a8.net の計測URL + 商品画像 + 1x1計測gif）が描画される
 //   ・ad.js を落とした状態ではフォールバックの直リンクに切り替わる
 //   ・price:null でクラッシュしない / 既存のプチプラ表示と リップ先頭3件 が変わらない
+//   ・KATE リップモンスターの表示名・楽天とAmazonの検索語・説明文が下の KATE 表と一致する（v1.22.10）
 // 実行: node test/depacosme_check.mjs
 import { chromium } from "playwright";
 import { fileURLToPath } from "url";
@@ -26,9 +27,25 @@ const EXPECT = {
 // 既存表示が動いていないことの固定値（プチプラ側・リップの先頭3件）
 const LIP_TOP3 = {
   spring: ["KATE リップモンスター 02 Pink banana", "オペラ リップティント N 05 コーラルピンク", "セザンヌ ラスティンググロスリップ CR1"],
-  autumn: ["KATE リップモンスター 03 ちょっと不機嫌なピンク", "KATE リップモンスター 11 5時の黄昏", "メイベリン スーパーステイ ヴィニルインク 100"],
-  summer: ["KATE リップモンスター 04 パンプキンワイン", "rom&nd ジューシーラスティングティント 06 フィグフィグ", "オペラ リップティント N 03 シフォンピンク"],
+  autumn: ["KATE リップモンスター 04 パンプキンワイン", "KATE リップモンスター 11 5時の黄昏", "メイベリン スーパーステイ ヴィニルインク 100"],
+  summer: ["KATE リップモンスター 13 3:00AMの微酔", "rom&nd ジューシーラスティングティント 06 フィグフィグ", "オペラ リップティント N 03 シフォンピンク"],
   winter: ["KATE リップモンスター 06 2:00AM"],
+};
+// KATE リップモンスターの色番（v1.22.10・公式カラーチャートに合わせる。夏 04→13 / 秋 03→04、春・冬は変えない）
+//   name=表示名 / q=楽天の検索語 / amz=Amazonの検索語 / note=説明文（コスメ一覧の「すべて」の先頭カード）
+const KATE = {
+  spring: { name: "KATE リップモンスター 02 Pink banana", q: "KATE リップモンスター 02", amz: "KATE リップモンスター 02", note: "イエベ春の定番・血色感リップ" },
+  autumn: { name: "KATE リップモンスター 04 パンプキンワイン", q: "KATE リップモンスター 04", amz: "KATE リップモンスター 04", note: "イエベ秋に寄り添う黄み系の上品カラー" },
+  summer: { name: "KATE リップモンスター 13 3:00AMの微酔", q: "KATE リップモンスター 13", amz: "KATE リップモンスター 13", note: "ブルベ夏に寄り添う青み系の上品カラー" },
+  winter: { name: "KATE リップモンスター 06 2:00AM", q: "KATE リップモンスター 06", amz: "KATE リップモンスター 06", note: "ブルベ冬の鮮烈な深みレッド" },
+};
+// Amazon リンク（/s?k=）から検索語を取り出す
+const amazonQuery = (href) => {
+  try { return new URL(href).searchParams.get("k"); } catch (e) { return null; }
+};
+// 楽天リンク（アフィリエイトURLの pc= に入った検索URL）から検索語を取り出す
+const rakutenQuery = (href) => {
+  try { const m = (new URL(href).searchParams.get("pc") || "").match(/\/search\/mall\/(.*)\/$/); return m ? m[1] : null; } catch (e) { return null; }
 };
 
 let ng = 0;
@@ -52,6 +69,9 @@ const readCards = (root) => root.evaluate((el) => {
     return {
       depacos: /DEPACOS/.test(c.innerText),
       name: c.querySelector(".text-sm.font-medium")?.textContent?.trim() || "",
+      note: c.querySelector("div.text-xs")?.textContent?.trim() || "",
+      rakuten: [...c.querySelectorAll("a")].find((a) => a.textContent.trim() === "楽天で見る")?.getAttribute("href") || null,
+      amazon: [...c.querySelectorAll("a")].find((a) => a.textContent.trim() === "Amazonで見る")?.getAttribute("href") || null,
       hasYen: /¥/.test(c.innerText),
       slotClass: slot ? slot.className : null,
       slotFilled: slot ? slot.childElementCount > 0 : null,
@@ -103,6 +123,14 @@ for (const [key, e] of Object.entries(EXPECT)) {
   ok(petit.length === 30, "既存のプチプラカードが30枚のまま (実測 " + petit.length + ")");
   ok(petit.every((c) => c.hasYen), "プチプラカードは全件で価格が出ている");
   ok(petit.every((c) => c.links.includes("楽天で見る") && c.links.includes("Amazonで見る")), "プチプラカードは全件で楽天/Amazonボタンが出ている");
+
+  // KATE リップモンスターの色番・色名・楽天の検索語・説明文（先頭カード）
+  const kate = petit[0] || {};
+  const k = KATE[key];
+  ok(kate.name === k.name, "KATE の表示名: " + kate.name + "（期待 " + k.name + "）");
+  ok(rakutenQuery(kate.rakuten) === k.q, "KATE の楽天検索語: " + rakutenQuery(kate.rakuten) + "（期待 " + k.q + "）");
+  ok(amazonQuery(kate.amazon) === k.amz, "KATE のAmazon検索語: " + amazonQuery(kate.amazon) + "（期待 " + k.amz + "）");
+  ok(kate.note === k.note + "・¥1,540", "KATE の説明文: " + kate.note + "（期待 " + k.note + "・¥1,540）");
 
   // リップ絞り込み: 先頭3件が既存のまま = リップ試着画面の slice(0,3) に影響なし
   await page.getByRole("button", { name: /^リップ$/ }).click();
