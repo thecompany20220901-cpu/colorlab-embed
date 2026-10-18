@@ -898,6 +898,21 @@ const TYPE12_FEATURE = {
   "ディープオータム": "ディープオータムは、イエベ秋の中でも「深く濃い、リッチな暖色」が得意なタイプです。",
   "ウォームオータム": "ウォームオータムは、イエベ秋の中でも「黄みが強く、こっくりした暖色」が得意なタイプです。",
 };
+// 一言説明で折り返してよい位置（文節の切れ目）を「|」で示したもの。| を抜くと TYPE12_FEATURE と同じ文になる
+const TYPE12_FEATURE_BREAKS = {
+  "ブライトサマー": "ブライトサマーは、|ブルベ夏の|中でも|「明るく|澄んだ、|やわらかな|色」が|得意な|タイプです。",
+  "ソフトサマー": "ソフトサマーは、|ブルベ夏の|中でも|「くすみ感の|ある、|やさしく|落ち着いた|色」が|得意な|タイプです。",
+  "クールサマー": "クールサマーは、|ブルベ夏の|中でも|「青みが|はっきりした、|すっきり|涼しげな|色」が|得意な|タイプです。",
+  "ディープウィンター": "ディープウィンターは、|ブルベ冬の|中でも|「深く|濃い、|重厚感の|ある|色」が|得意な|タイプです。",
+  "クールウィンター": "クールウィンターは、|ブルベ冬の|中でも|「青みが|クリアで、|シャープな|色」が|得意な|タイプです。",
+  "ブライトウィンター": "ブライトウィンターは、|ブルベ冬の|中でも|「鮮やかで、|くっきりした|ビビッドな|色」が|得意な|タイプです。",
+  "ライトスプリング": "ライトスプリングは、|イエベ春の|中でも|「明るく|やわらかい、|透明感の|ある|暖色」が|得意な|タイプです。",
+  "ブライトスプリング": "ブライトスプリングは、|イエベ春の|中でも|「鮮やかで、|クリアな|暖色」が|得意な|タイプです。",
+  "ウォームスプリング": "ウォームスプリングは、|イエベ春の|中でも|「黄みが|強く、|温かみの|ある|色」が|得意な|タイプです。",
+  "ソフトオータム": "ソフトオータムは、|イエベ秋の|中でも|「くすみ感の|ある、|穏やかな|暖色」が|得意な|タイプです。",
+  "ディープオータム": "ディープオータムは、|イエベ秋の|中でも|「深く|濃い、|リッチな|暖色」が|得意な|タイプです。",
+  "ウォームオータム": "ウォームオータムは、|イエベ秋の|中でも|「黄みが|強く、|こっくりした|暖色」が|得意な|タイプです。",
+};
 
 // v1.22.10: 結果画面「BEST COLOR 10」。IG投稿の画像から色コード化した値（PC12_PALETTE_BLUBEL_v1 / PC12_PALETTE_IEBEL_v1・順序もそのまま）。
 // IEBEL は資料に色名が無いので名前は null（スウォッチだけ出す）。
@@ -916,6 +931,22 @@ const TYPE12_PALETTE = {
   "ソフトオータム": ["#F8D8D7", "#ECE392", "#C3918F", "#BFC3A6", "#B3696B", "#4B7173", "#7B5973", "#86605C", "#8493B4", "#E3DACB"].map((h) => [null, h]),
   "ディープオータム": ["#9F563D", "#CAA744", "#71292D", "#D07150", "#656742", "#65284A", "#3B6A7E", "#234563", "#523224", "#000328"].map((h) => [null, h]),
 };
+// BEST COLOR 10 の色名で折り返してよい位置（色名を作っている単語の間）を「|」で示したもの。
+// | の無い色名（ペリウィンクル）は折り返さない。ここに無い短い色名は1行に収まる
+const TYPE12_COLOR_BREAKS = Object.fromEntries([
+  "ペール|ピンク", "オーキッド|ピンク", "ペール|ブルー", "クリーム|イエロー", "レモン|クリーム", "ライラック|ピンク", "スカイ|ブルー", "ミント|グリーン", "ブルー|グレー",
+  "ダスティ|ローズ", "セージ|グリーン", "ペリウィンクル", "ペール|イエロー", "ダスティ|ピンク", "ミスト|グリーン", "くすみ|イエロー", "ダーク|ネイビー",
+  "レモン|イエロー", "ライト|ブルー", "クリア|レッド", "ミッドナイト|ネイビー", "ベビー|ピンク", "エメラルド|グリーン", "ロイヤル|ブルー",
+  "ディープ|マゼンタ", "ロイヤル|ネイビー", "フォレスト|グリーン",
+  "ラズベリー|ピンク", "コバルト|ブルー", "ティール|グリーン", "ティール|ブルー",
+  "ペール|ラベンダー", "ビビッド|シアン", "ビビッド|イエロー", "ビビッド|レッド", "ペール|ライラック", "ビビッド|ブルー", "ライム|グリーン",
+].map((m) => [m.replace(/\|/g, ""), m]));
+// 「|」の位置でだけ折り返す（まとまりごとに nowrap）。| を抜いた文が text と違うときは区切らずにそのまま出す
+function BreakAt({ text, marked }) {
+  const segs = marked ? marked.split("|") : null;
+  if (!segs || segs.join("") !== text) return text;
+  return segs.map((s, i) => <span key={i} style={{ whiteSpace: "nowrap" }}>{s}</span>);
+}
 
 // v1.22.10: 12タイプ別のカテゴリページ（BLUBEL / IEBEL とも 14〜19）。結果画面の「一覧で見る」の行き先
 const TYPE12_CATEGORY = {
@@ -3091,7 +3122,8 @@ function Best10Band({ name12, accent }) {
         {colors.map(([name, hex], i) => (
           <div key={i} className="text-center">
             <div className="w-full rounded-lg" style={{ height: 34, background: hex, border: "1px solid #e3dce3" }} />
-            {name && <span className="block text-[8.5px] mt-0.5 leading-tight" style={{ color: C.sub }}>{name}</span>}
+            {/* 色名は単語の切れ目でだけ折り返す。切れ目の無い長い色名（ペリウィンクル）が枠を少し超えても左右均等にはみ出すよう flex で中央に置く */}
+            {name && <span className="flex flex-wrap justify-center text-[8.5px] mt-0.5 leading-tight" style={{ color: C.sub }}><BreakAt text={name} marked={TYPE12_COLOR_BREAKS[name]} /></span>}
           </div>
         ))}
       </div>
@@ -4479,7 +4511,7 @@ export default function App({ campaign = null, account = false } = {}) {
                 </p>
               </div>
 
-              <p className="text-sm mb-6" style={{ color: "#8a828d" }}>{TYPE12_FEATURE[RT12]}</p>
+              <p className="text-sm mb-6" style={{ color: "#8a828d" }}><BreakAt text={TYPE12_FEATURE[RT12]} marked={TYPE12_FEATURE_BREAKS[RT12]} /></p>
               {/* 勝ち色は8つの色相ファミリーで体系化して見せる（プロ資料の見せ方に合わせた） */}
               <ColorFamilies typeKey={RT.key} accent={RT.accent} />
               <div className="text-xs mb-2" style={{ color: C.faint }}>苦手な色（顔まわりでは注意）</div>
@@ -4566,7 +4598,11 @@ export default function App({ campaign = null, account = false } = {}) {
                   友だち追加で診断結果メモをトークに残せて、毎週土曜に{RT.name}向けの新着コーデ・お得情報が届きます（不要ならいつでもブロックOK）。
                 </p>
                 <a href={LINE_URLS[RT.site]} target="_blank" rel="noreferrer" className="flex items-center justify-center gap-2 w-full text-center px-6 py-3.5 rounded-full text-white text-sm font-medium" style={{ background: "#06C755" }}>
-                  LINEに結果を保存する（{RT.site === "iebel" ? "イエベ研究所" : "ブルベ研究所"}）
+                  {/* 折り返してよいのは「LINEに結果を保存する」「（○○研究所）」の間だけ。flex の子を1つに保つため外側の span で包む */}
+                  <span>
+                    <span style={{ whiteSpace: "nowrap" }}>LINEに結果を保存する</span>
+                    <span style={{ whiteSpace: "nowrap" }}>（{RT.site === "iebel" ? "イエベ研究所" : "ブルベ研究所"}）</span>
+                  </span>
                 </a>
               </div>
               <button onClick={goHome} className="block w-full text-center px-6 py-3 rounded-full text-sm" style={{ border: "1px solid " + C.line, color: C.sub }}>メニューへ戻る</button>

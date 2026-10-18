@@ -11,6 +11,8 @@
 //   (ix)  見出し下のタグ行に 明度・彩度・清濁 のタグが無い
 //   (x)   「○○のあなたに似合う服はコレ！」の「あなたに」が途中で割れない（1文字ごとの y 位置が同じ）
 //   (xi)  「○○に似合う服を、一覧で見る」ボタンの「一覧で見る」が途中で割れない（1文字ごとの y 位置が同じ）
+//   (xiii) BEST COLOR 10 の色名（ブルベ）・一言説明・LINE ボタンが語の途中で割れない（1文字ごとの y 位置で、
+//          折り返しがあるなら下の FEATURE_BREAKS / COLOR_BREAKS / LINE の「|」の位置だけ）。色名は隣の枠にはみ出さないことも見る
 //   (xii) 「仕上げのコスメはコレ！」先頭の KATE リップモンスターの表示名・楽天とAmazonの検索語・説明文が下の KATE 表と一致する
 //   スクリーンショットを撮る時は、撮った画像のアバター枠が単色でないことも画素で確かめる
 // あわせて「結果を画像で保存・シェア」で canvas に描かれた文字を12通りぶん出す。
@@ -31,7 +33,8 @@ const SHOOT = !process.argv[2];
 const OUT = resolve(ROOT, "out", "result12");
 if (SHOOT) mkdirSync(OUT, { recursive: true });
 const CROP_OUT = resolve(OUT, "crop");
-const CROP_TYPES = ["ライトスプリング", "ディープウィンター"];
+// 切り出すタイプと範囲（クールサマーはブルベの10色の帯を見るため head だけ）
+const CROP_TYPES = { "ライトスプリング": ["head", "clothes"], "ディープウィンター": ["head", "clothes"], "クールサマー": ["head"] };
 
 const UTM = "?utm_source=colorlab&utm_medium=result&utm_campaign=type12";
 // [1位-2位, 12タイプ名, サイト, カテゴリ番号, 10色]
@@ -65,6 +68,32 @@ const amazonQuery = (href) => {
 const rakutenQuery = (href) => {
   try { const m = (new URL(href).searchParams.get("pc") || "").match(/\/search\/mall\/(.*)\/$/); return m ? m[1] : null; } catch (e) { return null; }
 };
+
+// (xiii) 折り返してよい位置（「|」）。| を抜いた文字が画面の文字と同じであること
+const FEATURE_BREAKS = {
+  "ブライトサマー": "ブライトサマーは、|ブルベ夏の|中でも|「明るく|澄んだ、|やわらかな|色」が|得意な|タイプです。",
+  "ソフトサマー": "ソフトサマーは、|ブルベ夏の|中でも|「くすみ感の|ある、|やさしく|落ち着いた|色」が|得意な|タイプです。",
+  "クールサマー": "クールサマーは、|ブルベ夏の|中でも|「青みが|はっきりした、|すっきり|涼しげな|色」が|得意な|タイプです。",
+  "ディープウィンター": "ディープウィンターは、|ブルベ冬の|中でも|「深く|濃い、|重厚感の|ある|色」が|得意な|タイプです。",
+  "クールウィンター": "クールウィンターは、|ブルベ冬の|中でも|「青みが|クリアで、|シャープな|色」が|得意な|タイプです。",
+  "ブライトウィンター": "ブライトウィンターは、|ブルベ冬の|中でも|「鮮やかで、|くっきりした|ビビッドな|色」が|得意な|タイプです。",
+  "ライトスプリング": "ライトスプリングは、|イエベ春の|中でも|「明るく|やわらかい、|透明感の|ある|暖色」が|得意な|タイプです。",
+  "ブライトスプリング": "ブライトスプリングは、|イエベ春の|中でも|「鮮やかで、|クリアな|暖色」が|得意な|タイプです。",
+  "ウォームスプリング": "ウォームスプリングは、|イエベ春の|中でも|「黄みが|強く、|温かみの|ある|色」が|得意な|タイプです。",
+  "ソフトオータム": "ソフトオータムは、|イエベ秋の|中でも|「くすみ感の|ある、|穏やかな|暖色」が|得意な|タイプです。",
+  "ディープオータム": "ディープオータムは、|イエベ秋の|中でも|「深く|濃い、|リッチな|暖色」が|得意な|タイプです。",
+  "ウォームオータム": "ウォームオータムは、|イエベ秋の|中でも|「黄みが|強く、|こっくりした|暖色」が|得意な|タイプです。",
+};
+// ここに無い色名は折り返してはいけない
+const COLOR_BREAKS = Object.fromEntries([
+  "ペール|ピンク", "オーキッド|ピンク", "ペール|ブルー", "クリーム|イエロー", "レモン|クリーム", "ライラック|ピンク", "スカイ|ブルー", "ミント|グリーン", "ブルー|グレー",
+  "ダスティ|ローズ", "セージ|グリーン", "ペール|イエロー", "ダスティ|ピンク", "ミスト|グリーン", "くすみ|イエロー", "ダーク|ネイビー",
+  "レモン|イエロー", "ライト|ブルー", "クリア|レッド", "ミッドナイト|ネイビー", "ベビー|ピンク", "エメラルド|グリーン", "ロイヤル|ブルー",
+  "ディープ|マゼンタ", "ロイヤル|ネイビー", "フォレスト|グリーン",
+  "ラズベリー|ピンク", "コバルト|ブルー", "ティール|グリーン", "ティール|ブルー",
+  "ペール|ラベンダー", "ビビッド|シアン", "ビビッド|イエロー", "ビビッド|レッド", "ペール|ライラック", "ビビッド|ブルー", "ライム|グリーン",
+].map((m) => [m.replace(/\|/g, ""), m]));
+const LINE_BREAKS = { blubel: "LINEに結果を保存する|（ブルベ研究所）", iebel: "LINEに結果を保存する|（イエベ研究所）" };
 
 // ── 回答パターンの探索（test/types12_check.mjs と同じ。本番の answerQ / finishQuiz / sortTypes と同じ規則）──
 const src = readFileSync(resolve(ROOT, "src", "color_lab_stylist_v23.jsx"), "utf-8");
@@ -345,6 +374,58 @@ for (const [key, name, site, cat, hexes] of EXPECT) {
   check(lay.anataTops.length === 4 && new Set(lay.anataTops).size === 1, `${key} ${name}: (x) 「あなたに」が途中で割れない (1文字ごとの y=${lay.anataTops.join(",") || "なし"})`);
   check(lay.listTops.length === 5 && new Set(lay.listTops).size === 1, `${key} ${name}: (xi) ボタンの「一覧で見る」が途中で割れない (1文字ごとの y=${lay.listTops.join(",") || "なし"})`);
   check(!/(高|中|低)明度|(高|中|低)彩度|清色|濁色/.test(lay.tags), `${key} ${name}: (ix) タグ行に明度・彩度・清濁のタグが無い (${lay.tags.slice(0, 40)})`);
+  // (xiii) 語の途中で割れない（折り返しは「|」の位置だけ）
+  const wr = await page.evaluate(({ featMarked, colorMarks, lineMarked }) => {
+    const root = document.querySelector("#colorlab-root");
+    const seq = (el) => {
+      const out = [];
+      const w = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
+      for (let n = w.nextNode(); n; n = w.nextNode()) {
+        for (let i = 0; i < n.textContent.length; i++) {
+          const r = document.createRange(); r.setStart(n, i); r.setEnd(n, i + 1);
+          const rc = r.getBoundingClientRect();
+          if (rc.width === 0 && /\s/.test(n.textContent[i])) continue;
+          out.push({ ch: n.textContent[i], top: rc.top, h: rc.height, l: rc.left, r: rc.right });
+        }
+      }
+      return out;
+    };
+    const cuts = (s) => s.map((c, i) => i).filter((i) => i > 0 && s[i].top - s[i - 1].top > Math.max(4, s[i - 1].h * 0.5));
+    const allowed = (marked) => { const a = []; let k = 0; for (const ch of marked) { if (ch === "|") a.push(k); else k++; } return a; };
+    const judge = (el, marked) => {
+      if (!el) return { found: false };
+      const s = seq(el), text = s.map((c) => c.ch).join(""), plain = marked.replace(/\|/g, "");
+      const c = cuts(s), al = allowed(marked);
+      return { found: true, text, same: text === plain, cuts: c, bad: c.filter((i) => !al.includes(i)),
+        shown: c.reduce((t, i, k) => t.slice(0, i + k) + "／" + t.slice(i + k), text) };
+    };
+    const feat = judge([...root.querySelectorAll("p")].find((p) => p.textContent.trim() === featMarked.replace(/\|/g, "")), featMarked);
+    const la = [...root.querySelectorAll("a")].find((a) => /LINEに結果を保存する/.test(a.textContent));
+    const line = judge(la, lineMarked);
+    const head = [...root.querySelectorAll("div")].find((d) => d.children.length === 0 && d.textContent.trim() === "まずはこの10色から");
+    const cells = head && head.nextElementSibling ? [...head.nextElementSibling.children] : [];
+    const colors = cells.map((cell) => {
+      const sp = cell.querySelector(":scope > span");
+      if (!sp) return null;
+      const t = sp.textContent;
+      const j = judge(sp, colorMarks[t] || t);
+      const s = seq(sp), cr = cell.getBoundingClientRect();
+      const left = Math.min(...s.map((c) => c.l)), right = Math.max(...s.map((c) => c.r));
+      // 隣の枠に食い込まない（gap 6px の半分まで）
+      return { ...j, over: left < cr.left - 3 || right > cr.right + 3, tw: Math.round(right - left), cw: Math.round(cr.width), font: getComputedStyle(sp).fontSize };
+    }).filter(Boolean);
+    return { feat, line, colors };
+  }, { featMarked: FEATURE_BREAKS[name], colorMarks: COLOR_BREAKS, lineMarked: LINE_BREAKS[site] });
+  check(wr.feat.found && wr.feat.same && wr.feat.bad.length === 0, `${key} ${name}: (xiii) 一言説明が文節の切れ目だけで折り返す (${wr.feat.found ? wr.feat.shown : "見つからない"}${wr.feat.same === false ? "・文字が期待と違う" : ""})`);
+  check(wr.line.found && wr.line.same && wr.line.bad.length === 0, `${key} ${name}: (xiii) LINE ボタンが「LINEに結果を保存する」と「（…）」の間だけで折り返す (${wr.line.found ? wr.line.shown : "見つからない"})`);
+  if (site === "blubel") {
+    check(wr.colors.length === 10, `${key} ${name}: (xiii) BEST COLOR 10 の色名が10個 (${wr.colors.length}個)`);
+    const badC = wr.colors.filter((c) => c.bad.length || !c.same);
+    check(badC.length === 0, `${key} ${name}: (xiii) BEST COLOR 10 の色名が単語の切れ目だけで折り返す (${wr.colors.map((c) => c.shown).join(" / ")}${badC.length ? " → NG: " + badC.map((c) => c.shown).join(" / ") : ""})`);
+    const overC = wr.colors.filter((c) => c.over);
+    check(overC.length === 0, `${key} ${name}: (xiii) 色名が隣の枠にはみ出さない (${overC.length ? overC.map((c) => `${c.text} 文字幅${c.tw}px/枠${c.cw}px`).join(" ") : `枠${wr.colors[0] ? wr.colors[0].cw : "?"}px・字${wr.colors[0] ? wr.colors[0].font : "?"}`})`);
+    wr.colors.filter((c) => c.tw > c.cw).forEach((c) => fontLog.push(`${key} ${name}: 色名「${c.text}」は文字幅${c.tw}px が枠${c.cw}px を超える${c.over ? "（隣の枠に食い込む）" : "（左右のはみ出しは gap 6px の半分以内）"}`));
+  }
   fontLog.push(`${key} ${name}: ${lay.font}（【${name}】の幅 ${lay.spanW}px / 見出しの幅 ${lay.h2W}px・見出し全体 ${lay.h2Total}行）`);
 
   if (SHOOT) {
@@ -381,7 +462,7 @@ for (const [key, name, site, cat, hexes] of EXPECT) {
     const pxOk = !!px && px.colors > 50 && px.sd > 5;
     check(pxOk, `${key} ${name}: 撮った画像のアバター枠が単色でない (${px ? `${px.w}x${px.h}px・色数${px.colors}・輝度の標準偏差${px.sd.toFixed(1)}` : "アバター枠が無い"})`);
     // 見出し周辺を実寸で切り出す（2タイプだけ）: 「監修の診断結果」〜10色の帯（約900px）と、「似合う服」の見出し〜ボタン（約500px）
-    if (CROP_TYPES.includes(name)) {
+    if (CROP_TYPES[name]) {
       mkdirSync(CROP_OUT, { recursive: true });
       const at = await page.evaluate(() => {
         const root = document.querySelector("#colorlab-root");
@@ -390,7 +471,7 @@ for (const [key, name, site, cat, hexes] of EXPECT) {
         const h3 = [...root.querySelectorAll("h3")].find((h) => /似合う服はコレ/.test(h.textContent));
         return { head: sup ? y(sup) : 0, h3: h3 ? y(h3) : 0, H: document.documentElement.scrollHeight };
       });
-      for (const [tag, top, h] of [["head", at.head - 16, 900], ["clothes", at.h3 - 16, 500]]) {
+      for (const [tag, top, h] of [["head", at.head - 16, 900], ["clothes", at.h3 - 16, 500]].filter(([t]) => CROP_TYPES[name].includes(t))) {
         const p = resolve(CROP_OUT, `crop_${site}_${name}_${tag}.png`);
         await page.screenshot({ path: p, fullPage: true, clip: { x: 0, y: Math.max(0, Math.round(top)), width: 390, height: Math.min(h, at.H - Math.max(0, Math.round(top))) } });
         cropLog.push(p);
