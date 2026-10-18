@@ -10,6 +10,7 @@
 //   (viii) 結果画面最上部のアバターが読み込み完了する（complete かつ naturalWidth > 0。最大20秒待つ）
 //   (ix)  見出し下のタグ行に 明度・彩度・清濁 のタグが無い
 //   (x)   「○○のあなたに似合う服はコレ！」の「あなたに」が途中で割れない（1文字ごとの y 位置が同じ）
+//   (xi)  「○○に似合う服を、一覧で見る」ボタンの「一覧で見る」が途中で割れない（1文字ごとの y 位置が同じ）
 //   スクリーンショットを撮る時は、撮った画像のアバター枠が単色でないことも画素で確かめる
 // あわせて「結果を画像で保存・シェア」で canvas に描かれた文字を12通りぶん出す。
 // 期待値はこのファイルに直接書く（src から読まない。読むと src が壊れても一致してしまう）。
@@ -294,6 +295,7 @@ for (const [key, name, site, cat, hexes] of EXPECT) {
       return [];
     };
     // タグ行は「① 色相 …」の行の親（見出しの直後とは限らない。v1.22.8 は直後がピル）
+    const listLink = [...root.querySelectorAll("a")].find((a) => /に似合う服を、一覧で見る/.test(a.textContent));
     const specLine = [...root.querySelectorAll("div")].find((d) => /^① 色相/.test(d.textContent.trim()));
     const tagRow = specLine && specLine.parentElement;
     return {
@@ -302,12 +304,14 @@ for (const [key, name, site, cat, hexes] of EXPECT) {
       h3NameLines: h3span ? lines(h3span) : (h3 ? subLines(h3, name) : -1), h3TailLines: h3 ? subLines(h3, "似合う服はコレ！") : -1, h3Total: h3 ? lines(h3) : 0,
       tags: tagRow ? tagRow.textContent.trim() : "",
       anataTops: h3 ? charTops(h3, "あなたに") : [],
+      listTops: listLink ? charTops(listLink, "一覧で見る") : [],
     };
   }, name);
   check(lay.h2Lines === 1, `${key} ${name}: (vii) 見出しの【${name}】が1行 (${lay.h2Lines}行・${lay.font}・幅${lay.spanW}/${lay.h2W}px)`);
   check(lay.h2TailLines === 1, `${key} ${name}: (vii) 見出しの「タイプです！」が途中で折り返さない (${lay.h2TailLines}行)`);
   check(lay.h3NameLines === 1 && lay.h3TailLines === 1, `${key} ${name}: (vii) 「${name}のあなたに似合う服はコレ！」で名前と「似合う服はコレ！」が途中で折り返さない (名前${lay.h3NameLines}行・「似合う服はコレ！」${lay.h3TailLines}行・見出し全体${lay.h3Total}行)`);
   check(lay.anataTops.length === 4 && new Set(lay.anataTops).size === 1, `${key} ${name}: (x) 「あなたに」が途中で割れない (1文字ごとの y=${lay.anataTops.join(",") || "なし"})`);
+  check(lay.listTops.length === 5 && new Set(lay.listTops).size === 1, `${key} ${name}: (xi) ボタンの「一覧で見る」が途中で割れない (1文字ごとの y=${lay.listTops.join(",") || "なし"})`);
   check(!/(高|中|低)明度|(高|中|低)彩度|清色|濁色/.test(lay.tags), `${key} ${name}: (ix) タグ行に明度・彩度・清濁のタグが無い (${lay.tags.slice(0, 40)})`);
   fontLog.push(`${key} ${name}: ${lay.font}（【${name}】の幅 ${lay.spanW}px / 見出しの幅 ${lay.h2W}px・見出し全体 ${lay.h2Total}行）`);
 

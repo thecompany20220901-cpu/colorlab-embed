@@ -4510,7 +4510,12 @@ export default function App({ campaign = null, account = false } = {}) {
               </p>
               {/* v1.22.10: 固定3点の商品と「TOP6の色だけ」をやめ、12タイプ別のカテゴリ一覧へ送る。ボタンはカラーカードと同じ見た目 */}
               <a href={TYPE12_CATEGORY_URL(RT.site, RT12)} target="_blank" rel="noreferrer" className="flex items-center justify-center gap-2 w-full text-center px-6 py-3.5 rounded-full text-white text-sm font-medium mb-3 mt-2 transition-transform hover:scale-105" style={{ background: RT.accent }}>
-                <Sparkles size={15} /> {RT12}に似合う服を、一覧で見る
+                <Sparkles size={15} />
+                {/* 折り返してよいのは「○○に似合う服を、」「一覧で見る」の間だけ（各まとまりは nowrap）。flex の子を1つに保つため外側の span で包む */}
+                <span>
+                  <span style={{ whiteSpace: "nowrap" }}>{RT12}に似合う服を、</span>
+                  <span style={{ whiteSpace: "nowrap" }}>一覧で見る</span>
+                </span>
               </a>
               {/* v1.22.8: プロ診断などでタイプが分かっている人が自分で選べる入口。アプリの結果に関係なく両方出す */}
               <p className="text-xs leading-relaxed text-center mt-1 mb-2" style={{ color: C.sub }}>
