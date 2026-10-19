@@ -563,12 +563,13 @@ colorlab は設置先ごとに参照タグが違うので、**サイト別に書
 
 | アプリ / 設置先 | 参照タグ | 設置方式 | jsDelivr |
 |---|---|---|---|
-| colorlab / **IEBEL** | `@v1.22.3` | GTM（GTM-WVFLHTNW） | `https://cdn.jsdelivr.net/gh/thecompany20220901-cpu/colorlab-embed@v1.22.3/dist/colorlab.iife.js` |
-| colorlab / **BLUBEL** | `@v1.22.3` | GTM（GTM-NN7QDLCH） | `https://cdn.jsdelivr.net/gh/thecompany20220901-cpu/colorlab-embed@v1.22.3/dist/colorlab.iife.js` |
+| colorlab / **IEBEL** | `@v1.22.10` | GTM（GTM-WVFLHTNW） | `https://cdn.jsdelivr.net/gh/thecompany20220901-cpu/colorlab-embed@v1.22.10/dist/colorlab.iife.js` |
+| colorlab / **BLUBEL** | `@v1.22.10` | GTM（GTM-NN7QDLCH） | `https://cdn.jsdelivr.net/gh/thecompany20220901-cpu/colorlab-embed@v1.22.10/dist/colorlab.iife.js` |
 | ngpolice | `@v1.3.0` | 本文HTML | `https://cdn.jsdelivr.net/gh/thecompany20220901-cpu/colorlab-embed@v1.3.0/dist/ngpolice.iife.js` |
 | mens | `@v1.6.1` | 本文HTML | `https://cdn.jsdelivr.net/gh/thecompany20220901-cpu/colorlab-embed@v1.6.1/dist/mens.iife.js` |
 
 - colorlab の2行は **2026-09-26 17:50 に GTM コンテナ（`gtm.js?id=GTM-NN7QDLCH` / `GTM-WVFLHTNW`）を取得して測った値**（両方 `colorlab-embed@v1.22.3`）。
+  2026-10-18 keisuke申告: `@v1.22.10`（12:48。上の表の2行はこの申告に合わせた値で、GTM コンテナの実測ではない）。
   その前: 2026-09-19 に v1.22.2 切替後の実物を測った値（両サイトとも実ページで `@v1.22.2`・`x-jsd-version: 1.22.2`）。
   それ以前の記録: 2026-09-11 13:47 に v1.21.1 切替後の実物を測った値（両サイトとも GTM コンテナ `gtm.js?id=…` を取得し、
   さらに実ページを開いて読み込まれたバンドルが `@v1.21.1`（`x-jsd-version: 1.21.1`）であることを確認。
@@ -584,15 +585,15 @@ colorlab は設置先ごとに参照タグが違うので、**サイト別に書
   デプロイ済みの Worker バージョン: `cbeaaaae-1d11-480a-91e3-0dc078ccec3d`（2026-09-11・`GET /quota` 追加）。
   1つ前は `b2ff9dd7-0362-4758-8361-59e573af38dd`（2色配色の修正込み）で、戻すときは
   `wrangler rollback b2ff9dd7-0362-4758-8361-59e573af38dd`。`/quota` を消してもアプリは数字を出さないだけで壊れない。
-- **v1.22.4 はタグ発行済み・本番未切替**（2026-09-26）。GTM のタグを `@v1.22.3` → `@v1.22.4` に書き換えると反映
-  （IEBEL＝`GTM-WVFLHTNW` ／ BLUBEL＝`GTM-NN7QDLCH`・Keisuke作業）。ロールバックは `@v1.22.3` に戻すだけ（v1.22.3 は新旧どちらの Worker でも動く）。
+- **v1.22.4 はタグ発行済み・2026-09-26 時点では本番未切替**（現在の本番は 2026-10-18 keisuke申告で `@v1.22.10`）。GTM のタグを `@v1.22.3` → `@v1.22.4` に書き換えると反映
+  （IEBEL＝`GTM-WVFLHTNW` ／ BLUBEL＝`GTM-NN7QDLCH`・Keisuke作業）。当時のロールバック先は `@v1.22.3`（v1.22.3 は新旧どちらの Worker でも動く）。
   中身: 答え合わせキャンペーン第2弾（keisuke 2026-09-21）。アプリのキャンペーンID `kotae2026b`・入口の当選人数は Worker の `period.winners`（無ければ2）。
   Worker は `KOTAE_ROUNDS`（JST の日付で「今日の回」を選ぶ・第1弾 `kotae2026` 9/19〜9/25 3名／第2弾 `kotae2026b` 9/26〜10/4 2名・集計は回ごと・どちらの ID でも今日の回に記録）。
   **順番: Worker deploy → GTM 切替**（逆だと旧 Worker が `kotae2026b` を知らず入口が消える）。Worker は 2026-09-26 17:55 に deploy → `5e306c25-054a-4ed3-b637-8764905be2fc`（1つ前＝第1弾のみ `dc24c9ac-57c3-4558-a41a-a728ae29cdf9`・戻すときは `wrangler rollback dc24c9ac-…`）。
   deploy 後の実測: `/campaign/stats?campaign=kotae2026` と `kotae2026b` がどちらも period 9/26〜10/4・open・winners 2／D1 の `kotae2026` は 30件のまま。
   第1弾の最終件数（deploy 前に本番 D1 で数えた値）: `kotae2026` 30件（blubel 26 / iebel 4）。
   検証: worker 100/100・kotaeawase 79/79・mine_account 22/22・wrangler dry-run OK。
-- **v1.22.3 はタグ発行済み・本番切替済み（2026-09-26 実測で両 GTM コンテナとも `@v1.22.3`）・以下は発行時の記録**（2026-09-19）。GTM のタグを `@v1.22.2` → `@v1.22.3` に書き換えると反映
+- **v1.22.3 はタグ発行済み・本番切替済み（2026-09-26 実測で両 GTM コンテナとも `@v1.22.3`。現在の本番は 2026-10-18 keisuke申告で `@v1.22.10`）・以下は発行時の記録**（2026-09-19）。GTM のタグを `@v1.22.2` → `@v1.22.3` に書き換えると反映
   （IEBEL＝`GTM-WVFLHTNW` ／ BLUBEL＝`GTM-NN7QDLCH`・Keisuke作業）。ロールバックは `@v1.22.2` に戻すだけ。
   中身: 通常の診断ページ（ホーム）に答え合わせキャンペーンの入口を追加（keisuke 2026-09-19「プロフィールのリンクから、どのボタンで入るか明示」）。
   IG のプロフィールのリンク（4アカウントとも `www.blubel.jp/ig` / `www.iebel.jp/ig` → `/pages/personalcolor?utm_source=instagram…`）には
