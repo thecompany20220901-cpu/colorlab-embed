@@ -1,0 +1,18 @@
+{
+ "total": 3213,
+ "diffs": 0,
+ "byKind": {
+  "typeColorRef": 4,
+  "pickTop6": 4,
+  "COLOR70_BY_FAMILY": 4,
+  "faceAxes": 828,
+  "metalRating": 828,
+  "chipHex": 1545
+ },
+ "diffSamples": [],
+ "control": {
+  "differ": 244,
+  "of": 288,
+  "nulls": 0
+ }
+}

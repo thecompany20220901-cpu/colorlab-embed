@@ -43,6 +43,8 @@ import { FAMILY_ORDER, COLOR_FAMILIES, COLOR_EN, CHIP_HEX, SKU_IMG } from "./col
 // 勝ち色70色シリーズ (2026-09-08 本番切替)。COLOR_FAMILIES(30色) は CHIP_HEX 等の
 // 既存参照が残っているので import は外さない。結果画面のグリッドと TOP6 は 70色を見る。
 import { COLOR70, COLOR70_FAMILY_ORDER } from "./color70_data.js";
+// 勝ち色70色の12タイプ版（test/build_color70_type12.py が生成）。行の選び方と ✓ だけを持ち、色そのものは COLOR70 を引く
+import { COLOR70_TYPE12 } from "./color70_type12_data.js";
 // 商品マスタ item_{site}.csv の color 列（test/build_sku_colors.py が生成）
 import { SKU_COLORS } from "./sku_color_data.js";
 import { KotaeInput, KotaeResult, KotaeHomeBanner, KOTAE } from "./kotaeawase.jsx";
@@ -931,6 +933,15 @@ const TYPE12_PALETTE = {
   "ソフトオータム": ["#F8D8D7", "#ECE392", "#C3918F", "#BFC3A6", "#B3696B", "#4B7173", "#7B5973", "#86605C", "#8493B4", "#E3DACB"].map((h) => [null, h]),
   "ディープオータム": ["#9F563D", "#CAA744", "#71292D", "#D07150", "#656742", "#65284A", "#3B6A7E", "#234563", "#523224", "#000328"].map((h) => [null, h]),
 };
+// 12タイプ別の色差計算（勝ち色70色の選び方・✓・顔映り4軸の基準）から外す色（2026-10-19 keisuke 指定）。
+// TYPE12_PALETTE 本体と BEST COLOR 10 の表示は変えない。距離を測る相手から外すだけ。
+// test/build_color70_type12.py もこの表を読む（正本はここ1箇所）
+const TYPE12_PALETTE_EXCLUDE = {
+  "クールサマー": ["レモンイエロー", "クリアレッド"],
+  "ディープウィンター": ["イエロー", "オリーブ"],
+};
+const type12CalcPalette = (name12) =>
+  (TYPE12_PALETTE[name12] || []).filter(([name]) => !(TYPE12_PALETTE_EXCLUDE[name12] || []).includes(name));
 // BEST COLOR 10 の色名で折り返してよい位置（色名を作っている単語の間）を「|」で示したもの。
 // | の無い色名（ペリウィンクル）は折り返さない。ここに無い短い色名は1行に収まる
 const TYPE12_COLOR_BREAKS = Object.fromEntries([
@@ -2807,12 +2818,32 @@ const COLOR70_BY_FAMILY = (() => {
   });
   return out;
 })();
+/* 12タイプ版。COLOR70_TYPE12 の [色名, ✓] を 4タイプの COLOR70 の行に引き当て、✓ だけ12タイプ版に差し替える。 */
+const COLOR70_TYPE12_BY_FAMILY = (() => {
+  const out = {};
+  Object.keys(COLOR70_TYPE12).forEach((n12) => {
+    const t = Object.keys(TYPE12_NAME).find((k) => TYPE12_NAME[k] === n12);
+    const rows = COLOR70[NUM2KEY[t.split("-")[0]]] || [];
+    const fam = {};
+    COLOR70_FAMILY_ORDER.forEach((f) => { fam[f] = []; });
+    COLOR70_TYPE12[n12].forEach(([name, mark]) => {
+      const r = rows.find((x) => x[C70_NAME] === name);
+      if (!r) return;
+      const r12 = [...r];
+      r12[C70_MARK] = mark;
+      (fam[r12[C70_FAM]] = fam[r12[C70_FAM]] || []).push(r12);
+    });
+    out[n12] = fam;
+  });
+  return out;
+})();
 
 /* 勝ち色を8つの色相ファミリー行で見せる。色・名前・✓ の出所は既存データだけ
    （TYPES.palette10 / COLOR_CHECK / NG_COLORS.alt / STYLING_DATA）。
    0色の行も消さずに「この色相はありません」と出す（空であること自体が情報）。 */
-function ColorFamilies({ typeKey, accent }) {
-  const fam = COLOR70_BY_FAMILY[typeKey] || {};
+function ColorFamilies({ typeKey, name12, accent }) {
+  // 12タイプ名が来たら12タイプ版（結果画面）。来なければ従来どおり4タイプ版
+  const fam = (name12 && COLOR70_TYPE12_BY_FAMILY[name12]) || COLOR70_BY_FAMILY[typeKey] || {};
   const total = COLOR70_FAMILY_ORDER.reduce((n, k) => n + (fam[k] || []).length, 0);
   return (
     <div className="mb-6">
@@ -2868,11 +2899,14 @@ function ColorFamilies({ typeKey, accent }) {
 // ════════════════════════════════════════════
 
 /* タイプの基準値。palette10 の中央値を使う（平均だと spring のアイボリー L*96 のような
-   端の色に引きずられて、ほぼ全色が「明るさ:下がる」になってしまう）。 */
+   端の色に引きずられて、ほぼ全色が「明るさ:下がる」になってしまう）。
+   name12 を渡すと12タイプの palette10（混入色を外したもの）を基準にする。渡さなければ従来どおり4タイプ。 */
 const TYPE_REF_CACHE = {};
-function typeColorRef(typeKey) {
-  if (TYPE_REF_CACHE[typeKey]) return TYPE_REF_CACHE[typeKey];
-  const labs = (TYPES[typeKey].palette10 || []).map(([, hex]) => hexToLab(hex)).filter(Boolean);
+function typeColorRef(typeKey, name12) {
+  const cacheKey = name12 ? "type12:" + name12 : typeKey;
+  if (TYPE_REF_CACHE[cacheKey]) return TYPE_REF_CACHE[cacheKey];
+  const pal = name12 ? type12CalcPalette(name12) : TYPES[typeKey].palette10;
+  const labs = (pal || []).map(([, hex]) => hexToLab(hex)).filter(Boolean);
   const med = (arr) => {
     const v = [...arr].sort((p, q) => p - q), n = v.length;
     return n % 2 ? v[(n - 1) / 2] : (v[n / 2 - 1] + v[n / 2]) / 2;
@@ -2883,7 +2917,7 @@ function typeColorRef(typeKey) {
     b: med(labs.map((l) => l.b)),
     labs,
   };
-  TYPE_REF_CACHE[typeKey] = ref;
+  TYPE_REF_CACHE[cacheKey] = ref;
   return ref;
 }
 
@@ -2892,9 +2926,9 @@ const AX_SHADOW = ["されない", "弱い", "少し出る", "強調"];
 const AX_BLOOD = ["悪い", "やや落ちる", "普通", "良い"];
 
 /* 1色ぶんの顔映り4軸。数値はそのまま出さず、3〜5段階の日本語に落とす。 */
-function faceAxes(hex, typeKey) {
+function faceAxes(hex, typeKey, name12) {
   const lab = hexToLab(hex);
-  const ref = typeColorRef(typeKey);
+  const ref = typeColorRef(typeKey, name12);
   if (!lab || !ref.labs.length) return null;
   const C2 = Math.sqrt(lab.a * lab.a + lab.b * lab.b);
   const dL = lab.L - ref.L, dC = C2 - ref.C, db = lab.b - ref.b;
@@ -2928,10 +2962,11 @@ function faceAxes(hex, typeKey) {
 const AX_NEG = { bright: ["下がる", "やや下がる"], dull: ["出る", "やや出る"], shadow: ["少し出る", "強調"], blood: ["悪い", "やや落ちる"] };
 const RATING_ORDER = { "◎": 0, "○": 1, "△": 2, "✕": 3 };
 
-/* 色別 顔映りチェック表。COLOR_CHECK の24色を ◎→✕ の順に並べ、各色に4軸のコメントを出す。 */
-function FaceCheckTable({ typeKey, accent }) {
+/* 色別 顔映りチェック表。COLOR_CHECK の24色を ◎→✕ の順に並べ、各色に4軸のコメントを出す。
+   ◎○△✕ は4タイプの COLOR_CHECK のまま（12タイプの元データが無いため）。name12 を渡すと4軸だけ12タイプの palette10 で測る。 */
+function FaceCheckTable({ typeKey, name12, accent }) {
   const rows = [...COLOR_CHECK]
-    .map((cc) => ({ cc, rating: cc.r[typeKey], ax: faceAxes(cc.hex, typeKey) }))
+    .map((cc) => ({ cc, rating: cc.r[typeKey], ax: faceAxes(cc.hex, typeKey, name12) }))
     .filter((r) => r.ax)
     .sort((x, y) => RATING_ORDER[x.rating] - RATING_ORDER[y.rating]);
   let shown = null;
@@ -4513,7 +4548,7 @@ export default function App({ campaign = null, account = false } = {}) {
 
               <p className="text-sm mb-6" style={{ color: "#8a828d" }}><BreakAt text={TYPE12_FEATURE[RT12]} marked={TYPE12_FEATURE_BREAKS[RT12]} /></p>
               {/* 勝ち色は8つの色相ファミリーで体系化して見せる（プロ資料の見せ方に合わせた） */}
-              <ColorFamilies typeKey={RT.key} accent={RT.accent} />
+              <ColorFamilies typeKey={RT.key} name12={RT12} accent={RT.accent} />
               <div className="text-xs mb-2" style={{ color: C.faint }}>苦手な色（顔まわりでは注意）</div>
               <div className="grid grid-cols-4 gap-2 mb-7">
                 {(NG_COLORS[RT.key] || []).map((ngc, i) => (
@@ -4528,7 +4563,8 @@ export default function App({ campaign = null, account = false } = {}) {
               {/* 苦手色は「着るな」で終わらせず、置き場所を変えれば使えることまで出す */}
               <NgColorTips accent={RT.accent} />
               {/* 色別 顔映りチェック（勝ち色/苦手色の「なぜ」を4軸で言語化）＋ アクセサリーの金属 */}
-              <FaceCheckTable typeKey={RT.key} accent={RT.accent} />
+              <FaceCheckTable typeKey={RT.key} name12={RT12} accent={RT.accent} />
+              {/* 金属は 12タイプ版の合格判定（10/19 ②）を満たさないタイプがあるため、季節単位（RT.key）のまま */}
               <MetalChips typeKey={RT.key} accent={RT.accent} site={RT.site} siteName={RT.siteName} />
               {/* 公式フォーマット：似合う服セクション */}
               <h3 className="font-serif text-xl leading-snug mb-2" style={{ color: C.ink, textWrap: "balance" }}>

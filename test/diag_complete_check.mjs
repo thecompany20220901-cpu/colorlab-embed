@@ -122,7 +122,7 @@ function checkEvent(label, ev, method, site) {
   check(ev.method === method, `${label}: method=${method} (${ev.method})`);
   check(SEASONS.includes(ev.app_first) && SEASONS.includes(ev.app_second) && ev.app_first !== ev.app_second, `${label}: app_first/app_second が4シーズン名 (${ev.app_first}/${ev.app_second})`);
   check(ev.site === site, `${label}: site=${site} (${ev.site})`);
-  check(ev.app_version === VERSION && VERSION === "1.22.10", `${label}: app_version=${VERSION} (${ev.app_version})`);
+  check(ev.app_version === VERSION && VERSION === "1.22.11", `${label}: app_version=${VERSION} (${ev.app_version})`);
   const s = JSON.stringify(ev);
   check(s.length < 200 && !/data:|base64|measure|metrics|wb|dist|axes|note|url/i.test(s), `${label}: 写真・計測値・URL を含まない (${s})`);
 }
