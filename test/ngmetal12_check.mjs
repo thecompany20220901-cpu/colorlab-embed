@@ -7,6 +7,11 @@
 //   (5) 診断後の「NGカラー診断」画面に、12タイプ名と4色（置き換え色つき）が出る
 //   (6) 未診断で「NGカラー診断」を開くと12タイプのボタン（12個）が出て、押すとそのタイプの4色が出る
 //   (4) にはパールの丸の色（PEARL_TONE・12タイプ別の見本色）も含む
+//   (7) v1.22.13: NGカラー診断「置き換えカラーの服はコレ」の商品を12タイプ別に（12画面を実測）
+//       (a) 12タイプで商品の組み合わせが重複しない（同じ商品を2つのタイプで使わない）
+//       (b) そのタイプの NG色4色に当たる色の商品が出ない（判定は下の NG_WORDS・keisuke 承認の表。商品の色はタグ CSV の color 列）
+//       ほかに、タグ CSV でそのタイプが付いている・商品マスタで stock==true かつ hide!=true・顔まわりの服・
+//       並びが display の小さい順→item_id の大きい順・点数（3点。ウォームスプリングは候補2点なので2点）も見る
 //   (5)(6) では NGカラー診断の商品セクション（「○○の得意色だけで作った…」「○○の服をもっと見る」）が12タイプ名で、
 //          画面に4タイプ名（イエベ春/イエベ秋/ブルベ夏/ブルベ冬）が無いことも見る
 // 期待値はこのファイルに直接書く（src から読まない。読むと src が壊れても一致してしまう）。
@@ -31,6 +36,50 @@ const BUNDLE = resolve(pos[0] || join(ROOT, "dist", "colorlab.iife.js"));
 const SHOOT = !pos[0] && !STATIC_ONLY;
 const OUT = resolve(ROOT, "out", "ngmetal12");
 if (SHOOT) mkdirSync(OUT, { recursive: true });
+
+// ── (7) 商品の判定に使う元データ（Downloads の CSV。build_ng_products12.py と同じもの） ──
+const DL = "C:/Users/newfa/Downloads";
+const TAG_CSV = { blubel: join(DL, "blubel_pc12_tags_v1.csv"), iebel: join(DL, "iebel_pc12_tags_v1.csv") };
+const ITEM_CSV = { blubel: join(DL, "item_blubel (8).csv"), iebel: join(DL, "item_iebel (7).csv") };
+const TYPE_ALIAS = { "ライトサマー": "ブライトサマー", "クリアウィンター": "ブライトウィンター" };
+const FACE_CATS = ["1", "3", "4", "9"];
+const EXPECT_PICKS = { "ウォームスプリング": 2 }; // ほかは3点
+// NG色名 → 商品の色名にこの語（正規表現）が含まれていたら NG（2026-10-23 keisuke 承認の表）
+const NG_WORDS = {
+  "真っ黒": ["ブラック", "黒", "グラック"], "マスタード": ["マスタード"], "ダークブラウン": ["ダークブラウン", "ブラウン", "モカ", "あずき"],
+  "カーキ": ["カーキ", "オリーブ"], "ビビッドオレンジ": ["オレンジ"], "オレンジ": ["オレンジ"], "ビビッドレッド": ["^レッド", "赤"],
+  "ブライトイエロー": ["^イエロー"], "テラコッタ": ["テラコッタ"], "パステルピンク": ["ライトピンク", "^ピンク"],
+  "ベビーブルー": ["ライトブルー", "淡いブルー"], "ミントグリーン": ["ミントグリーン", "ライトグリーン", "パステルグリーン"],
+  "くすみベージュ": ["ベージュ"], "オレンジブラウン": ["キャメル", "キャラメル"], "モスグリーン": ["カーキ", "オリーブ", "ダークグリーン"],
+  "ベージュ": ["ベージュ"], "ダスティピンク": ["ダスティピンク", "ダースティピンク"], "グレージュ": ["グレージュ"],
+  "ダークネイビー": ["ネイビー"], "ネイビー": ["ネイビー"], "ボルドー": ["ボルドー", "ワインレッド"],
+  "チャコールグレー": ["チャコールグレー", "ダークグレー"], "くすみグレー": ["グレー"], "ダスティローズ": ["ダスティピンク", "ダースティピンク"],
+  "青みピンク": ["^ピンク", "ホットピンク", "ショッキングピンク"], "ライトグレー": ["ライトグレー"], "ビビッドブルー": ["^ブルー"],
+  "純白": ["ホワイト"], "ビビッドピンク": ["ホットピンク", "ショッキングピンク"], "ラベンダー": ["ラベンダー"],
+};
+function parseCsv(text) {
+  const rows = [];
+  let row = [], f = "", q = false;
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i];
+    if (q) { if (c === '"') { if (text[i + 1] === '"') { f += '"'; i++; } else q = false; } else f += c; }
+    else if (c === '"') q = true;
+    else if (c === ",") { row.push(f); f = ""; }
+    else if (c === "\n") { row.push(f.replace(/\r$/, "")); rows.push(row); row = []; f = ""; }
+    else f += c;
+  }
+  if (f || row.length) { row.push(f); rows.push(row); }
+  const [h, ...rs] = rows;
+  h[0] = h[0].replace(/^\uFEFF/, "");
+  return rs.filter((r) => r.length > 1).map((r) => Object.fromEntries(h.map((k, i) => [k, r[i] ?? ""])));
+}
+const csvById = {};
+const loadSite = (site) => {
+  if (csvById[site]) return csvById[site];
+  const tag = Object.fromEntries(parseCsv(readFileSync(TAG_CSV[site], "utf-8")).map((r) => [r.item_id, r]));
+  const item = Object.fromEntries(parseCsv(readFileSync(ITEM_CSV[site], "utf-8")).map((r) => [r.item_id, r]));
+  return (csvById[site] = { tag, item });
+};
 
 // [1位-2位, 12タイプ名]
 const KEYS = [
@@ -361,6 +410,7 @@ if (!STATIC_ONLY) {
     await page.screenshot({ path: file, fullPage: true });
     shots.push(file);
   }
+  const prodByType = {};
   for (const [key, name] of KEYS) {
     await openPicker();
     const btn = page.locator("#colorlab-root button", { hasText: new RegExp("^" + name + "$") });
@@ -368,6 +418,34 @@ if (!STATIC_ONLY) {
     await btn.first().click();
     await page.waitForTimeout(300);
     const r = await readNg();
+    // (7) 置き換えカラーの服（カードのリンク https://{site}.jp/items/{id} から商品を特定する）
+    const skus = await page.evaluate(() => [...document.querySelectorAll("#colorlab-root a")]
+      .filter((a) => /\/items\/\d+/.test(a.href) && /商品を見る/.test(a.textContent))
+      .map((a) => ({ site: (a.href.match(/^https:\/\/(\w+)\.jp\//) || [])[1], id: (a.href.match(/\/items\/(\d+)/) || [])[1] })));
+    prodByType[name] = skus;
+    const site = SITE_NAME[name].toLowerCase();
+    const wantN = EXPECT_PICKS[name] || 3;
+    check(skus.length === wantN, `${key} ${name}: (7) 置き換えカラーの服が${wantN}点 (${skus.length}点: ${skus.map((x) => x.id).join(",")})`);
+    check(skus.every((x) => x.site === site), `${key} ${name}: (7) 商品は${SITE_NAME[name]}のもの (${[...new Set(skus.map((x) => x.site))].join(",")})`);
+    const { tag, item } = loadSite(site);
+    const ngNames = EXPECT_NG[name].map(([n]) => n);
+    const bad = [], keyOf = [];
+    for (const x of skus) {
+      const t = tag[x.id], m = item[x.id];
+      if (!t || !m) { bad.push(`${x.id}:CSVに無い`); continue; }
+      const types = t.pc12_types.split("・").map((y) => TYPE_ALIAS[y] || y);
+      if (!types.includes(name)) bad.push(`${x.id}:タグに${name}が無い`);
+      if (m.stock.trim().toLowerCase() !== "true" || m.hide.trim().toLowerCase() === "true") bad.push(`${x.id}:在庫なし/非表示`);
+      if (!FACE_CATS.includes(m.category_id.split(",")[0].trim())) bad.push(`${x.id}:顔まわりの服でない`);
+      const colors = t.color.split(",").map((c) => c.trim()).filter(Boolean);
+      const hits = ngNames.flatMap((n) => (NG_WORDS[n] || []).flatMap((w) => colors.filter((c) => new RegExp(w).test(c)).map((c) => `${n}<${c}`)));
+      check(NG_WORDS && ngNames.every((n) => NG_WORDS[n]) && hits.length === 0, `${key} ${name}: (7b) ${x.id} の色（${colors.join(",")}）が NG色（${ngNames.join("・")}）に当たらない${hits.length ? " ← " + hits.join(" ") : ""}`);
+      const d = m.display.trim();
+      keyOf.push([/^\d+$/.test(d) ? +d : 9999, -x.id]);
+    }
+    check(bad.length === 0, `${key} ${name}: (7) タグ・在庫・顔まわりの服の条件 (${bad.join(" ") || "全部OK"})`);
+    check(keyOf.every((k, i) => i === 0 || keyOf[i - 1][0] < k[0] || (keyOf[i - 1][0] === k[0] && keyOf[i - 1][1] <= k[1])),
+      `${key} ${name}: (7) 並びが display の小さい順→item_id の大きい順 (${keyOf.map(([d, i]) => -i + "/d" + d).join(" ")})`);
     check(r.h3 === `${name}が顔まわりで避けたい色`, `${key} ${name}: (6) ボタンで選んだ NGカラー診断の見出し (${r.h3 || "なし"})`);
     const wantCards = EXPECT_NG[name].map(([n, , a]) => [n, a]);
     check(JSON.stringify(r.cards) === JSON.stringify(wantCards), `${key} ${name}: (6) ボタンで選んだ NGカラー診断の4色と置き換え色 (${r.cards.map((c) => c.join("→")).join(" / ") || "なし"})`);
@@ -383,6 +461,12 @@ if (!STATIC_ONLY) {
       shots.push(file);
     }
   }
+  // (7a) 12タイプで組み合わせが重複しない・同じ商品を2つのタイプで使わない
+  const combos = KEYS.map(([, n]) => (prodByType[n] || []).map((x) => x.site + ":" + x.id).sort().join("|"));
+  check(Object.keys(prodByType).length === 12 && new Set(combos).size === 12, `(7a) 12タイプで商品の組み合わせが重複しない (${new Set(combos).size}通り)`);
+  const all = KEYS.flatMap(([, n]) => (prodByType[n] || []).map((x) => x.site + ":" + x.id));
+  const dup = all.filter((x, i) => all.indexOf(x) !== i);
+  check(dup.length === 0, `(7a) 同じ商品を2つのタイプで使っていない (重複 ${dup.join(",") || "0件"})`);
   await browser.close();
   server.close();
   if (shots.length) { console.log("\nスクリーンショット:"); shots.forEach((f) => console.log("  " + f)); }

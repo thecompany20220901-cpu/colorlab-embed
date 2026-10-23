@@ -45,6 +45,8 @@ import { FAMILY_ORDER, COLOR_FAMILIES, COLOR_EN, CHIP_HEX, SKU_IMG } from "./col
 import { COLOR70, COLOR70_FAMILY_ORDER } from "./color70_data.js";
 // 勝ち色70色の12タイプ版（test/build_color70_type12.py が生成）。行の選び方と ✓ だけを持ち、色そのものは COLOR70 を引く
 import { COLOR70_TYPE12 } from "./color70_type12_data.js";
+// NGカラー診断「置き換えカラーの服はコレ」の12タイプ別3点（test/build_ng_products12.py が生成・v1.22.13）
+import { NG_PRODUCTS_12 } from "./ng_products12_data.js";
 // 商品マスタ item_{site}.csv の color 列（test/build_sku_colors.py が生成）
 import { SKU_COLORS } from "./sku_color_data.js";
 import { KotaeInput, KotaeResult, KotaeHomeBanner, KOTAE } from "./kotaeawase.jsx";
@@ -2707,7 +2709,8 @@ function CosmeCard({ item }) {
 
 function SkuCard({ sku, site, accent }) {
   // 商品画像は商品マスタ(item_blubel/iebel.csv)の images1。全カード同じ比率・同じ大きさで出す。
-  const img = (SKU_IMG[site] || {})[String(sku.id)];
+  // NG_PRODUCTS_12 の商品は SKU_IMG に無いので、自分の img を使う。
+  const img = sku.img || (SKU_IMG[site] || {})[String(sku.id)];
   return (
     <a href={ITEM_URL(site, sku.id)} target="_blank" rel="noreferrer" className="flex gap-3 rounded-2xl p-3 mb-3 transition-shadow hover:shadow-md" style={{ border: "1px solid " + C.line }}>
       {img && <img src={img} alt="" loading="lazy" className="rounded-xl" style={{ width: 78, aspectRatio: "3 / 4", objectFit: "cover", background: "#f4f0f4", flex: "none" }} />}
@@ -5327,7 +5330,7 @@ export default function App({ campaign = null, account = false } = {}) {
                   ))}
                   <h4 className="font-serif text-lg mt-6 mb-1" style={{ color: C.ink }}>置き換えカラーの服はコレ</h4>
                   <p className="text-xs leading-relaxed mb-4" style={{ color: C.sub }}>{MY12}の得意色だけで作った{TYPES[myType].siteName}のアイテムです。</p>
-                  {SKUS[TYPES[myType].site].slice(0, 3).map((sku) => <SkuCard key={sku.id} sku={sku} site={TYPES[myType].site} accent={TYPES[myType].accent} />)}
+                  {(NG_PRODUCTS_12[MY12] || []).map((sku) => <SkuCard key={sku.id} sku={sku} site={TYPES[myType].site} accent={TYPES[myType].accent} />)}
                   <a href={SITE_URL(TYPES[myType].site)} target="_blank" rel="noreferrer" className="block w-full text-center px-6 py-3.5 rounded-full text-white text-sm font-medium mt-2 transition-transform hover:scale-105" style={{ background: TYPES[myType].accent }}>{MY12}の服をもっと見る →</a>
                 </>
               )}

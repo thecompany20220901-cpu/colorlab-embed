@@ -592,7 +592,11 @@ colorlab は設置先ごとに参照タグが違うので、**サイト別に書
   - ウォームオータムの BEST COLOR 10 の8〜10番目を #244564 / #6BB2AC / #E8B49C に（`src/color70_type12_data.js` 再生成・差分はアッシュパープル1行）。
     NG色の置き換え色（ディープネイビー #244564・ベージュ #E8B49C）も新パレットに合わせた。
   - タイプ選択ボタンの4つの点は、BEST COLOR 10 から色差計算で外す色（`TYPE12_PALETTE_EXCLUDE`）を除いた先頭4色。
-  検証: `test/colorcheck12_check.mjs`（288件・12タイプの表とチェッカー）、facecheck_check を12タイプ版に作り直し（v1.22.12 の FAIL 4件は解消）。
+  - NGカラー診断「置き換えカラーの服はコレ」を12タイプ別に（`src/ng_products12_data.js`・`test/build_ng_products12.py` が生成）。
+    12タイプのタグ（`{site}_pc12_tags_v1.csv`）× 商品マスタ stock==true かつ hide!=true × 顔まわりの服、NG色4色に当たる色の商品は除外、
+    display の小さい順→item_id の大きい順、候補の少ないタイプから割り当てて同じ商品を2タイプで使わない。ウォームスプリングは候補2点のため2点。
+    商品マスタを更新したら `python test/build_ng_products12.py` で作り直す（CSV は Downloads から読む）。
+  検証: `test/colorcheck12_check.mjs`（288件・12タイプの表とチェッカー）、facecheck_check を12タイプ版に作り直し（v1.22.12 の FAIL 4件は解消）、`test/ngmetal12_check.mjs` に (7) 商品の検査（組み合わせの重複なし・NG色の商品なし）。
 - **v1.22.12 はタグ発行済み・本番未切替**（2026-10-23）。GTM のタグを `@v1.22.11` → `@v1.22.12` に書き換えると反映
   （IEBEL＝`GTM-WVFLHTNW` ／ BLUBEL＝`GTM-NN7QDLCH`・Keisuke作業）。**ロールバック先は `@v1.22.11`**（GTM のタグを戻すだけ・Worker は変更なし）。
   中身: NG色（苦手な色）と金属を12タイプ別に（4タイプ表示を廃止）。
