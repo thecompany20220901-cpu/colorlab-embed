@@ -5,13 +5,17 @@
 //   (3) 結果画面（12通り）の「苦手な色（顔まわりでは注意）」に、そのタイプの4色が順に出る
 //   (4) 結果画面の「アクセサリーの金属」で ゴールド/シルバーの評価・パールの白みの名前・得意/避けたい の1行が表と一致する
 //   (5) 診断後の「NGカラー診断」画面に、12タイプ名と4色（置き換え色つき）が出る
+//   (6) 未診断で「NGカラー診断」を開くと12タイプのボタン（12個）が出て、押すとそのタイプの4色が出る
+//   (4) にはパールの丸の色（PEARL_TONE・12タイプ別の見本色）も含む
+//   (5)(6) では NGカラー診断の商品セクション（「○○の得意色だけで作った…」「○○の服をもっと見る」）が12タイプ名で、
+//          画面に4タイプ名（イエベ春/イエベ秋/ブルベ夏/ブルベ冬）が無いことも見る
 // 期待値はこのファイルに直接書く（src から読まない。読むと src が壊れても一致してしまう）。
 // 実行: npm run build:colorlab && node test/ngmetal12_check.mjs [バンドル] [--src ファイル] [--static-only]
 //   バンドル省略時は dist/colorlab.iife.js。スクリーンショットはバンドル省略時だけ out/ngmetal12/ に撮る。
 // ネガティブテスト: v1.22.11 の src / バンドル、または NG_COLORS_12 から1タイプ消した src を渡すと FAIL（exit 1）になること。
 import { chromium } from "playwright";
 import { createServer } from "http";
-import { readFileSync, existsSync, mkdirSync } from "fs";
+import { readFileSync, existsSync, mkdirSync, statSync } from "fs";
 import { fileURLToPath } from "url";
 import { dirname, resolve, join, extname } from "path";
 import zlib from "zlib";
@@ -81,6 +85,14 @@ const EXPECT_METAL = {
   "ソフトオータム":   { silver: "△", gold: "◎", good: "サテン/ブラッシュドゴールド・ローズゴールド", avoid: "ギラつく光沢・青白いシルバー", pearl: "シャンパンパール" },
   "ディープオータム": { silver: "○", gold: "◎", good: "アンティークゴールド・ブロンズ・燻しシルバー", avoid: "ツルツルの明るいシルバー・淡いシャンパン", pearl: "ダークグレー・ブラウンパール" },
 };
+// パールの丸の見本色（2026-10-23 keisuke 指定）
+const PEARL_HEX = {
+  "ブライトサマー": "#F3E1E6", "ソフトサマー": "#F2EEE6", "クールサマー": "#E6EEF6", "ディープウィンター": "#8E9096",
+  "クールウィンター": "#F7F9FC", "ブライトウィンター": "#FBFCFF", "ライトスプリング": "#F6EEDC", "ブライトスプリング": "#F8F0D8",
+  "ウォームスプリング": "#EBD8A8", "ウォームオータム": "#E0CFB4", "ソフトオータム": "#EAD9BD", "ディープオータム": "#6E625A",
+};
+// NGカラー診断の商品セクションに出るサイト名
+const SITE_NAME = { "ブライトサマー": "BLUBEL", "ソフトサマー": "BLUBEL", "クールサマー": "BLUBEL", "ディープウィンター": "BLUBEL", "クールウィンター": "BLUBEL", "ブライトウィンター": "BLUBEL", "ライトスプリング": "IEBEL", "ブライトスプリング": "IEBEL", "ウォームスプリング": "IEBEL", "ウォームオータム": "IEBEL", "ソフトオータム": "IEBEL", "ディープオータム": "IEBEL" };
 const RANK = ["◎", "○", "△", "✕"];
 // 結果画面の金属の枠に出る1行（評価の高い方に good、低い方に avoid）
 const metalNote = (m, key) => {
@@ -206,7 +218,8 @@ if (!STATIC_ONLY) {
     if (p === "/__harness.html") { res.writeHead(200, { "Content-Type": "text/html" }); res.end(HARNESS); return; }
     if (p === "/__bundle.js") { res.writeHead(200, { "Content-Type": "text/javascript" }); res.end(readFileSync(BUNDLE)); return; }
     const f = join(ROOT, p);
-    if (!existsSync(f)) { res.writeHead(404); res.end("nf"); return; }
+    // ディレクトリ等で readFileSync が投げると応答が返らず接続が詰まるので、ファイル以外は 404
+    if (!existsSync(f) || !statSync(f).isFile()) { res.writeHead(404); res.end("nf"); return; }
     res.writeHead(200, { "Content-Type": MIME[extname(f)] || "application/octet-stream", "Access-Control-Allow-Origin": "*" });
     res.end(readFileSync(f));
   });
@@ -221,10 +234,10 @@ if (!STATIC_ONLY) {
   for (const [key, name] of KEYS) {
     const pat = findPattern(key);
     if (!pat && !PHOTO[key]) { check(false, `${key}: 回答パターンも合成写真も無い`); continue; }
-    await page.goto(base + "/__harness.html");
+    await page.goto(base + "/__harness.html", { waitUntil: "domcontentloaded" });
     await page.waitForSelector("#colorlab-root button", { timeout: 15000 });
     await page.evaluate(() => { try { localStorage.removeItem("colorlab-profile"); } catch (e) {} });
-    await page.reload();
+    await page.reload({ waitUntil: "domcontentloaded" });
     await page.waitForSelector("#colorlab-root button", { timeout: 15000 });
     if (pat) {
       await page.getByRole("button", { name: /質問で診断/ }).first().click();
@@ -261,8 +274,9 @@ if (!STATIC_ONLY) {
       const mBox = mHead && mHead.parentElement;
       const mGrid = mBox && mBox.querySelector(".grid.grid-cols-3");
       const metals = mGrid ? [...mGrid.children].map((c) => [...c.querySelectorAll("div")].map((d) => d.textContent.trim())) : [];
+      const pearlHex = mGrid && mGrid.children[2] ? toHex(getComputedStyle(mGrid.children[2].querySelector("span")).backgroundColor) : "";
       const fav = mBox ? ([...mBox.querySelectorAll("div")].find((d) => d.children.length === 0 && /が得意なあなたに/.test(d.textContent)) || {}).textContent || "" : "";
-      return { h2: h2 ? h2.textContent.trim() : "", ngs, metals, fav, top: ngHead ? ngHead.getBoundingClientRect().top + scrollY : null, bottom: mBox ? mBox.getBoundingClientRect().bottom + scrollY : null };
+      return { h2: h2 ? h2.textContent.trim() : "", ngs, metals, fav, pearlHex, top: ngHead ? ngHead.getBoundingClientRect().top + scrollY : null, bottom: mBox ? mBox.getBoundingClientRect().bottom + scrollY : null };
     });
     check(info.h2.includes(`【${name}】`), `${key} ${name}: 結果画面の見出しに12タイプ名 (${info.h2.slice(0, 30)})`);
     const wantNg = EXPECT_NG[name].map(([n, h]) => ({ name: n, hex: h }));
@@ -284,6 +298,7 @@ if (!STATIC_ONLY) {
     const favWant = ["gold", "silver"].filter((k) => em[k] === "◎").map((k) => (k === "gold" ? "ゴールド" : "シルバー")).join("・")
       || (RANK.indexOf(em.gold) <= RANK.indexOf(em.silver) ? "ゴールド" : "シルバー");
     check(info.fav.startsWith(favWant + "が得意なあなたに"), `${key} ${name}: (4) 「${favWant}が得意なあなたに」 (${info.fav || "なし"})`);
+    check(info.pearlHex === PEARL_HEX[name], `${key} ${name}: (4) パールの丸の色 ${info.pearlHex || "なし"} (期待 ${PEARL_HEX[name]})`);
     check(JSON.stringify(gotPearl) === JSON.stringify(want[2]), `${key} ${name}: (4) パール ${gotPearl.join(" / ") || "なし"}`);
 
     if (SHOOT && info.top != null && info.bottom != null) {
@@ -293,7 +308,7 @@ if (!STATIC_ONLY) {
     }
 
     // (5) 診断後の「NGカラー診断」画面（プロフィールに1位・2位が残っている）
-    await page.goto(base + "/__harness.html");
+    await page.goto(base + "/__harness.html", { waitUntil: "domcontentloaded" });
     await page.waitForSelector("#colorlab-root button", { timeout: 15000 });
     await page.getByRole("button", { name: /NGカラー診断/ }).first().click();
     await page.waitForTimeout(300);
@@ -301,11 +316,72 @@ if (!STATIC_ONLY) {
       const root = document.querySelector("#colorlab-root");
       const h3 = [...root.querySelectorAll("h3")].find((h) => /顔まわりで避けたい色/.test(h.textContent));
       const cards = [...root.querySelectorAll("div.rounded-2xl.p-4.mb-3")].filter((d) => /代わりに/.test(d.textContent));
-      return { h3: h3 ? h3.textContent.trim() : "", cards: cards.map((c) => [c.querySelector(".text-sm.font-medium")?.textContent.replace(/^✕\s*/, "").trim(), [...c.querySelectorAll("span.text-xs.font-medium")].pop()?.textContent.trim()]) };
+      const prod = ([...root.querySelectorAll("p")].find((p) => /の得意色だけで作った/.test(p.textContent)) || {}).textContent || "";
+      const more = ([...root.querySelectorAll("a")].find((a) => /の服をもっと見る/.test(a.textContent)) || {}).textContent || "";
+      const season = root.innerText.match(/イエベ春|イエベ秋|ブルベ夏|ブルベ冬/g) || [];
+      return { h3: h3 ? h3.textContent.trim() : "", prod: prod.trim(), more: more.trim(), season, cards: cards.map((c) => [c.querySelector(".text-sm.font-medium")?.textContent.replace(/^✕\s*/, "").trim(), [...c.querySelectorAll("span.text-xs.font-medium")].pop()?.textContent.trim()]) };
     });
     check(scr.h3 === `${name}が顔まわりで避けたい色`, `${key} ${name}: (5) NGカラー診断の見出し (${scr.h3 || "なし"})`);
     const wantCards = EXPECT_NG[name].map(([n, , a]) => [n, a]);
     check(JSON.stringify(scr.cards) === JSON.stringify(wantCards), `${key} ${name}: (5) NGカラー診断の4色と置き換え色 (${scr.cards.map((c) => c.join("→")).join(" / ") || "なし"})`);
+    check(scr.prod === `${name}の得意色だけで作った${SITE_NAME[name]}のアイテムです。`, `${key} ${name}: (5) 商品セクションの説明が12タイプ名 (${scr.prod || "なし"})`);
+    check(scr.more === `${name}の服をもっと見る →`, `${key} ${name}: (5) 「もっと見る」ボタンが12タイプ名 (${scr.more || "なし"})`);
+    check(scr.season.length === 0, `${key} ${name}: (5) NGカラー診断の画面に4タイプ名が無い (${scr.season.join("・") || "0件"})`);
+  }
+
+  // (6) 未診断（プロフィール無し）で NGカラー診断 → 12タイプのボタンから選ぶ
+  const readNg = () => page.evaluate(() => {
+    const root = document.querySelector("#colorlab-root");
+    const h3 = [...root.querySelectorAll("h3")].find((h) => /顔まわりで避けたい色/.test(h.textContent));
+    const cards = [...root.querySelectorAll("div.rounded-2xl.p-4.mb-3")].filter((d) => /代わりに/.test(d.textContent));
+    const prod = ([...root.querySelectorAll("p")].find((p) => /の得意色だけで作った/.test(p.textContent)) || {}).textContent || "";
+    const more = ([...root.querySelectorAll("a")].find((a) => /の服をもっと見る/.test(a.textContent)) || {}).textContent || "";
+    const season = root.innerText.match(/イエベ春|イエベ秋|ブルベ夏|ブルベ冬/g) || [];
+    return { h3: h3 ? h3.textContent.trim() : "", prod: prod.trim(), more: more.trim(), season, cards: cards.map((c) => [c.querySelector(".text-sm.font-medium")?.textContent.replace(/^✕\s*/, "").trim(), [...c.querySelectorAll("span.text-xs.font-medium")].pop()?.textContent.trim()]) };
+  });
+  const openPicker = async () => {
+    await page.goto(base + "/__harness.html", { waitUntil: "domcontentloaded" });
+    await page.waitForSelector("#colorlab-root button", { timeout: 15000 });
+    await page.evaluate(() => { try { localStorage.removeItem("colorlab-profile"); } catch (e) {} });
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await page.waitForSelector("#colorlab-root button", { timeout: 15000 });
+    await page.getByRole("button", { name: /NGカラー診断/ }).first().click();
+    await page.waitForTimeout(300);
+    return page.evaluate((names) => {
+      const root = document.querySelector("#colorlab-root");
+      return [...root.querySelectorAll("button")].map((b) => b.textContent.trim()).filter((t) => names.includes(t));
+    }, KEYS.map(([, n]) => n));
+  };
+  const btns = await openPicker();
+  check(btns.length === 12 && new Set(btns).size === 12, `(6) 未診断の NGカラー診断に12タイプのボタンが12個 (${btns.length}個: ${btns.join("・")})`);
+  const ng0 = await readNg();
+  check(ng0.cards.length === 0 && !ng0.h3, `(6) タイプを選ぶ前は NG 色を出さない（0件の表示にならない）`);
+  if (SHOOT) {
+    const file = join(OUT, "ngcolor_picker12.png");
+    await page.screenshot({ path: file, fullPage: true });
+    shots.push(file);
+  }
+  for (const [key, name] of KEYS) {
+    await openPicker();
+    const btn = page.locator("#colorlab-root button", { hasText: new RegExp("^" + name + "$") });
+    if (!(await btn.count())) { check(false, `${key} ${name}: (6) 「${name}」のボタンが無い`); continue; }
+    await btn.first().click();
+    await page.waitForTimeout(300);
+    const r = await readNg();
+    check(r.h3 === `${name}が顔まわりで避けたい色`, `${key} ${name}: (6) ボタンで選んだ NGカラー診断の見出し (${r.h3 || "なし"})`);
+    const wantCards = EXPECT_NG[name].map(([n, , a]) => [n, a]);
+    check(JSON.stringify(r.cards) === JSON.stringify(wantCards), `${key} ${name}: (6) ボタンで選んだ NGカラー診断の4色と置き換え色 (${r.cards.map((c) => c.join("→")).join(" / ") || "なし"})`);
+    check(r.prod === `${name}の得意色だけで作った${SITE_NAME[name]}のアイテムです。`, `${key} ${name}: (6) 商品セクションの説明が12タイプ名 (${r.prod || "なし"})`);
+    check(r.more === `${name}の服をもっと見る →`, `${key} ${name}: (6) 「もっと見る」ボタンが12タイプ名 (${r.more || "なし"})`);
+    check(r.season.length === 0, `${key} ${name}: (6) NGカラー診断の画面に4タイプ名が無い (${r.season.join("・") || "0件"})`);
+    const prof = await page.evaluate(() => { try { return JSON.parse(localStorage.getItem("colorlab-profile") || "{}"); } catch (e) { return {}; } });
+    const NUM = { spring: 1, summer: 2, autumn: 3, winter: 4 };
+    check(`${NUM[prof.myType]}-${NUM[prof.mySecond]}` === key, `${key} ${name}: (6) 選んだタイプが1位-2位でプロフィールに入る (${prof.myType}/${prof.mySecond})`);
+    if (SHOOT) {
+      const file = join(OUT, `ngcolor_${key}_${name}.png`);
+      await page.screenshot({ path: file, fullPage: true });
+      shots.push(file);
+    }
   }
   await browser.close();
   server.close();

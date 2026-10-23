@@ -3097,7 +3097,7 @@ function FaceCheckTable({ typeKey, name12, accent }) {
 // ── D案：アクセサリーの金属 ──
 // ゴールド / シルバーのスウォッチは Q10（金属の設問イラスト）で使っている色をそのまま流用する。
 // v1.22.12: 評価は12タイプ別の表 METAL_12 をそのまま出す（勝ち色への ΔE 判定はブルベのシルバーが✕になるため廃止）。
-// パールは「どのタイプにも似合い、選ぶのは白みの方」なので◎固定。白みの名前は METAL_12.pearl、スウォッチの色は季節の PEARL_TONE。
+// パールは「どのタイプにも似合い、選ぶのは白みの方」なので◎固定。白みの名前は METAL_12.pearl、丸の色は PEARL_TONE（どちらも12タイプ別）。
 const METAL_BASE = [
   { key: "gold", name: "ゴールド", hex: "#D4AF5A" },
   { key: "silver", name: "シルバー", hex: "#B8BEC9" },
@@ -3116,11 +3116,20 @@ const METAL_12 = {
   "ソフトオータム":   { silver: "△", gold: "◎", good: "サテン/ブラッシュドゴールド・ローズゴールド", avoid: "ギラつく光沢・青白いシルバー", pearl: "シャンパンパール" },
   "ディープオータム": { silver: "○", gold: "◎", good: "アンティークゴールド・ブロンズ・燻しシルバー", avoid: "ツルツルの明るいシルバー・淡いシャンパン", pearl: "ダークグレー・ブラウンパール" },
 };
+// パールの丸の見本色（表示用。判定には使わない）。12タイプ別（2026-10-23 keisuke 指定）
 const PEARL_TONE = {
-  spring: { name: "アイボリー", hex: "#FFF3E2" },
-  summer: { name: "オフホワイト", hex: "#F3EEF5" },
-  autumn: { name: "ベージュパール", hex: "#E8D6B8" },
-  winter: { name: "ピュアホワイト", hex: "#FFFFFF" },
+  "ブライトサマー": "#F3E1E6",
+  "ソフトサマー": "#F2EEE6",
+  "クールサマー": "#E6EEF6",
+  "ディープウィンター": "#8E9096",
+  "クールウィンター": "#F7F9FC",
+  "ブライトウィンター": "#FBFCFF",
+  "ライトスプリング": "#F6EEDC",
+  "ブライトスプリング": "#F8F0D8",
+  "ウォームスプリング": "#EBD8A8",
+  "ウォームオータム": "#E0CFB4",
+  "ソフトオータム": "#EAD9BD",
+  "ディープオータム": "#6E625A",
 };
 const METAL_RANK = ["◎", "○", "△", "✕"];
 const METAL_TIP = {
@@ -3130,10 +3139,9 @@ const METAL_TIP = {
   "✕": "顔から離して（バッグや靴の金具で）。",
 };
 
-function MetalChips({ typeKey, name12, accent, site, siteName }) {
+function MetalChips({ name12, accent, site, siteName }) {
   const mt = METAL_12[name12];
   if (!mt) return null;
-  const pearl = PEARL_TONE[typeKey];
   const best = METAL_BASE.map((m) => ({ ...m, rating: mt[m.key] }));
   // 得意/避けたい質感の1行: 評価の高い方の枠に good、低い方の枠に avoid を出す
   const hi = METAL_RANK.indexOf(best[0].rating) <= METAL_RANK.indexOf(best[1].rating) ? best[0].key : best[1].key;
@@ -3141,7 +3149,7 @@ function MetalChips({ typeKey, name12, accent, site, siteName }) {
   const items = [
     ...best,
     // パールは素材そのものがどのタイプにも似合う。差が出るのは「白みの選び方」なので◎固定。
-    { key: "pearl", name: "パール", hex: pearl.hex, rating: "◎", sub: mt.pearl },
+    { key: "pearl", name: "パール", hex: PEARL_TONE[name12], rating: "◎", sub: mt.pearl },
   ];
   // 得意な金属（◎の中でいちばん近い方）を文章で名指しして、既存のアクセサリー在庫へつなぐ。
   const top = best.filter((m) => m.rating === "◎").map((m) => m.name).join("・") || best.find((m) => m.key === hi).name;
@@ -3464,6 +3472,26 @@ function TypePicker({ value, onChange, label }) {
           <button key={t.key} onClick={() => onChange(t.key)} className="rounded-2xl px-3 py-3 text-sm text-left transition-all" style={{ border: value === t.key ? `2px solid ${t.accent}` : "1px solid " + C.line, color: C.ink, background: value === t.key ? t.accent + "10" : "white" }}>
             <div className="flex gap-1 mb-1.5">{t.palette.slice(0, 4).map((c, i) => <span key={i} className="w-3.5 h-3.5 rounded-full" style={{ background: c, border: "1px solid #eee" }} />)}</div>
             {t.name}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// v1.22.12: NGカラー診断のタイプ選択（12タイプ）。キーは NG_COLORS_12 と同じ12タイプ名。
+// 選んだら 1位・2位（TYPE12_NAME の逆引き）をプロフィールに入れる。
+const TYPE12_KEYS = Object.fromEntries(Object.entries(TYPE12_NAME).map(([k, n]) =>
+  [n, k.split("-").map((x) => Object.values(TYPES).find((t) => t.num === +x).key)]));
+function TypePicker12({ onChange, label }) {
+  return (
+    <div className="mb-4">
+      {label && <div className="text-xs mb-2" style={{ color: C.faint }}>{label}</div>}
+      <div className="grid grid-cols-2 gap-2">
+        {Object.keys(NG_COLORS_12).map((n) => (
+          <button key={n} onClick={() => onChange(n)} className="rounded-2xl px-3 py-3 text-sm text-left transition-all" style={{ border: "1px solid " + C.line, color: C.ink, background: "white" }}>
+            <div className="flex gap-1 mb-1.5">{(TYPE12_PALETTE[n] || []).slice(0, 4).map(([, c], i) => <span key={i} className="w-3.5 h-3.5 rounded-full" style={{ background: c, border: "1px solid #eee" }} />)}</div>
+            {n}
           </button>
         ))}
       </div>
@@ -4065,7 +4093,7 @@ export default function App({ campaign = null, account = false } = {}) {
     if (!myType) return;
     setScPreview(dataUrl); setScReject(null); setScResult(null); setScStep("analyzing");
     try {
-      const r = await aiScoreOutfit(dataUrl.split(",")[1], mediaType || "image/jpeg", TYPES[myType], mySecond ? type12Name(myType, mySecond) : null);
+      const r = await aiScoreOutfit(dataUrl.split(",")[1], mediaType || "image/jpeg", TYPES[myType], MY12);
       setScResult(r); setScStep("result");
     } catch (err) {
       if (err && err.isPhotoGate) setScReject({ title: err.title, body: err.body });
@@ -4114,6 +4142,8 @@ export default function App({ campaign = null, account = false } = {}) {
   const RT = quizResult ? TYPES[quizResult.first] : null;
   // v1.22.10: 結果画面の見出し・文言に出す12タイプ名（判定は4タイプのまま。1位x2位から引くだけ）
   const RT12 = quizResult ? type12Name(quizResult.first, quizResult.second) : null;
+  // v1.22.12: プロフィールの12タイプ名（NGカラー診断・コーデ採点の NG 照合）。2位が無ければ null
+  const MY12 = myType && mySecond ? type12Name(myType, mySecond) : null;
   // v1.22.8: 診断完了を GA4 で数える（GTM のカスタムイベント diag_complete）。
   // 結果オブジェクト1つにつき1回だけ送る（再描画・画面の行き来で同じ結果を出し直しても送らない）。
   // 送るのはタイプと経路だけ。写真・計測値（measure 等）は入れない。
@@ -4405,6 +4435,7 @@ export default function App({ campaign = null, account = false } = {}) {
 
         {mode === "card" && cardStep === "result" && cardResult && (() => {
           const T = TYPES[cardResult.first];
+          const T12 = type12Name(cardResult.first, cardResult.second); // v1.22.12: 商品セクションの文言は12タイプ名
           const foot = CARD_FOOTER[T.site] || CARD_FOOTER.blubel;
           return (
             <div className="fade-up">
@@ -4497,12 +4528,12 @@ export default function App({ campaign = null, account = false } = {}) {
                     <div className="mt-6 mb-4 pt-5" style={{ borderTop: "1px dashed " + C.line }}>
                       <div className="text-xs tracking-widest uppercase mb-1" style={{ color: T.accent }}>Recommended Items</div>
                       <h4 className="font-serif text-lg leading-snug mb-1" style={{ color: C.ink }}>
-                        {onOwnSite ? T.name + "のあなたに似合うアイテム" : siteName + "のおすすめアイテム"}
+                        {onOwnSite ? T12 + "のあなたに似合うアイテム" : siteName + "のおすすめアイテム"}
                       </h4>
                       <p className="text-xs leading-relaxed mb-3" style={{ color: C.sub }}>
                         {onOwnSite
-                          ? LAB(site) + "（" + siteName + "）の在庫から、" + T.name + "の勝ち色と相性のいいものを選びました。"
-                          : "いま見ている" + siteName + "の在庫から選びました。" + T.name + "の勝ち色に合わせたアイテムは "
+                          ? LAB(site) + "（" + siteName + "）の在庫から、" + T12 + "の勝ち色と相性のいいものを選びました。"
+                          : "いま見ている" + siteName + "の在庫から選びました。" + T12 + "の勝ち色に合わせたアイテムは "
                             + LAB(T.site) + "（" + T.siteName + "）にそろっています。"}
                       </p>
                       <SkuStrip skus={skus} site={site} accent={T.accent}
@@ -4657,7 +4688,7 @@ export default function App({ campaign = null, account = false } = {}) {
               <NgColorTips accent={RT.accent} />
               {/* 色別 顔映りチェック（勝ち色/苦手色の「なぜ」を4軸で言語化）＋ アクセサリーの金属 */}
               <FaceCheckTable typeKey={RT.key} name12={RT12} accent={RT.accent} />
-              <MetalChips typeKey={RT.key} name12={RT12} accent={RT.accent} site={RT.site} siteName={RT.siteName} />
+              <MetalChips name12={RT12} accent={RT.accent} site={RT.site} siteName={RT.siteName} />
               {/* 公式フォーマット：似合う服セクション */}
               <h3 className="font-serif text-xl leading-snug mb-2" style={{ color: C.ink, textWrap: "balance" }}>
                 {/* 折り返してよいのは「○○の」「あなたに」「似合う服はコレ！」の間だけ（各まとまりは nowrap） */}
@@ -4842,7 +4873,7 @@ export default function App({ campaign = null, account = false } = {}) {
                       })}
                       <div className="text-xs mb-2.5 mt-5" style={{ color: C.faint }}>仕上げのコスメ</div>
                       {COSME[myType].map((item, i) => <CosmeCard key={i} item={item} />)}
-                      <a href={SITE_URL(TYPES[myType].site)} target="_blank" rel="noreferrer" className="block w-full text-center px-6 py-3.5 rounded-full text-white text-sm font-medium mt-4 transition-transform hover:scale-105" style={{ background: TYPES[myType].accent }}>{TYPES[myType].name}の服をもっと見る →</a>
+                      <a href={SITE_URL(TYPES[myType].site)} target="_blank" rel="noreferrer" className="block w-full text-center px-6 py-3.5 rounded-full text-white text-sm font-medium mt-4 transition-transform hover:scale-105" style={{ background: TYPES[myType].accent }}>{MY12 || TYPES[myType].name}の服をもっと見る →</a>
                       <p className="mt-4 text-center text-[10px] leading-relaxed" style={{ color: "#b3aab2" }}>※コスメ紹介はアフィリエイト広告を含みます</p>
                     </div>
                   )}
@@ -5015,7 +5046,7 @@ export default function App({ campaign = null, account = false } = {}) {
               </div>
               {myType ? (
                 <>
-                  <h3 className="font-serif text-xl leading-snug mb-2" style={{ color: C.ink }}>{TYPES[myType].name}×骨格{FRAMES[myFrame].name}のあなたに似合う服はコレ！</h3>
+                  <h3 className="font-serif text-xl leading-snug mb-2" style={{ color: C.ink }}>{MY12 || TYPES[myType].name}×骨格{FRAMES[myFrame].name}のあなたに似合う服はコレ！</h3>
                   <p className="text-xs leading-relaxed mb-3" style={{ color: C.sub }}>似合う色（パーソナルカラー）と似合う形（骨格）の両方で絞り込んだ、あなた専用のセレクトです。</p>
                   <div className="text-xs mb-2" style={{ color: C.faint }}>あなたに似合うカラーパレット</div>
                   <div className="grid grid-cols-5 gap-2 mb-4">
@@ -5241,15 +5272,15 @@ export default function App({ campaign = null, account = false } = {}) {
           <div>
             <Header title="パーソナルカラー別NGカラー" onBack={goHome} />
             <div className="px-8 pb-12 pt-3">
-              {!myType && <TypePicker value={myType} onChange={(k) => { setMyType(k); setMySecond(null); }} label="あなたのタイプは？（未診断なら12タイプ診断へ）" />}
-              {myType && (
+              {!MY12 && <TypePicker12 onChange={(n12) => { setMyType(TYPE12_KEYS[n12][0]); setMySecond(TYPE12_KEYS[n12][1]); }} label="あなたのタイプは？（12タイプから選んでください）" />}
+              {MY12 && (
                 <>
                   <div className="inline-flex items-center gap-2.5 mb-3 px-6 py-3 rounded-full text-2xl font-bold" style={{ background: TYPES[myType].accent + "14", color: TYPES[myType].accent }}>
-                    {mySecond ? type12Name(myType, mySecond) : TYPES[myType].name} <button onClick={() => setMyType(null)} className="underline text-xs font-normal" style={{ color: C.faint }}>変更</button>
+                    {MY12} <button onClick={() => { setMyType(null); setMySecond(null); }} className="underline text-xs font-normal" style={{ color: C.faint }}>変更</button>
                   </div>
-                  <h3 className="font-serif text-xl leading-snug mb-2" style={{ color: C.ink }}>{mySecond ? type12Name(myType, mySecond) : TYPES[myType].name}が顔まわりで避けたい色</h3>
+                  <h3 className="font-serif text-xl leading-snug mb-2" style={{ color: C.ink }}>{MY12}が顔まわりで避けたい色</h3>
                   <p className="text-xs leading-relaxed mb-5" style={{ color: C.sub }}>「なんか今日顔色悪い？」の原因は、実はこの色かも。代わりに使える置き換え色もセットでどうぞ。</p>
-                  {(NG_COLORS_12[mySecond ? type12Name(myType, mySecond) : null] || []).map((ng, i) => (
+                  {(NG_COLORS_12[MY12] || []).map((ng, i) => (
                     <div key={i} className="rounded-2xl p-4 mb-3" style={{ border: "1px solid " + C.line }}>
                       <div className="flex items-center gap-3 mb-2">
                         <span className="w-9 h-9 rounded-xl shrink-0" style={{ background: ng.hex, border: "1px solid #e5dfe4" }} />
@@ -5266,9 +5297,9 @@ export default function App({ campaign = null, account = false } = {}) {
                     </div>
                   ))}
                   <h4 className="font-serif text-lg mt-6 mb-1" style={{ color: C.ink }}>置き換えカラーの服はコレ</h4>
-                  <p className="text-xs leading-relaxed mb-4" style={{ color: C.sub }}>{TYPES[myType].name}の得意色だけで作った{TYPES[myType].siteName}のアイテムです。</p>
+                  <p className="text-xs leading-relaxed mb-4" style={{ color: C.sub }}>{MY12}の得意色だけで作った{TYPES[myType].siteName}のアイテムです。</p>
                   {SKUS[TYPES[myType].site].slice(0, 3).map((sku) => <SkuCard key={sku.id} sku={sku} site={TYPES[myType].site} accent={TYPES[myType].accent} />)}
-                  <a href={SITE_URL(TYPES[myType].site)} target="_blank" rel="noreferrer" className="block w-full text-center px-6 py-3.5 rounded-full text-white text-sm font-medium mt-2 transition-transform hover:scale-105" style={{ background: TYPES[myType].accent }}>{TYPES[myType].name}の服をもっと見る →</a>
+                  <a href={SITE_URL(TYPES[myType].site)} target="_blank" rel="noreferrer" className="block w-full text-center px-6 py-3.5 rounded-full text-white text-sm font-medium mt-2 transition-transform hover:scale-105" style={{ background: TYPES[myType].accent }}>{MY12}の服をもっと見る →</a>
                 </>
               )}
             </div>
@@ -5543,7 +5574,7 @@ export default function App({ campaign = null, account = false } = {}) {
                               </div>
                             );
                           })}
-                          <a href={SITE_URL(TYPES[myType].site)} target="_blank" rel="noreferrer" className="block w-full text-center px-6 py-3.5 rounded-full text-white text-sm font-medium mb-2 transition-transform hover:scale-105" style={{ background: TYPES[myType].accent }}>{TYPES[myType].name}の{SEASON_LABEL[seasonKey]}服をもっと見る →</a>
+                          <a href={SITE_URL(TYPES[myType].site)} target="_blank" rel="noreferrer" className="block w-full text-center px-6 py-3.5 rounded-full text-white text-sm font-medium mb-2 transition-transform hover:scale-105" style={{ background: TYPES[myType].accent }}>{MY12 || TYPES[myType].name}の{SEASON_LABEL[seasonKey]}服をもっと見る →</a>
                           <button onClick={() => { setWdStep(1); setWdScene(null); setWdOwned([]); setWdWorry(null); }} className="w-full py-2.5 rounded-full text-xs" style={{ border: "1px solid " + C.line, color: "#6b6370" }}>条件を変えてやり直す</button>
                         </div>
                       );
@@ -5751,7 +5782,7 @@ export default function App({ campaign = null, account = false } = {}) {
                           <p className="text-xs leading-relaxed" style={{ color: "#4a434f" }}>{scResult.one_item}</p>
                         </div>
                       )}
-                      <div className="text-xs mb-2.5" style={{ color: C.faint }}>スコアを底上げする{TYPES[myType].name}の得意色アイテム</div>
+                      <div className="text-xs mb-2.5" style={{ color: C.faint }}>スコアを底上げする{MY12 || TYPES[myType].name}の得意色アイテム</div>
                       {SKUS[TYPES[myType].site].slice(0, 3).map((sku) => <SkuCard key={sku.id} sku={sku} site={TYPES[myType].site} accent={TYPES[myType].accent} />)}
                       <p className="mt-3 text-center text-[10px] leading-relaxed" style={{ color: "#b3aab2" }}>
                         ※この採点は服の色とタイプの相性のみを判定しています（シルエット・素材感は含みません）。<br />
