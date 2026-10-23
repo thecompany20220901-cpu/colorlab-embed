@@ -2,7 +2,8 @@
 //   A案 色別 顔映りチェック表 / B案 ベストカラーTOP6 / C案 苦手な色を着るときのポイント / D案 アクセサリーの金属
 //   ・4タイプすべてで表とチップが出る
 //   ・24色ぶんの4軸コメントが、Lab から計算した期待値と1件も違わない
-//   ・判定は既存の COLOR_CHECK と完全一致（チェッカー画面と食い違わない）
+//   ・判定は COLOR_CHECK_12（12タイプ別・v1.22.13）と完全一致（チェッカー画面と食い違わない）
+//   ・4軸コメントの期待値は12タイプの palette10（TYPE12_PALETTE − TYPE12_PALETTE_EXCLUDE）で計算する（v1.22.11 から表示側は12タイプ基準）
 //   ・金属は12タイプ別の表（METAL_12・v1.22.12）どおりに出る（12通り全部は test/ngmetal12_check.mjs が見る）
 //   ・既存の結果画面（勝ち色・苦手色・コスメ・おすすめ商品）が壊れていない
 // 実行: node test/facecheck_check.mjs
@@ -31,6 +32,17 @@ for (const m of src.matchAll(/\{ name: "([^"]+)", hex: "(#\w{6})", r: \{ spring:
   COLOR_CHECK.push({ name: m[1], hex: m[2], r: { spring: m[3], summer: m[4], autumn: m[5], winter: m[6] } });
 }
 
+// 12タイプの palette10・除外色・24色の12タイプ別判定（src の定義をそのまま評価する）
+const objAfter = (head) => {
+  const i = src.indexOf(head);
+  const b = src.indexOf("{", i + head.length - 1), e = src.indexOf("\n};", b);
+  return new Function("return " + src.slice(b, e + 2))();
+};
+const TYPE12_PALETTE = objAfter("const TYPE12_PALETTE = {");
+const TYPE12_PALETTE_EXCLUDE = objAfter("const TYPE12_PALETTE_EXCLUDE = {");
+const COLOR_CHECK_12 = objAfter("const COLOR_CHECK_12 = {");
+const pal12 = (n12) => TYPE12_PALETTE[n12].filter(([nm]) => !(TYPE12_PALETTE_EXCLUDE[n12] || []).includes(nm));
+
 const lin = (v) => { v /= 255; return v > 0.04045 ? ((v + 0.055) / 1.055) ** 2.4 : v / 12.92; };
 function lab(hex) {
   const h = hex.replace("#", "");
@@ -43,15 +55,15 @@ function lab(hex) {
   return { L: 116 * fy - 16, a: 500 * (fx - fy), b: 200 * (fy - fz) };
 }
 const med = (a) => { const v = [...a].sort((p, q) => p - q), n = v.length; return n % 2 ? v[(n - 1) / 2] : (v[n / 2 - 1] + v[n / 2]) / 2; };
-const refOf = (k) => {
-  const labs = palette10[k].map(([, hx]) => lab(hx));
+const refOf = (k, n12) => {
+  const labs = (n12 ? pal12(n12) : palette10[k]).map(([, hx]) => lab(hx));
   return { L: med(labs.map((l) => l.L)), C: med(labs.map((l) => Math.hypot(l.a, l.b))), b: med(labs.map((l) => l.b)), labs };
 };
 const BRIGHT = ["下がる", "やや下がる", "変わらない", "やや上がる", "上がる"];
 const SHADOW = ["されない", "弱い", "少し出る", "強調"];
 const BLOOD = ["悪い", "やや落ちる", "普通", "良い"];
-function expectAxes(hex, k) {
-  const l = lab(hex), r = refOf(k);
+function expectAxes(hex, k, n12) {
+  const l = lab(hex), r = refOf(k, n12);
   const C = Math.hypot(l.a, l.b), dL = l.L - r.L, dC = C - r.C, db = l.b - r.b;
   const bright = BRIGHT[dL < -18 ? 0 : dL < -6 ? 1 : dL < 6 ? 2 : dL < 18 ? 3 : 4];
   const mid = l.L > 25 && l.L < 78, ut = C >= 12 ? Math.abs(db) : 0;
@@ -200,12 +212,15 @@ for (const pat of ANSWER_PATTERNS) {
   ok(r.title === "色別 顔映りチェック（24色）", `表の見出しが出ている: ${r.title}`);
   ok(r.rows.length === 24, `24色ぶんの行がある (実測 ${r.rows.length})`);
 
-  // 4軸コメントを1件ずつ突き合わせる
+  const n12 = ((r.text || "").match(/【(.+?)】/) || [])[1];
+  ok(!!(n12 && TYPE12_PALETTE[n12]), `12タイプ名が取れる (${n12 || "なし"})`);
+
+  // 4軸コメントを1件ずつ突き合わせる（12タイプの palette10 基準）
   let miss = [];
   for (const row of r.rows) {
     const cc = COLOR_CHECK.find((c) => c.name === row.name);
     if (!cc) { miss.push(row.name + ":色マスターに無い"); continue; }
-    const e = expectAxes(cc.hex, key);
+    const e = expectAxes(cc.hex, key, n12);
     const want = ["明るさ" + e.bright, "くすみ" + e.dull, "影" + e.shadow, "血色" + e.blood];
     for (let i = 0; i < 4; i++) if (row.cells[i] !== want[i]) miss.push(`${row.name}: 期待"${want[i]}" 実測"${row.cells[i]}"`);
   }
@@ -213,13 +228,12 @@ for (const pat of ANSWER_PATTERNS) {
 
   // 並びは ◎→○→△→✕
   const order = { "◎": 0, "○": 1, "△": 2, "✕": 3 };
-  const rat = r.rows.map((row) => COLOR_CHECK.find((c) => c.name === row.name).r[key]);
+  const rat = r.rows.map((row) => (COLOR_CHECK_12[row.name] || {})[n12]);
   ok(rat.every((v, i) => i === 0 || order[rat[i - 1]] <= order[v]), `並びが ◎→○→△→✕ (${rat.join("")})`);
-  ok(rat.join("") === [...COLOR_CHECK].map((c) => c.r[key]).sort((x, y) => order[x] - order[y]).join(""),
-     "判定の内訳が既存の COLOR_CHECK と完全一致（チェッカー画面と食い違わない）");
+  ok(rat.join("") === [...COLOR_CHECK].map((c) => (COLOR_CHECK_12[c.name] || {})[n12]).sort((x, y) => order[x] - order[y]).join(""),
+     `判定の内訳が COLOR_CHECK_12 の ${n12} と完全一致（チェッカー画面と食い違わない）`);
 
   // D案：金属
-  const n12 = ((r.text || "").match(/【(.+?)】/) || [])[1];
   const [mg, ms, mp] = METAL12[n12] || [];
   ok(!!mg, `金属: 12タイプ名が取れる (${n12 || "なし"})`);
   ok(r.metals.length === 3, `金属チップが3つ (実測 ${r.metals.length})`);
