@@ -1159,7 +1159,8 @@ try {
   log(`  [採点/NG色] score=${rNg.score}`);
   check(`NG色のコーデでスコアが下がる (${rNg.score}点)`, rNg.score !== null && rNg.score <= 25);
   check("NG色: improve にNG色名(真っ黒)と理由が出る", /真っ黒/.test(rNg.text) && /苦手な色/.test(rNg.text));
-  check("NG色: one_item に置換色(キャメル)が出る", /キャメル/.test(rNg.text));
+  // v1.22.12: NG色は12タイプ別。プロフィールは spring×autumn = ウォームスプリング → 真っ黒の置き換えはダークブラウン
+  check("NG色: one_item に置換色(ダークブラウン)が出る", /ダークブラウン/.test(rNg.text));
   check("得意色コーデより低いスコアになっている", rNg.score < rGood.score);
   await shotEl("#colorlab-root", "20_score_ng.png");
   await cl().getByRole("button", { name: /別のコーデを採点する/ }).click();

@@ -439,6 +439,85 @@ const NG_COLORS = {
   ],
 };
 
+// v1.22.12: NG色（苦手な色）は12タイプ別。結果画面・「顔まわりで避けたい色」・コーデ採点はこちらを12タイプ名で引く。
+// 上の NG_COLORS（4タイプ）は画面では使わない。test/build_color_data.py / test/build_color70.py が勝ち色の出所として読むので残している。
+// alt はそのタイプの BEST COLOR 10（TYPE12_PALETTE）から選んだ色（test/ngmetal12_check.mjs で検査）。
+export const NG_COLORS_12 = {
+
+  "ブライトサマー": [
+    { name: "真っ黒", hex: "#141414", why: "重さで透明感が消え、顔色が沈んで見えやすい", alt: { name: "スカイブルー", hex: "#98CEF2" } },
+    { name: "マスタード", hex: "#C89B3C", why: "濃い黄みが肌の透明感を曇らせる", alt: { name: "レモンクリーム", hex: "#FEF898" } },
+    { name: "ダークブラウン", hex: "#4A3326", why: "重い暖色で、顔まわりがくすんで見えやすい", alt: { name: "ブルーグレー", hex: "#D2D9E1" } },
+    { name: "カーキ", hex: "#6B6B4A", why: "黄みの濁りが、疲れ顔の原因になりやすい", alt: { name: "ミントグリーン", hex: "#73D6BA" } },
+  ],
+  "ソフトサマー": [
+    { name: "ビビッドオレンジ", hex: "#E8722A", why: "強い原色がやわらかな雰囲気を壊しやすい", alt: { name: "ダスティピンク", hex: "#CD8DA5" } },
+    { name: "真っ黒", hex: "#141414", why: "コントラストが強すぎて、顔だけ浮いて見えやすい", alt: { name: "ダークネイビー", hex: "#323558" } },
+    { name: "ビビッドレッド", hex: "#D01C28", why: "強い赤が肌の赤みを目立たせやすい", alt: { name: "ダスティローズ", hex: "#A16F7B" } },
+    { name: "ブライトイエロー", hex: "#F5D000", why: "鮮やかすぎて、ソフトな肌から浮きやすい", alt: { name: "ペールイエロー", hex: "#FAF399" } },
+  ],
+  "クールサマー": [
+    { name: "オレンジ", hex: "#E8722A", why: "強い黄みが肌の赤みを強調し、くすんで見えやすい", alt: { name: "ベビーピンク", hex: "#F9ADD3" } },
+    { name: "マスタード", hex: "#C89B3C", why: "黄みが強く、肌が黄ぐすみして見えやすい", alt: { name: "ライトブルー", hex: "#71B3E3" } },
+    { name: "テラコッタ", hex: "#A8543A", why: "くすんだ暖色が顔色を濁らせやすい", alt: { name: "ベリー", hex: "#A7194B" } },
+    { name: "カーキ", hex: "#6B6B4A", why: "黄みの濁りで顔が暗く見えやすい", alt: { name: "エメラルドグリーン", hex: "#47B68B" } },
+  ],
+  "ディープウィンター": [
+    { name: "パステルピンク", hex: "#F7D7DD", why: "淡すぎる色は顔色が映えず、野暮ったく見えやすい", alt: { name: "ディープマゼンタ", hex: "#990C50" } },
+    { name: "ベビーブルー", hex: "#BFD7EC", why: "明るく淡い色は、老けて見えやすい", alt: { name: "ロイヤルネイビー", hex: "#011971" } },
+    { name: "ミントグリーン", hex: "#BFE5D3", why: "淡い寒色は顔の深みを消してしまう", alt: { name: "フォレストグリーン", hex: "#345F55" } },
+    { name: "くすみベージュ", hex: "#C4AE97", why: "濁った中間色は重厚感を打ち消す", alt: { name: "チャコール", hex: "#383836" } },
+  ],
+  "クールウィンター": [
+    { name: "オレンジブラウン", hex: "#A8663A", why: "黄みの暖色はシャープさを消し、地味に見えやすい", alt: { name: "ラズベリーピンク", hex: "#C53F72" } },
+    { name: "マスタード", hex: "#C89B3C", why: "濁った黄みが、青みのクリアさを曇らせる", alt: { name: "レモンイエロー", hex: "#FDE755" } },
+    { name: "モスグリーン", hex: "#5F6B3F", why: "くすんだ暖色はシャープさを弱める", alt: { name: "ティールグリーン", hex: "#1E9A82" } },
+    { name: "ベージュ", hex: "#D9C4A3", why: "黄みの淡色は肌の青みと分離しやすい", alt: { name: "ホワイト", hex: "#FDFDFB" } },
+  ],
+  "ブライトウィンター": [
+    { name: "くすみベージュ", hex: "#C4AE97", why: "濁った色は鮮やかな華やかさを打ち消す", alt: { name: "ホワイト", hex: "#FDFDFD" } },
+    { name: "モスグリーン", hex: "#5F6B3F", why: "くすんだ暖色は、くっきり感を弱めやすい", alt: { name: "ライムグリーン", hex: "#83DD3D" } },
+    { name: "ダスティピンク", hex: "#CD8DA5", why: "くすみ色が肌の鮮やかさを抑えてしまう", alt: { name: "ビビッドレッド", hex: "#E30037" } },
+    { name: "グレージュ", hex: "#B7ACA6", why: "ぼんやりした中間色で、顔の印象が弱くなる", alt: { name: "ビビッドブルー", hex: "#0815BB" } },
+  ],
+  "ライトスプリング": [
+    { name: "真っ黒", hex: "#141414", why: "重さで明るさが消え、顔色が沈んで見えやすい", alt: { name: "ライトイエロー", hex: "#F0F2BF" } },
+    { name: "ダークネイビー", hex: "#1E2A44", why: "暗く重い寒色は若々しさを弱めやすい", alt: { name: "アクアブルー", hex: "#AED2D8" } },
+    { name: "ボルドー", hex: "#5A1A2B", why: "深く暗い赤は、軽やかさを打ち消す", alt: { name: "ピーチピンク", hex: "#EAB7B9" } },
+    { name: "チャコールグレー", hex: "#4A4A50", why: "暗いくすみ色で顔がどんよりして見える", alt: { name: "ミントグリーン", hex: "#BADAC4" } },
+  ],
+  "ブライトスプリング": [
+    { name: "くすみグレー", hex: "#8C8C93", why: "無彩色のくすみが、いきいきした明るさを消しやすい", alt: { name: "グリーン", hex: "#78B664" } },
+    { name: "ダスティローズ", hex: "#A16F7B", why: "くすんだ寒色は鮮やかさを抑えてしまう", alt: { name: "ローズピンク", hex: "#C53F83" } },
+    { name: "カーキ", hex: "#6B6B4A", why: "濁った暗色で、元気な印象が弱まる", alt: { name: "ライムグリーン", hex: "#B0CC5A" } },
+    { name: "真っ黒", hex: "#141414", why: "重さが強く、顔の明るさを奪いやすい", alt: { name: "ターコイズ", hex: "#4B9BB7" } },
+  ],
+  "ウォームスプリング": [
+    { name: "青みピンク", hex: "#E8A9C0", why: "青みが強く、黄みの肌から浮きやすい", alt: { name: "サーモンピンク", hex: "#D1766F" } },
+    { name: "ネイビー", hex: "#1E2A44", why: "暗い寒色は温かみのある肌と分離しやすい", alt: { name: "ミントターコイズ", hex: "#6AB3AB" } },
+    { name: "ライトグレー", hex: "#C9C9CE", why: "淡いくすみ寒色で、血色を奪いやすい", alt: { name: "ベージュ", hex: "#DBB891" } },
+    { name: "真っ黒", hex: "#141414", why: "重さが強く、温かみが消えて見える", alt: { name: "ダークブラウン", hex: "#763E29" } },
+  ],
+  "ウォームオータム": [
+    { name: "青みピンク", hex: "#E86FA8", why: "青みの強い色は、黄みの深い肌から浮きやすい", alt: { name: "サーモンピンク", hex: "#E59A95" } },
+    { name: "ビビッドブルー", hex: "#1F5BD6", why: "鮮やかな寒色は、こっくりした深みと喧嘩する", alt: { name: "ディープネイビー", hex: "#22435F" } },
+    { name: "純白", hex: "#FFFFFF", why: "真っ白は肌の深みと分離し、顔だけ黄ぐすみして見える", alt: { name: "ベージュ", hex: "#E3B199" } },
+    { name: "ライトグレー", hex: "#C9C9CE", why: "淡いくすみ寒色は血色を奪いやすい", alt: { name: "サンドオレンジ", hex: "#E8B87F" } },
+  ],
+  "ソフトオータム": [
+    { name: "ビビッドピンク", hex: "#D6337F", why: "強い原色はやわらかな深みを壊しやすい", alt: { name: "ダスティローズ", hex: "#B3696B" } },
+    { name: "真っ黒", hex: "#141414", why: "コントラストが強すぎ、ソフトな雰囲気が消える", alt: { name: "ブラウンローズ", hex: "#86605C" } },
+    { name: "ビビッドブルー", hex: "#1F5BD6", why: "鮮やかな寒色は、くすみ暖色の肌から浮く", alt: { name: "ブルーグレー", hex: "#8493B4" } },
+    { name: "ブライトイエロー", hex: "#F5D000", why: "強い黄色は穏やかな肌を黄ぐすみさせやすい", alt: { name: "ペールイエロー", hex: "#ECE392" } },
+  ],
+  "ディープオータム": [
+    { name: "純白", hex: "#FFFFFF", why: "真っ白は肌の深みと分離し、顔だけ浮いて見える", alt: { name: "ゴールド", hex: "#CAA744" } },
+    { name: "ミントグリーン", hex: "#9FD9C3", why: "淡い寒色は、深みのある肌から浮きやすい", alt: { name: "オリーブ", hex: "#656742" } },
+    { name: "ビビッドピンク", hex: "#D6337F", why: "強い青みピンクは深い暖色の肌と喧嘩する", alt: { name: "プラム", hex: "#65284A" } },
+    { name: "ラベンダー", hex: "#C9B8D8", why: "淡いくすみ寒色で、顔色がぼやけやすい", alt: { name: "ディープブルー", hex: "#234563" } },
+  ],
+};
+
 // ════════════════════════════════════════════
 // ② 手持ち服カラーチェッカー（24色×4タイプ判定）
 // ════════════════════════════════════════════
@@ -2037,11 +2116,12 @@ const SC_NEAR = 15;   // これ以内なら「その色に近い」と見なす�
 const SC_SAME = 4;    // これ以下なら「同じ色」と見なすΔE
 const SC_BG = 8;      // 背景と区別がつかないと見なすΔE
 
-/* 実測Lab を、タイプの勝ち色10色 / NG色4色 と突き合わせて最も近い色を返す */
-function scoreMatchColor(lab, typeKey) {
+/* 実測Lab を、タイプの勝ち色10色 / NG色4色 と突き合わせて最も近い色を返す。
+   NG色は12タイプ名（name12）で NG_COLORS_12 から引く。name12 が無い（2位が未確定）ときは NG 照合をしない */
+function scoreMatchColor(lab, typeKey, name12) {
   const win = (TYPES[typeKey].palette10 || []).map(([name, hex]) => ({ name, lab: hexToLab(hex) }));
   // hex も持たせる（Before/After のイラストで苦手色そのものを塗るため）
-  const ng = (NG_COLORS[typeKey] || []).map((c) => ({ name: c.name, hex: c.hex, why: c.why, alt: c.alt, lab: hexToLab(c.hex) }));
+  const ng = (NG_COLORS_12[name12] || []).map((c) => ({ name: c.name, hex: c.hex, why: c.why, alt: c.alt, lab: hexToLab(c.hex) }));
   const near = (arr) => arr.reduce((best, c) => (c.lab && (!best || deltaE(lab, c.lab) < best.d) ? { c, d: deltaE(lab, c.lab) } : best), null);
   return { win: near(win), ng: near(ng) };
 }
@@ -2140,7 +2220,7 @@ async function aiStylist(type, secondKey, tpo, mood, sub, worries, hair, frame, 
 // 戻り値: {score: 0-100, good(60字), improve(70字), one_item(30字)}
 // 判定できるのは「服の色とタイプの相性」だけ。シルエット・素材感・バランスは評価対象外。
 // 品質ゲートに掛かった場合は gateError() を throw する。
-async function aiScoreOutfit(base64, mediaType, type) {
+async function aiScoreOutfit(base64, mediaType, type, name12) {
   const { data, W, H } = await readImageData(base64, mediaType, 600);
   const R = SC_REGION;
   const take = (k) => sampleRegion(data, W, H, R[k][0], R[k][1], R[k][2], R[k][3]);
@@ -2177,8 +2257,8 @@ async function aiScoreOutfit(base64, mediaType, type) {
 
   // ── 色照合 ──
   const key = type.key;
-  const mt = scoreMatchColor(tLab, key);
-  const mb = scoreMatchColor(bLab, key);
+  const mt = scoreMatchColor(tLab, key, name12);
+  const mb = scoreMatchColor(bLab, key, name12);
   const pt = scoreRegionPoints(mt, 30); // 顔まわりのトップスを重く見る
   const pb = scoreRegionPoints(mb, 20);
   const score = Math.max(0, Math.min(100, 50 + pt + pb));
@@ -2210,7 +2290,7 @@ async function aiScoreOutfit(base64, mediaType, type) {
   const worst = tn && bn ? (pt <= pb ? { c: tn, where: "トップス" } : { c: bn, where: "ボトムス" })
     : tn ? { c: tn, where: "トップス" } : bn ? { c: bn, where: "ボトムス" } : null;
   if (worst) {
-    improve = `${worst.where}の${worst.c.name}は${type.name}が苦手な色。${worst.c.why}ため、${worst.c.alt.name}に置き換えると顔映りが変わります。`;
+    improve = `${worst.where}の${worst.c.name}は${name12 || type.name}が苦手な色。${worst.c.why}ため、${worst.c.alt.name}に置き換えると顔映りが変わります。`;
   } else if (!tw) {
     improve = `顔に近いトップスを得意色にすると効果が大きいです。${(TYPES[key].palette10[0] || [])[0]}や${(TYPES[key].palette10[1] || [])[0]}を試してみてください。`;
   } else {
@@ -3015,19 +3095,34 @@ function FaceCheckTable({ typeKey, name12, accent }) {
 }
 
 // ── D案：アクセサリーの金属 ──
-// ゴールド / シルバーは Q10（金属の設問イラスト）で使っている色をそのまま流用し、
-// 勝ち色への ΔE で判定する。パールは「どのタイプにも似合い、選ぶのは白みの方」なので、
-// タイプの palette10 に入っている白をそのまま出す（新しい色は作らない）。
+// ゴールド / シルバーのスウォッチは Q10（金属の設問イラスト）で使っている色をそのまま流用する。
+// v1.22.12: 評価は12タイプ別の表 METAL_12 をそのまま出す（勝ち色への ΔE 判定はブルベのシルバーが✕になるため廃止）。
+// パールは「どのタイプにも似合い、選ぶのは白みの方」なので◎固定。白みの名前は METAL_12.pearl、スウォッチの色は季節の PEARL_TONE。
 const METAL_BASE = [
   { key: "gold", name: "ゴールド", hex: "#D4AF5A" },
   { key: "silver", name: "シルバー", hex: "#B8BEC9" },
 ];
+const METAL_12 = {
+  "ブライトサマー":   { silver: "◎", gold: "△", good: "明るいシルバー・ピンクシルバー・ローズゴールド", avoid: "黄みの強いゴールド・くすんだ燻し", pearl: "ピンクパール" },
+  "ソフトサマー":     { silver: "◎", gold: "△", good: "マット/ブラッシュドのシルバー・淡いシャンパンゴールド", avoid: "光沢の強すぎるミラー・濃い黄金色", pearl: "オフホワイトパール" },
+  "クールサマー":     { silver: "◎", gold: "✕", good: "プラチナ・ホワイトゴールド・青みのシルバー", avoid: "黄みのゴールド全般(顔から離す)", pearl: "ブルーホワイトパール" },
+  "ディープウィンター": { silver: "○", gold: "△", good: "ガンメタル・アンティークシルバー・落ち着いたピンクゴールド", avoid: "明るすぎる淡いシャンパン・白っぽいマットな銀", pearl: "ブラックパール・グレーパール" },
+  "クールウィンター": { silver: "◎", gold: "△", good: "高輝度プラチナ・ミラーシルバー", avoid: "黄みの濃いゴールド・マットな燻し", pearl: "ピュアホワイトパール" },
+  "ブライトウィンター": { silver: "◎", gold: "△", good: "ミラー・クリアな高輝度シルバー・大ぶりで存在感のあるデザイン", avoid: "くすんだ燻し・パステル調の金属", pearl: "ホワイト(高光沢)パール" },
+  "ライトスプリング": { silver: "△", gold: "◎", good: "シャンパンゴールド・ライトゴールド・細身で軽い華奢なデザイン", avoid: "重厚なアンティーク・燻したシルバー", pearl: "アイボリーパール" },
+  "ブライトスプリング": { silver: "○", gold: "◎", good: "ツヤのあるイエローゴールド・クリアな高輝度シルバー(小ぶり)", avoid: "暗いマットなブロンズ・くすんだ燻し", pearl: "クリームホワイトパール" },
+  "ウォームスプリング": { silver: "✕", gold: "◎", good: "イエローゴールド・ブライトゴールド", avoid: "青みの強いシルバー全般(顔から離す)", pearl: "ゴールデンパール" },
+  "ウォームオータム": { silver: "✕", gold: "◎", good: "マットゴールド・ブロンズ・銅色・べっ甲との組合せ", avoid: "青白いシルバー・ミラー", pearl: "ベージュパール" },
+  "ソフトオータム":   { silver: "△", gold: "◎", good: "サテン/ブラッシュドゴールド・ローズゴールド", avoid: "ギラつく光沢・青白いシルバー", pearl: "シャンパンパール" },
+  "ディープオータム": { silver: "○", gold: "◎", good: "アンティークゴールド・ブロンズ・燻しシルバー", avoid: "ツルツルの明るいシルバー・淡いシャンパン", pearl: "ダークグレー・ブラウンパール" },
+};
 const PEARL_TONE = {
   spring: { name: "アイボリー", hex: "#FFF3E2" },
   summer: { name: "オフホワイト", hex: "#F3EEF5" },
   autumn: { name: "ベージュパール", hex: "#E8D6B8" },
   winter: { name: "ピュアホワイト", hex: "#FFFFFF" },
 };
+const METAL_RANK = ["◎", "○", "△", "✕"];
 const METAL_TIP = {
   "◎": "顔まわりで主役にできます。",
   "○": "普段使いになじみます。",
@@ -3035,30 +3130,27 @@ const METAL_TIP = {
   "✕": "顔から離して（バッグや靴の金具で）。",
 };
 
-function metalRating(hex, typeKey) {
-  const lab = hexToLab(hex);
-  const ref = typeColorRef(typeKey);
-  if (!lab || !ref.labs.length) return "○";
-  const d = ref.labs.reduce((m, p) => Math.min(m, deltaE(lab, p)), Infinity);
-  return d <= 12 ? "◎" : d <= 22 ? "○" : d <= 40 ? "△" : "✕";
-}
-
-function MetalChips({ typeKey, accent, site, siteName }) {
+function MetalChips({ typeKey, name12, accent, site, siteName }) {
+  const mt = METAL_12[name12];
+  if (!mt) return null;
   const pearl = PEARL_TONE[typeKey];
-  const best = METAL_BASE.map((m) => ({ ...m, rating: metalRating(m.hex, typeKey) }));
+  const best = METAL_BASE.map((m) => ({ ...m, rating: mt[m.key] }));
+  // 得意/避けたい質感の1行: 評価の高い方の枠に good、低い方の枠に avoid を出す
+  const hi = METAL_RANK.indexOf(best[0].rating) <= METAL_RANK.indexOf(best[1].rating) ? best[0].key : best[1].key;
+  best.forEach((m) => { m.note = m.key === hi ? "得意：" + mt.good : "避けたい：" + mt.avoid; });
   const items = [
     ...best,
     // パールは素材そのものがどのタイプにも似合う。差が出るのは「白みの選び方」なので◎固定。
-    { key: "pearl", name: "パール", hex: pearl.hex, rating: "◎", sub: pearl.name },
+    { key: "pearl", name: "パール", hex: pearl.hex, rating: "◎", sub: mt.pearl },
   ];
   // 得意な金属（◎の中でいちばん近い方）を文章で名指しして、既存のアクセサリー在庫へつなぐ。
-  const top = best.filter((m) => m.rating === "◎").map((m) => m.name).join("・") || best[0].name;
+  const top = best.filter((m) => m.rating === "◎").map((m) => m.name).join("・") || best.find((m) => m.key === hi).name;
   const accs = (SKUS[site] || []).filter((s) => s.cat === "アクセサリー").slice(0, 2);
   return (
     <div className="mb-7">
       <div className="text-xs font-medium mb-1" style={{ color: C.ink }}>アクセサリーの金属</div>
       <p className="text-[10px] leading-relaxed mb-2.5" style={{ color: C.faint }}>
-        金属も色です。ゴールド・シルバーはあなたの勝ち色との距離で判定しました。
+        金属も色です。ゴールド・シルバーはあなたのタイプ別に判定しました。
         パールはどのタイプにも似合うので、選ぶのは白みの方です。
       </p>
       <div className="grid grid-cols-3 gap-2">
@@ -3071,6 +3163,7 @@ function MetalChips({ typeKey, accent, site, siteName }) {
               {m.sub && <div className="text-[8.5px] leading-tight" style={{ color: C.faint }}>{m.sub}</div>}
               <div className="text-sm font-serif mt-0.5" style={{ color: good ? accent : "#b0a7b2" }}>{m.rating}</div>
               <div className="text-[8.5px] leading-tight mt-0.5" style={{ color: C.sub }}>{METAL_TIP[m.rating]}</div>
+              {m.note && <div className="text-[8.5px] leading-tight mt-0.5" style={{ color: C.sub }}>{m.note}</div>}
             </div>
           );
         })}
@@ -3972,7 +4065,7 @@ export default function App({ campaign = null, account = false } = {}) {
     if (!myType) return;
     setScPreview(dataUrl); setScReject(null); setScResult(null); setScStep("analyzing");
     try {
-      const r = await aiScoreOutfit(dataUrl.split(",")[1], mediaType || "image/jpeg", TYPES[myType]);
+      const r = await aiScoreOutfit(dataUrl.split(",")[1], mediaType || "image/jpeg", TYPES[myType], mySecond ? type12Name(myType, mySecond) : null);
       setScResult(r); setScStep("result");
     } catch (err) {
       if (err && err.isPhotoGate) setScReject({ title: err.title, body: err.body });
@@ -4551,7 +4644,7 @@ export default function App({ campaign = null, account = false } = {}) {
               <ColorFamilies typeKey={RT.key} name12={RT12} accent={RT.accent} />
               <div className="text-xs mb-2" style={{ color: C.faint }}>苦手な色（顔まわりでは注意）</div>
               <div className="grid grid-cols-4 gap-2 mb-7">
-                {(NG_COLORS[RT.key] || []).map((ngc, i) => (
+                {(NG_COLORS_12[RT12] || []).map((ngc, i) => (
                   <div key={i} className="text-center">
                     <div className="w-full aspect-square rounded-xl relative" style={{ background: ngc.hex, border: "1px solid #e8e2e8" }}>
                       <span className="absolute inset-0 flex items-center justify-center text-lg" style={{ color: "#fff", textShadow: "0 0 4px rgba(0,0,0,.45)" }}>✕</span>
@@ -4564,8 +4657,7 @@ export default function App({ campaign = null, account = false } = {}) {
               <NgColorTips accent={RT.accent} />
               {/* 色別 顔映りチェック（勝ち色/苦手色の「なぜ」を4軸で言語化）＋ アクセサリーの金属 */}
               <FaceCheckTable typeKey={RT.key} name12={RT12} accent={RT.accent} />
-              {/* 金属は 12タイプ版の合格判定（10/19 ②）を満たさないタイプがあるため、季節単位（RT.key）のまま */}
-              <MetalChips typeKey={RT.key} accent={RT.accent} site={RT.site} siteName={RT.siteName} />
+              <MetalChips typeKey={RT.key} name12={RT12} accent={RT.accent} site={RT.site} siteName={RT.siteName} />
               {/* 公式フォーマット：似合う服セクション */}
               <h3 className="font-serif text-xl leading-snug mb-2" style={{ color: C.ink, textWrap: "balance" }}>
                 {/* 折り返してよいのは「○○の」「あなたに」「似合う服はコレ！」の間だけ（各まとまりは nowrap） */}
@@ -5153,11 +5245,11 @@ export default function App({ campaign = null, account = false } = {}) {
               {myType && (
                 <>
                   <div className="inline-flex items-center gap-2.5 mb-3 px-6 py-3 rounded-full text-2xl font-bold" style={{ background: TYPES[myType].accent + "14", color: TYPES[myType].accent }}>
-                    {TYPES[myType].name} <button onClick={() => setMyType(null)} className="underline text-xs font-normal" style={{ color: C.faint }}>変更</button>
+                    {mySecond ? type12Name(myType, mySecond) : TYPES[myType].name} <button onClick={() => setMyType(null)} className="underline text-xs font-normal" style={{ color: C.faint }}>変更</button>
                   </div>
-                  <h3 className="font-serif text-xl leading-snug mb-2" style={{ color: C.ink }}>{TYPES[myType].name}が顔まわりで避けたい色</h3>
+                  <h3 className="font-serif text-xl leading-snug mb-2" style={{ color: C.ink }}>{mySecond ? type12Name(myType, mySecond) : TYPES[myType].name}が顔まわりで避けたい色</h3>
                   <p className="text-xs leading-relaxed mb-5" style={{ color: C.sub }}>「なんか今日顔色悪い？」の原因は、実はこの色かも。代わりに使える置き換え色もセットでどうぞ。</p>
-                  {NG_COLORS[myType].map((ng, i) => (
+                  {(NG_COLORS_12[mySecond ? type12Name(myType, mySecond) : null] || []).map((ng, i) => (
                     <div key={i} className="rounded-2xl p-4 mb-3" style={{ border: "1px solid " + C.line }}>
                       <div className="flex items-center gap-3 mb-2">
                         <span className="w-9 h-9 rounded-xl shrink-0" style={{ background: ng.hex, border: "1px solid #e5dfe4" }} />
@@ -5626,7 +5718,7 @@ export default function App({ campaign = null, account = false } = {}) {
                         <div className="text-xs font-medium mb-1" style={{ color: TYPES[myType].accent }}>↗ もっと良くするなら</div>
                         <p className="text-xs leading-relaxed" style={{ color: "#4a434f" }}>{scResult.improve}</p>
                       </div>
-                      {/* 苦手色を検出したときは、置き換え色（NG_COLORS[].alt）を着た姿を並べて見せる */}
+                      {/* 苦手色を検出したときは、置き換え色（NG_COLORS_12 の alt）を着た姿を並べて見せる */}
                       {scResult.swap && (
                         <div className="rounded-2xl p-4 mb-3" style={{ border: "1px solid " + C.line }}>
                           <div className="text-xs font-medium mb-2" style={{ color: TYPES[myType].accent }}>色を置き換えると、こう変わります</div>

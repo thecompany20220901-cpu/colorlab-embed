@@ -3,7 +3,7 @@
 //   ・4タイプすべてで表とチップが出る
 //   ・24色ぶんの4軸コメントが、Lab から計算した期待値と1件も違わない
 //   ・判定は既存の COLOR_CHECK と完全一致（チェッカー画面と食い違わない）
-//   ・金属は既存の ΔE 照合どおりに割れる
+//   ・金属は12タイプ別の表（METAL_12・v1.22.12）どおりに出る（12通り全部は test/ngmetal12_check.mjs が見る）
 //   ・既存の結果画面（勝ち色・苦手色・コスメ・おすすめ商品）が壊れていない
 // 実行: node test/facecheck_check.mjs
 import { chromium } from "playwright";
@@ -64,12 +64,6 @@ function expectAxes(hex, k) {
   if (l.a >= 25) i = Math.min(3, i + 1); else if (l.a <= -25) i = Math.max(0, i - 1);
   return { bright, dull, shadow, blood: BLOOD[i] };
 }
-function expectMetal(hex, k) {
-  const l = lab(hex), r = refOf(k);
-  let d = Infinity;
-  for (const p of r.labs) d = Math.min(d, Math.sqrt((l.L - p.L) ** 2 + (l.a - p.a) ** 2 + (l.b - p.b) ** 2));
-  return { d, rating: d <= 12 ? "◎" : d <= 22 ? "○" : d <= 40 ? "△" : "✕" };
-}
 // ── B案の期待値をテスト側で独立に組み立てる ──
 const cdata = readFileSync(join(__dirname, "..", "src", "color_data.js"), "utf8");
 const FAMILY_ORDER = JSON.parse(cdata.match(/export const FAMILY_ORDER = (\[[\s\S]*?\]);/)[1]);
@@ -116,7 +110,13 @@ function expectTop6Skus(site, k) {
 const SITE_OF = { spring: "iebel", autumn: "iebel", summer: "blubel", winter: "blubel" };
 
 const NAME2KEY = { "イエベ春": "spring", "ブルベ夏": "summer", "イエベ秋": "autumn", "ブルベ冬": "winter" };
-const PEARL = { spring: "アイボリー", summer: "オフホワイト", autumn: "ベージュパール", winter: "ピュアホワイト" };
+// v1.22.12: 金属は12タイプ別（ΔE 判定は廃止）。[ゴールド, シルバー, パールの白み]
+const METAL12 = {
+  "ブライトサマー": ["△", "◎", "ピンクパール"], "ソフトサマー": ["△", "◎", "オフホワイトパール"], "クールサマー": ["✕", "◎", "ブルーホワイトパール"],
+  "ディープウィンター": ["△", "○", "ブラックパール・グレーパール"], "クールウィンター": ["△", "◎", "ピュアホワイトパール"], "ブライトウィンター": ["△", "◎", "ホワイト(高光沢)パール"],
+  "ライトスプリング": ["◎", "△", "アイボリーパール"], "ブライトスプリング": ["◎", "○", "クリームホワイトパール"], "ウォームスプリング": ["◎", "✕", "ゴールデンパール"],
+  "ウォームオータム": ["◎", "✕", "ベージュパール"], "ソフトオータム": ["◎", "△", "シャンパンパール"], "ディープオータム": ["◎", "○", "ダークグレー・ブラウンパール"],
+};
 
 const browser = await chromium.launch();
 
@@ -219,11 +219,13 @@ for (const pat of ANSWER_PATTERNS) {
      "判定の内訳が既存の COLOR_CHECK と完全一致（チェッカー画面と食い違わない）");
 
   // D案：金属
-  const g = expectMetal("#D4AF5A", key), s2 = expectMetal("#B8BEC9", key);
+  const n12 = ((r.text || "").match(/【(.+?)】/) || [])[1];
+  const [mg, ms, mp] = METAL12[n12] || [];
+  ok(!!mg, `金属: 12タイプ名が取れる (${n12 || "なし"})`);
   ok(r.metals.length === 3, `金属チップが3つ (実測 ${r.metals.length})`);
-  ok(/ゴールド/.test(r.metals[0]) && r.metals[0].includes(g.rating), `ゴールド ${g.rating} (ΔE=${g.d.toFixed(1)}) : ${r.metals[0]}`);
-  ok(/シルバー/.test(r.metals[1]) && r.metals[1].includes(s2.rating), `シルバー ${s2.rating} (ΔE=${s2.d.toFixed(1)}) : ${r.metals[1]}`);
-  ok(/パール/.test(r.metals[2]) && r.metals[2].includes(PEARL[key]) && r.metals[2].includes("◎"), `パール ◎ / ${PEARL[key]} : ${r.metals[2]}`);
+  ok(/ゴールド/.test(r.metals[0]) && r.metals[0].split(" ")[1] === mg, `ゴールド ${mg} (${n12}) : ${r.metals[0]}`);
+  ok(/シルバー/.test(r.metals[1]) && r.metals[1].split(" ")[1] === ms, `シルバー ${ms} (${n12}) : ${r.metals[1]}`);
+  ok(/パール/.test(r.metals[2]) && r.metals[2].includes(mp) && r.metals[2].includes("◎"), `パール ◎ / ${mp} : ${r.metals[2]}`);
   ok(/のアクセサリー/.test(r.text), "既存のアクセサリー在庫（SKUS）につながっている");
 
   // ── B案：ベストカラーTOP6 ──
