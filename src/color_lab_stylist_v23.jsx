@@ -346,7 +346,7 @@ const HAIR = {
       { name: "明るめブラウン", hex: "#A5754E" },
       { name: "オレンジブラウン", hex: "#9E5B3C" },
     ],
-    tip: "明るく黄みのある髪色が、イエベ春の肌のツヤ感を引き立てます。重い黒髪より、光を含む明るめトーンが得意です。",
+    tip: "明るく黄みのある髪色が、肌のツヤ感を引き立てます。重い黒髪より、光を含む明るめトーンが得意です。",
     article: "https://www.iebel.jp/articles/26",
     aff: { name: "パルティ カラーリングミルク モカショコラ", price: 920, cat: "セルフカラー", rakuten: RK("パルティ カラーリングミルク モカショコラ"), amazon: AMZ("パルティ カラーリングミルク モカショコラ"), note: "セルフで黄みブラウンに" },
     affs: [
@@ -365,9 +365,9 @@ const HAIR = {
     ],
     tip: "深みとこっくり感のある暖色ブラウンが得意。ツヤの出るショコラ系で、大人の落ち着きが引き立ちます。",
     article: "https://www.iebel.jp/articles/26",
-    aff: { name: "パルティ カラーリングミルク モカショコラ", price: 920, cat: "セルフカラー", rakuten: RK("パルティ カラーリングミルク モカショコラ"), amazon: AMZ("パルティ カラーリングミルク モカショコラ"), note: "イエベ秋の定番モカ系" },
+    aff: { name: "パルティ カラーリングミルク モカショコラ", price: 920, cat: "セルフカラー", rakuten: RK("パルティ カラーリングミルク モカショコラ"), amazon: AMZ("パルティ カラーリングミルク モカショコラ"), note: "定番モカ系" },
     affs: [
-      { name: "パルティ カラーリングミルク モカショコラ", price: 920, cat: "セルフカラー", rakuten: RK("パルティ カラーリングミルク モカショコラ"), amazon: AMZ("パルティ カラーリングミルク モカショコラ"), note: "イエベ秋の定番モカ系" },
+      { name: "パルティ カラーリングミルク モカショコラ", price: 920, cat: "セルフカラー", rakuten: RK("パルティ カラーリングミルク モカショコラ"), amazon: AMZ("パルティ カラーリングミルク モカショコラ"), note: "定番モカ系" },
       { name: "リーゼ 泡カラー ショコラブラウン", price: 760, cat: "セルフカラー", rakuten: RK("リーゼ 泡カラー ショコラブラウン"), amazon: AMZ("リーゼ 泡カラー ショコラブラウン"), note: "深みのあるこっくりブラウンに" },
       { name: "エブリ カラートリートメント ダークブラウン", price: 1408, cat: "カラートリートメント", rakuten: RK("エブリ カラートリートメント ダークブラウン"), amazon: AMZ("エブリ カラートリートメント ダークブラウン"), note: "色持ちケアで深み維持" },
       { name: "アンナドンナ エブリ カラーシャンプー ブラウン", price: 1540, cat: "カラーシャンプー", rakuten: RK("アンナドンナ エブリ カラーシャンプー ブラウン"), amazon: AMZ("エブリ カラーシャンプー ブラウン"), note: "赤み・くすみを整える" },
@@ -680,8 +680,8 @@ const mergeCombo = (photo, quizScores, quizPick, quizAxes) => {
   const first = agree ? photo.first : mixed[0].k;
   const second = (mixed.find((x) => x.k !== first) || mixed[1]).k;
   const note = agree
-    ? `※写真の実測と13問の回答がどちらも【${TYPES[first].name}】で一致したので、そのまま確定しました。`
-    : `※写真の実測は【${TYPES[photo.first].name}】、13問の回答は【${TYPES[quizPick.first].name}】で割れたため、写真6：質問4の重み付けで【${TYPES[first].name}】に決めました。`;
+    ? `※写真の実測と13問の回答がどちらも【${type12Name(first, second)}】で一致したので、そのまま確定しました。`
+    : `※写真の実測は【${type12Name(photo.first, photo.second)}】、13問の回答は【${type12Name(quizPick.first, quizPick.second)}】で割れたため、写真6：質問4の重み付けで【${type12Name(first, second)}】に決めました。`;
   return {
     first, second,
     url: RESULT_MAP[`${TYPES[first].num}-${TYPES[second].num}`] || TYPES[first].siteUrl,
@@ -996,33 +996,33 @@ const type12Name = (first, second) => TYPE12_NAME[`${TYPES[first].num}-${TYPES[s
 // v1.22.10: 結果画面の一言説明。カテゴリ14〜19の seo_text の1文目（原文のまま）。
 // 出典: category_blubel (5).csv / category_iebel (1).csv（Fulmo のカテゴリ書き出し）
 const TYPE12_FEATURE = {
-  "ブライトサマー": "ブライトサマーは、ブルベ夏の中でも「明るく澄んだ、やわらかな色」が得意なタイプです。",
-  "ソフトサマー": "ソフトサマーは、ブルベ夏の中でも「くすみ感のある、やさしく落ち着いた色」が得意なタイプです。",
-  "クールサマー": "クールサマーは、ブルベ夏の中でも「青みがはっきりした、すっきり涼しげな色」が得意なタイプです。",
-  "ディープウィンター": "ディープウィンターは、ブルベ冬の中でも「深く濃い、重厚感のある色」が得意なタイプです。",
-  "クールウィンター": "クールウィンターは、ブルベ冬の中でも「青みがクリアで、シャープな色」が得意なタイプです。",
-  "ブライトウィンター": "ブライトウィンターは、ブルベ冬の中でも「鮮やかで、くっきりしたビビッドな色」が得意なタイプです。",
-  "ライトスプリング": "ライトスプリングは、イエベ春の中でも「明るくやわらかい、透明感のある暖色」が得意なタイプです。",
-  "ブライトスプリング": "ブライトスプリングは、イエベ春の中でも「鮮やかで、クリアな暖色」が得意なタイプです。",
-  "ウォームスプリング": "ウォームスプリングは、イエベ春の中でも「黄みが強く、温かみのある色」が得意なタイプです。",
-  "ソフトオータム": "ソフトオータムは、イエベ秋の中でも「くすみ感のある、穏やかな暖色」が得意なタイプです。",
-  "ディープオータム": "ディープオータムは、イエベ秋の中でも「深く濃い、リッチな暖色」が得意なタイプです。",
-  "ウォームオータム": "ウォームオータムは、イエベ秋の中でも「黄みが強く、こっくりした暖色」が得意なタイプです。",
+  "ブライトサマー": "ブライトサマーは、「明るく澄んだ、やわらかな色」が得意なタイプです。",
+  "ソフトサマー": "ソフトサマーは、「くすみ感のある、やさしく落ち着いた色」が得意なタイプです。",
+  "クールサマー": "クールサマーは、「青みがはっきりした、すっきり涼しげな色」が得意なタイプです。",
+  "ディープウィンター": "ディープウィンターは、「深く濃い、重厚感のある色」が得意なタイプです。",
+  "クールウィンター": "クールウィンターは、「青みがクリアで、シャープな色」が得意なタイプです。",
+  "ブライトウィンター": "ブライトウィンターは、「鮮やかで、くっきりしたビビッドな色」が得意なタイプです。",
+  "ライトスプリング": "ライトスプリングは、「明るくやわらかい、透明感のある暖色」が得意なタイプです。",
+  "ブライトスプリング": "ブライトスプリングは、「鮮やかで、クリアな暖色」が得意なタイプです。",
+  "ウォームスプリング": "ウォームスプリングは、「黄みが強く、温かみのある色」が得意なタイプです。",
+  "ソフトオータム": "ソフトオータムは、「くすみ感のある、穏やかな暖色」が得意なタイプです。",
+  "ディープオータム": "ディープオータムは、「深く濃い、リッチな暖色」が得意なタイプです。",
+  "ウォームオータム": "ウォームオータムは、「黄みが強く、こっくりした暖色」が得意なタイプです。",
 };
 // 一言説明で折り返してよい位置（文節の切れ目）を「|」で示したもの。| を抜くと TYPE12_FEATURE と同じ文になる
 const TYPE12_FEATURE_BREAKS = {
-  "ブライトサマー": "ブライトサマーは、|ブルベ夏の|中でも|「明るく|澄んだ、|やわらかな|色」が|得意な|タイプです。",
-  "ソフトサマー": "ソフトサマーは、|ブルベ夏の|中でも|「くすみ感の|ある、|やさしく|落ち着いた|色」が|得意な|タイプです。",
-  "クールサマー": "クールサマーは、|ブルベ夏の|中でも|「青みが|はっきりした、|すっきり|涼しげな|色」が|得意な|タイプです。",
-  "ディープウィンター": "ディープウィンターは、|ブルベ冬の|中でも|「深く|濃い、|重厚感の|ある|色」が|得意な|タイプです。",
-  "クールウィンター": "クールウィンターは、|ブルベ冬の|中でも|「青みが|クリアで、|シャープな|色」が|得意な|タイプです。",
-  "ブライトウィンター": "ブライトウィンターは、|ブルベ冬の|中でも|「鮮やかで、|くっきりした|ビビッドな|色」が|得意な|タイプです。",
-  "ライトスプリング": "ライトスプリングは、|イエベ春の|中でも|「明るく|やわらかい、|透明感の|ある|暖色」が|得意な|タイプです。",
-  "ブライトスプリング": "ブライトスプリングは、|イエベ春の|中でも|「鮮やかで、|クリアな|暖色」が|得意な|タイプです。",
-  "ウォームスプリング": "ウォームスプリングは、|イエベ春の|中でも|「黄みが|強く、|温かみの|ある|色」が|得意な|タイプです。",
-  "ソフトオータム": "ソフトオータムは、|イエベ秋の|中でも|「くすみ感の|ある、|穏やかな|暖色」が|得意な|タイプです。",
-  "ディープオータム": "ディープオータムは、|イエベ秋の|中でも|「深く|濃い、|リッチな|暖色」が|得意な|タイプです。",
-  "ウォームオータム": "ウォームオータムは、|イエベ秋の|中でも|「黄みが|強く、|こっくりした|暖色」が|得意な|タイプです。",
+  "ブライトサマー": "ブライトサマーは、|「明るく|澄んだ、|やわらかな|色」が|得意な|タイプです。",
+  "ソフトサマー": "ソフトサマーは、|「くすみ感の|ある、|やさしく|落ち着いた|色」が|得意な|タイプです。",
+  "クールサマー": "クールサマーは、|「青みが|はっきりした、|すっきり|涼しげな|色」が|得意な|タイプです。",
+  "ディープウィンター": "ディープウィンターは、|「深く|濃い、|重厚感の|ある|色」が|得意な|タイプです。",
+  "クールウィンター": "クールウィンターは、|「青みが|クリアで、|シャープな|色」が|得意な|タイプです。",
+  "ブライトウィンター": "ブライトウィンターは、|「鮮やかで、|くっきりした|ビビッドな|色」が|得意な|タイプです。",
+  "ライトスプリング": "ライトスプリングは、|「明るく|やわらかい、|透明感の|ある|暖色」が|得意な|タイプです。",
+  "ブライトスプリング": "ブライトスプリングは、|「鮮やかで、|クリアな|暖色」が|得意な|タイプです。",
+  "ウォームスプリング": "ウォームスプリングは、|「黄みが|強く、|温かみの|ある|色」が|得意な|タイプです。",
+  "ソフトオータム": "ソフトオータムは、|「くすみ感の|ある、|穏やかな|暖色」が|得意な|タイプです。",
+  "ディープオータム": "ディープオータムは、|「深く|濃い、|リッチな|暖色」が|得意な|タイプです。",
+  "ウォームオータム": "ウォームオータムは、|「黄みが|強く、|こっくりした|暖色」が|得意な|タイプです。",
 };
 
 // v1.22.10: 結果画面「BEST COLOR 10」。IG投稿の画像から色コード化した値（PC12_PALETTE_BLUBEL_v1 / PC12_PALETTE_IEBEL_v1・順序もそのまま）。
@@ -4254,7 +4254,7 @@ export default function App({ campaign = null, account = false } = {}) {
                 <KotaeHomeBanner />
                 {T && (
                   <div className="mx-auto max-w-sm mt-4 rounded-2xl px-5 py-4 text-left" style={{ background: T.accent + "0d", border: `1px solid ${T.accent}33` }}>
-                    <div className="text-sm font-medium" style={{ color: T.accent }}>おかえりなさい、{T.name}さん 🎨</div>
+                    <div className="text-sm font-medium" style={{ color: T.accent }}>{MY12 ? `おかえりなさい、${MY12}さん 🎨` : "おかえりなさい 🎨"}</div>
                     <div className="text-xs mt-1" style={{ color: C.sub }}>
                       {mySecond ? `2nd ${TYPES[mySecond].name}` : ""}{mySecond && myFrame ? " × " : ""}{myFrame ? `骨格${FRAMES[myFrame].name}` : ""}{(mySecond || myFrame) ? " で覚えています。" : "前回の診断結果で始められます。"}
                       <button onClick={resetProfile} className="underline ml-1" style={{ color: C.faint }}>リセット</button>
@@ -4793,7 +4793,7 @@ export default function App({ campaign = null, account = false } = {}) {
               <div className="rounded-2xl p-5 mb-3" style={{ background: "#f2fbf5", border: "1px solid #c9ecd6" }}>
                 <div className="text-sm font-medium mb-1" style={{ color: "#1a7a42" }}>この結果、LINEに保存しておきませんか？</div>
                 <p className="text-xs leading-relaxed mb-3" style={{ color: "#4a6355" }}>
-                  友だち追加で診断結果メモをトークに残せて、毎週土曜に{RT.name}向けの新着コーデ・お得情報が届きます（不要ならいつでもブロックOK）。
+                  友だち追加で診断結果メモをトークに残せて、毎週土曜に{RT12}向けの新着コーデ・お得情報が届きます（不要ならいつでもブロックOK）。
                 </p>
                 <a href={LINE_URLS[RT.site]} target="_blank" rel="noreferrer" className="flex items-center justify-center gap-2 w-full text-center px-6 py-3.5 rounded-full text-white text-sm font-medium" style={{ background: "#06C755" }}>
                   {/* 折り返してよいのは「LINEに結果を保存する」「（○○研究所）」の間だけ。flex の子を1つに保つため外側の span で包む */}
@@ -4972,20 +4972,20 @@ export default function App({ campaign = null, account = false } = {}) {
           <div>
             <Header title="パーソナルカラー別おすすめコスメ" onBack={goHome} />
             <div className="px-8 pb-12 pt-3">
-              {!myType && <TypePicker value={myType} onChange={(k) => { setMyType(k); setMySecond(null); }} label="あなたのタイプは？（未診断なら12タイプ診断へ）" />}
-              {myType && (
+              {!MY12 && <TypePicker12 onChange={(n12) => { setMyType(TYPE12_KEYS[n12][0]); setMySecond(TYPE12_KEYS[n12][1]); }} label="あなたのタイプは？（12タイプから選んでください）" />}
+              {MY12 && (
                 <>
                   <div className="inline-flex items-center gap-2.5 mb-3 px-6 py-3 rounded-full text-2xl font-bold" style={{ background: TYPES[myType].accent + "14", color: TYPES[myType].accent }}>
-                    {TYPES[myType].name} <button onClick={() => setMyType(null)} className="underline text-xs font-normal" style={{ color: C.faint }}>変更</button>
+                    {MY12} <button onClick={() => { setMyType(null); setMySecond(null); }} className="underline text-xs font-normal" style={{ color: C.faint }}>変更</button>
                   </div>
-                  <h3 className="font-serif text-xl leading-snug mb-2" style={{ color: C.ink }}>{TYPES[myType].name}に似合うコスメはコレ！</h3>
+                  <h3 className="font-serif text-xl leading-snug mb-2" style={{ color: C.ink }}>{MY12}に似合うコスメはコレ！</h3>
                   <div className="rounded-2xl p-3.5 mb-4" style={{ background: "#faf7f9", border: "1px solid #f0e9ef" }}>
                     <div className="text-[11px] mb-2" style={{ color: C.faint }}>以下のコスメはすべて、この「似合うカラー」と調和する色番です</div>
                     <div className="flex items-center gap-2">
                       {TYPES[myType].palette.slice(0, 5).map((c, j) => <span key={j} className="w-8 h-8 rounded-full" style={{ background: c, border: "1px solid #e8e2e8" }} />)}
                     </div>
                   </div>
-                  <p className="text-xs leading-relaxed mb-4" style={{ color: C.sub }}>{LAB(TYPES[myType].site)}が選んだ、{TYPES[myType].name}の肌と調和する色番号だけを集めました。</p>
+                  <p className="text-xs leading-relaxed mb-4" style={{ color: C.sub }}>{LAB(TYPES[myType].site)}が選んだ、{MY12}の肌と調和する色番号だけを集めました。</p>
                   <div className="flex flex-wrap gap-2 mb-4">
                     {["すべて", ...COSME_CATS, "一式セット"].map((c) => (
                       <button key={c} onClick={() => setCosmeCat(c)} className="px-3 py-1.5 rounded-full text-xs transition-all" style={{ border: cosmeCat === c ? `2px solid ${TYPES[myType].accent}` : "1px solid " + C.line, color: cosmeCat === c ? TYPES[myType].accent : C.sub, background: cosmeCat === c ? TYPES[myType].accent + "0d" : "white" }}>{c}</button>
@@ -4994,7 +4994,7 @@ export default function App({ campaign = null, account = false } = {}) {
                   {cosmeCat === "一式セット" ? (
                     <>
                       <div className="rounded-2xl p-4 mb-4" style={{ background: TYPES[myType].accent + "0d", border: `1px solid ${TYPES[myType].accent}30` }}>
-                        <div className="text-sm font-medium" style={{ color: C.ink }}>{TYPES[myType].name} フルメイク一式</div>
+                        <div className="text-sm font-medium" style={{ color: C.ink }}>{MY12} フルメイク一式</div>
                         <div className="text-xs mt-1" style={{ color: C.sub }}>
                           リップ〜眉まで全6点をこのまま揃えて、合計 <span className="font-medium" style={{ color: TYPES[myType].accent }}>¥{COSME_FULL[myType].filter((x) => x.set).reduce((a, x) => a + x.price, 0).toLocaleString()}</span>（参考価格）
                         </div>
@@ -5016,13 +5016,13 @@ export default function App({ campaign = null, account = false } = {}) {
           <div>
             <Header title="似合う髪色" onBack={goHome} />
             <div className="px-8 pb-12 pt-3">
-              {!myType && <TypePicker value={myType} onChange={(k) => { setMyType(k); setMySecond(null); }} label="あなたのタイプは？（未診断なら12タイプ診断へ）" />}
-              {myType && (
+              {!MY12 && <TypePicker12 onChange={(n12) => { setMyType(TYPE12_KEYS[n12][0]); setMySecond(TYPE12_KEYS[n12][1]); }} label="あなたのタイプは？（12タイプから選んでください）" />}
+              {MY12 && (
                 <>
                   <div className="inline-flex items-center gap-2.5 mb-3 px-6 py-3 rounded-full text-2xl font-bold" style={{ background: TYPES[myType].accent + "14", color: TYPES[myType].accent }}>
-                    {TYPES[myType].name} <button onClick={() => setMyType(null)} className="underline text-xs font-normal" style={{ color: C.faint }}>変更</button>
+                    {MY12} <button onClick={() => { setMyType(null); setMySecond(null); }} className="underline text-xs font-normal" style={{ color: C.faint }}>変更</button>
                   </div>
-                  <h3 className="font-serif text-xl leading-snug mb-4" style={{ color: C.ink }}>{TYPES[myType].name}に似合う髪色はコレ！</h3>
+                  <h3 className="font-serif text-xl leading-snug mb-4" style={{ color: C.ink }}>{MY12}に似合う髪色はコレ！</h3>
                   <div className="flex gap-3 mb-4">
                     {HAIR[myType].colors.map((c, i) => (
                       <div key={i} className="flex-1 text-center">
@@ -5034,7 +5034,7 @@ export default function App({ campaign = null, account = false } = {}) {
                   <p className="text-xs leading-relaxed mb-5" style={{ color: C.sub }}>{HAIR[myType].tip}</p>
                   {(HAIR[myType].affs || [HAIR[myType].aff]).map((item, i) => (
                     <div key={i} className="mb-1">
-                      <div className="text-sm font-bold mb-1.5 pl-1" style={{ color: TYPES[myType].accent }}>{TYPES[myType].name}におすすめ　{item.note}</div>
+                      <div className="text-sm font-bold mb-1.5 pl-1" style={{ color: TYPES[myType].accent }}>{MY12}におすすめ　{item.note}</div>
                       <CosmeCard item={item} />
                     </div>
                   ))}
@@ -5410,14 +5410,14 @@ export default function App({ campaign = null, account = false } = {}) {
           <div>
             <Header title="リップ・髪色の試し塗り" onBack={goHome} />
             <div className="px-8 pb-12 pt-3">
-              {!myType && <TypePicker value={myType} onChange={(k) => { setMyType(k); setMySecond(null); }} label="あなたのタイプは？（未診断なら12タイプ診断へ）" />}
-              {myType && (
+              {!MY12 && <TypePicker12 onChange={(n12) => { setMyType(TYPE12_KEYS[n12][0]); setMySecond(TYPE12_KEYS[n12][1]); }} label="あなたのタイプは？（12タイプから選んでください）" />}
+              {MY12 && (
                 <>
                   <div className="inline-flex items-center gap-2.5 mb-3 px-6 py-3 rounded-full text-2xl font-bold" style={{ background: TYPES[myType].accent + "14", color: TYPES[myType].accent }}>
-                    {TYPES[myType].name} <button onClick={() => setMyType(null)} className="underline text-xs font-normal" style={{ color: C.faint }}>変更</button>
+                    {MY12} <button onClick={() => { setMyType(null); setMySecond(null); }} className="underline text-xs font-normal" style={{ color: C.faint }}>変更</button>
                   </div>
                   <p className="text-xs leading-relaxed mb-4" style={{ color: C.sub }}>
-                    正面の顔写真をアップして、唇や髪を指でなぞると{TYPES[myType].name}に似合う色が重なります。写真はこの画面の中だけで使われ、保存・送信されません。
+                    正面の顔写真をアップして、唇や髪を指でなぞると{MY12}に似合う色が重なります。写真はこの画面の中だけで使われ、保存・送信されません。
                   </p>
                   <input ref={toFileRef} type="file" accept="image/*" className="hidden" onChange={(e) => {
                     const f = e.target.files && e.target.files[0];
