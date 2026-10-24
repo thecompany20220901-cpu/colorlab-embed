@@ -2773,7 +2773,7 @@ function SkuStrip({ skus, site, accent, onPick }) {
     <div className="flex gap-3 overflow-x-auto pb-2 -mx-6 px-6"
       style={{ scrollSnapType: "x mandatory", WebkitOverflowScrolling: "touch" }}>
       {skus.map((sku) => {
-        const img = (SKU_IMG[site] || {})[String(sku.id)];
+        const img = sku.img || (SKU_IMG[site] || {})[String(sku.id)];
         return (
           <a key={sku.id} href={ITEM_URL(site, sku.id)} target="_blank" rel="noreferrer"
             onClick={() => onPick && onPick(sku)}
@@ -4263,13 +4263,15 @@ export default function App({ campaign = null, account = false } = {}) {
                       const day = Math.floor(Date.now() / 86400000);
                       const pal = TYPES[myType].palette;
                       const lucky = pal[day % pal.length];
-                      const luckySku = SKUS[TYPES[myType].site][day % SKUS[TYPES[myType].site].length];
+                      // v1.22.14: 今日の1点は NGカラー診断と同じ12タイプ別の表から日替わり（12タイプ名が無い時は出さない）
+                      const luckyList = NG_PRODUCTS_12[MY12] || [];
+                      const luckySku = luckyList.length ? luckyList[day % luckyList.length] : null;
                       return (
                         <div className="flex items-center gap-3 mt-3 pt-3" style={{ borderTop: `1px dashed ${T.accent}33` }}>
                           <span className="w-8 h-8 rounded-full shrink-0" style={{ background: lucky, border: "1px solid #e5dfe4" }} />
                           <div className="min-w-0">
                             <div className="text-xs font-medium" style={{ color: C.ink }}>今日のラッキーカラー</div>
-                            <a href={ITEM_URL(TYPES[myType].site, luckySku.id)} target="_blank" rel="noreferrer" className="text-[11px] underline block truncate" style={{ color: T.accent }}>今日の1点：{luckySku.name.length > 24 ? luckySku.name.slice(0, 24) + "…" : luckySku.name}</a>
+                            {luckySku && <a href={ITEM_URL(TYPES[myType].site, luckySku.id)} target="_blank" rel="noreferrer" className="text-[11px] underline block truncate" style={{ color: T.accent }}>今日の1点：{luckySku.name.length > 24 ? luckySku.name.slice(0, 24) + "…" : luckySku.name}</a>}
                           </div>
                         </div>
                       );
@@ -4556,7 +4558,9 @@ export default function App({ campaign = null, account = false } = {}) {
                     アバター側にも出せる）。商品は閲覧中サイト自身のものだけを出す。 */}
                 {(CARD_SKU_ON_AVATAR || cardMedium === "self" || selfImage) && (() => {
                   const site = embedSite() || T.site;
-                  const skus = pickCardSkus(site, CARD_SKU_LIMIT);
+                  // v1.22.14: 担当サイトで見ている時は「勝ち色と相性のいいもの」と書くので12タイプ別の表から。
+                  // 別サイトで見ている時は「いま見ているサイトの在庫から」なので従来どおり
+                  const skus = site === T.site ? (NG_PRODUCTS_12[T12] || []) : pickCardSkus(site, CARD_SKU_LIMIT);
                   if (!skus.length) return null;
                   const siteName = site === "iebel" ? "IEBEL" : "BLUBEL";
                   // 閲覧中サイトがそのタイプの担当サイト（イエベ=IEBEL / ブルベ=BLUBEL）と
@@ -4774,7 +4778,8 @@ export default function App({ campaign = null, account = false } = {}) {
                   ベースは{RT12}の得意色で固めつつ、小物や1点だけ2nd（{TYPES[quizResult.second].name}）の色を効かせると、「似合うのに人と被らない」コーデになります。2ndの得意トーンはこちら。
                 </p>
                 <div className="flex gap-1.5 mb-4">{TYPES[quizResult.second].palette.map((c, i) => <div key={i} className="w-7 h-7 rounded-full" style={{ background: c, border: "1px solid #eee" }} />)}</div>
-                {SKUS[TYPES[quizResult.second].site].slice(0, 1).map((sku) => <SkuCard key={sku.id} sku={sku} site={TYPES[quizResult.second].site} accent={TYPES[quizResult.second].accent} />)}
+                {/* v1.22.14: 商品は2位を1位にした12タイプ（type12Name(2位, 1位)）の表から1点 */}
+                {(NG_PRODUCTS_12[type12Name(quizResult.second, quizResult.first)] || []).slice(0, 1).map((sku) => <SkuCard key={sku.id} sku={sku} site={TYPES[quizResult.second].site} accent={TYPES[quizResult.second].accent} />)}
                 <a href={SITE_URL(TYPES[quizResult.second].site)} target="_blank" rel="noreferrer" className="block text-center text-xs underline mt-1" style={{ color: TYPES[quizResult.second].accent }}>2nd {TYPES[quizResult.second].name}の冒険アイテムをもっと見る →</a>
               </div>
 
@@ -4943,13 +4948,8 @@ export default function App({ campaign = null, account = false } = {}) {
                   </div>
                   {(() => {
                     const site = TYPES[pA].site;
-                    const list = SKUS[site];
-                    const take = (cats, n) => list.filter((s) => cats.includes(s.cat)).slice(0, n);
-                    const coord = [
-                      ...take(["トップス"], 2),
-                      ...take(["ワンピース", "ボトムス", "セットアップ"], 2),
-                      ...take(["アクセサリー"], 1),
-                    ];
+                    // v1.22.14: 商品は「あなた」の12タイプ名で NGカラー診断と同じ12タイプ別の表から
+                    const coord = NG_PRODUCTS_12[pA12] || [];
                     return coord.length ? (
                       <div className="mt-8 pt-6" style={{ borderTop: "1px dashed " + C.line }}>
                         <div className="text-xs tracking-widest uppercase mb-1" style={{ color: TYPES[pA].accent }}>Your Pair Coordinate</div>
