@@ -5,13 +5,22 @@
 //   (3) 結果画面（12通り）の「色別 顔映りチェック（24色）」の各行の ◎○△✕ が EXPECT のそのタイプと一致し、◎→✕ の順に並ぶ
 //   (4) 「この色、似合う？チェッカー」を12タイプのボタンから選び、24色それぞれの判定が EXPECT と一致する
 //   (5) ウォームオータムの BEST COLOR 10 の8〜10番目が #244564 / #6BB2AC / #E8B49C
+//   (6) v1.22.14: 商品3点を12タイプ別に（NGカラー診断と同じ表 NG_PRODUCTS_12 = src/ng_products12_data.js を使う）。
+//       3か所 = チェッカー「得意色で買い替えるならコレ／この色と好相性の得意色アイテム」・今日のコーデ採点「スコアを底上げする…」・
+//       結果画像（保存・シェア）の「似合うアイテム」。12タイプそれぞれで
+//       (a) 3か所の商品が NG_PRODUCTS_12[タイプ] と一致（ウォームスプリングは2点）
+//       (b) そのタイプの NG色4色に当たる色の商品が出ない（NG色名と判定語は下の NG4・NG_WORDS。商品の色はタグ CSV の color 列）
+//       (c) ブライトサマーとソフトサマーで、3か所とも商品が違う
+//       (d) 12タイプ名が無い時（コーデ採点を4タイプのボタンで選んだ時）は、商品欄を4タイプに戻さず出さない
+//       src に固定表示 SKUS[...].slice(0, 3) が残っていないことも見る
 // 期待値はこのファイルに直接書く（src から読まない）。
 // 実行: npm run build:colorlab && node test/colorcheck12_check.mjs [バンドル] [--src ファイル] [--static-only]
 //   バンドル省略時は dist/colorlab.iife.js。スクリーンショットはバンドル省略時だけ out/colorcheck12/ に撮る。
 // ネガティブテスト: v1.22.12 の src / バンドル、または COLOR_CHECK_12 から1件消した src を渡すと FAIL（exit 1）になること。
+//   (6) は v1.22.13 の src / バンドル（商品が固定表示）を渡すと FAIL になること。
 import { chromium } from "playwright";
 import { createServer } from "http";
-import { readFileSync, existsSync, mkdirSync, statSync } from "fs";
+import { readFileSync, writeFileSync, existsSync, mkdirSync, statSync } from "fs";
 import { fileURLToPath } from "url";
 import { dirname, resolve, join, extname } from "path";
 import zlib from "zlib";
@@ -66,6 +75,68 @@ const EXPECT = {
 const RANK = ["◎", "○", "△", "✕"];
 const WA_TAIL = ["#244564", "#6BB2AC", "#E8B49C"];
 
+// ── (6) 商品3点 ──
+// 期待する商品の表（NGカラー診断と同じ表。test/build_ng_products12.py が生成）
+const NGP = (() => {
+  const s = readFileSync(join(ROOT, "src", "ng_products12_data.js"), "utf-8");
+  const i = s.indexOf("export const NG_PRODUCTS_12 = ");
+  return new Function("return " + s.slice(s.indexOf("{", i), s.lastIndexOf("}") + 1))();
+})();
+const SITE12 = Object.fromEntries(KEYS.map(([k, n]) => [n, +k[0] === 2 || +k[0] === 4 ? "blubel" : "iebel"]));
+// 各タイプの NG色4色（NG_COLORS_12 の name）
+const NG4 = {
+  "ブライトサマー": ["真っ黒", "マスタード", "ダークブラウン", "カーキ"], "ソフトサマー": ["ビビッドオレンジ", "真っ黒", "ビビッドレッド", "ブライトイエロー"],
+  "クールサマー": ["オレンジ", "マスタード", "テラコッタ", "カーキ"], "ディープウィンター": ["パステルピンク", "ベビーブルー", "ミントグリーン", "くすみベージュ"],
+  "クールウィンター": ["オレンジブラウン", "マスタード", "モスグリーン", "ベージュ"], "ブライトウィンター": ["くすみベージュ", "モスグリーン", "ダスティピンク", "グレージュ"],
+  "ライトスプリング": ["真っ黒", "ダークネイビー", "ボルドー", "チャコールグレー"], "ブライトスプリング": ["くすみグレー", "ダスティローズ", "カーキ", "真っ黒"],
+  "ウォームスプリング": ["青みピンク", "ネイビー", "ライトグレー", "真っ黒"], "ウォームオータム": ["青みピンク", "ビビッドブルー", "純白", "ライトグレー"],
+  "ソフトオータム": ["ビビッドピンク", "真っ黒", "ビビッドブルー", "ブライトイエロー"], "ディープオータム": ["純白", "ミントグリーン", "ビビッドピンク", "ラベンダー"],
+};
+// NG色名 → 商品の色名にこの語（正規表現）が含まれていたら NG（2026-10-23 keisuke 承認の表・ngmetal12_check と同じ）
+const NG_WORDS = {
+  "真っ黒": ["ブラック", "黒", "グラック"], "マスタード": ["マスタード"], "ダークブラウン": ["ダークブラウン", "ブラウン", "モカ", "あずき"],
+  "カーキ": ["カーキ", "オリーブ"], "ビビッドオレンジ": ["オレンジ"], "オレンジ": ["オレンジ"], "ビビッドレッド": ["^レッド", "赤"],
+  "ブライトイエロー": ["^イエロー"], "テラコッタ": ["テラコッタ"], "パステルピンク": ["ライトピンク", "^ピンク"],
+  "ベビーブルー": ["ライトブルー", "淡いブルー"], "ミントグリーン": ["ミントグリーン", "ライトグリーン", "パステルグリーン"],
+  "くすみベージュ": ["ベージュ"], "オレンジブラウン": ["キャメル", "キャラメル"], "モスグリーン": ["カーキ", "オリーブ", "ダークグリーン"],
+  "ベージュ": ["ベージュ"], "ダスティピンク": ["ダスティピンク", "ダースティピンク"], "グレージュ": ["グレージュ"],
+  "ダークネイビー": ["ネイビー"], "ネイビー": ["ネイビー"], "ボルドー": ["ボルドー", "ワインレッド"],
+  "チャコールグレー": ["チャコールグレー", "ダークグレー"], "くすみグレー": ["グレー"], "ダスティローズ": ["ダスティピンク", "ダースティピンク"],
+  "青みピンク": ["^ピンク", "ホットピンク", "ショッキングピンク"], "ライトグレー": ["ライトグレー"], "ビビッドブルー": ["^ブルー"],
+  "純白": ["ホワイト"], "ビビッドピンク": ["ホットピンク", "ショッキングピンク"], "ラベンダー": ["ラベンダー"],
+};
+// 商品の色はタグ CSV の color 列（build_ng_products12.py と同じ元データ）
+const TAG_CSV = { blubel: "C:/Users/newfa/Downloads/blubel_pc12_tags_v1.csv", iebel: "C:/Users/newfa/Downloads/iebel_pc12_tags_v1.csv" };
+function parseCsv(text) {
+  const rows = [];
+  let row = [], f = "", q = false;
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i];
+    if (q) { if (c === '"') { if (text[i + 1] === '"') { f += '"'; i++; } else q = false; } else f += c; }
+    else if (c === '"') q = true;
+    else if (c === ",") { row.push(f); f = ""; }
+    else if (c === "\n") { row.push(f.replace(/\r$/, "")); rows.push(row); row = []; f = ""; }
+    else f += c;
+  }
+  if (f || row.length) { row.push(f); rows.push(row); }
+  const [h, ...rs] = rows;
+  h[0] = h[0].replace(/^\uFEFF/, "");
+  return rs.filter((r) => r.length > 1).map((r) => Object.fromEntries(h.map((k, i) => [k, r[i] ?? ""])));
+}
+const COLORS = Object.fromEntries(Object.entries(TAG_CSV).map(([site, p]) =>
+  [site, Object.fromEntries(parseCsv(readFileSync(p, "utf-8")).map((r) => [r.item_id, r.color.split(",").map((c) => c.trim()).filter(Boolean)]))]));
+// 商品 id の並び → NG色に当たったもの（"id:NG色<商品の色"）
+const ngHits = (name, ids) => ids.flatMap((id) => (COLORS[SITE12[name]][String(id)] || [])
+  .flatMap((c) => NG4[name].filter((n) => NG_WORDS[n].some((w) => new RegExp(w).test(c))).map((n) => `${id}:${n}<${c}`)));
+// 結果画像の商品行（buildShareImage と同じ整形: 先頭の「〜服」と【…】を外して16字で切る）
+const shareLine = (sku) => {
+  const t = sku.name.replace(/【[^】]*】/g, "").replace(/^(ブルベ夏\/ブルベ冬服|ブルベ夏服|ブルベ冬服|イエベ春\/イエベ秋服|イエベ春服|イエベ秋服)[\s　]*/, "").trim();
+  return "・" + (t.length > 16 ? t.slice(0, 16) + "…" : t);
+};
+const SHOT6 = ["ブライトサマー", "ソフトサマー", "ウォームスプリング"]; // (6) のスクリーンショットを撮るタイプ
+const got6 = {}; // got6[タイプ][場所] = 商品 id（結果画像は商品行）の並び
+const put6 = (name, place, v) => { (got6[name] = got6[name] || {})[place] = v; };
+
 const ok = [], ng = [];
 const check = (c, l) => (c ? ok : ng).push(l);
 
@@ -94,6 +165,10 @@ if (CC12) {
 const ccr = (src.match(/cc\.r\[/g) || []).length;
 const anyR = (src.match(/\.r\[(myType|typeKey|key|RT\.key)\]/g) || []).length;
 check(ccr === 0 && anyR === 0, `(2) 4タイプ判定の参照が0件 (cc.r[ ${ccr}件 / .r[myType|typeKey|key] ${anyR}件)`);
+const fixed = (src.match(/SKUS\[[^\]]+\]\.slice\(0, 3\)/g) || []).length;
+check(fixed === 0, `(6) src に商品の固定表示 SKUS[...].slice(0, 3) が残っていない (${fixed}件)`);
+check(/const catalogSkus = NG_PRODUCTS_12\[typeName\] \|\| \[\];/.test(src), "(6) 結果画像の商品が NG_PRODUCTS_12[typeName]");
+check(KEYS.every(([, n]) => (NGP[n] || []).length === (n === "ウォームスプリング" ? 2 : 3)), "(6) NG_PRODUCTS_12 が12タイプ分（ウォームスプリング2点・ほか3点）");
 
 if (!STATIC_ONLY) {
   // 回答パターンの探索・合成写真は test/result12_check.mjs と同じ
@@ -180,6 +255,27 @@ if (!STATIC_ONLY) {
   const browser = await chromium.launch();
   const page = await browser.newPage({ viewport: { width: 390, height: 900 } });
   page.on("pageerror", (e) => ng.push("pageerror: " + e.message));
+  // (6) 結果画像は canvas なので、描いた文字（fillText）と画像（toBlob の直前の canvas）を控える
+  await page.addInitScript(() => {
+    const ft = CanvasRenderingContext2D.prototype.fillText;
+    CanvasRenderingContext2D.prototype.fillText = function (t, ...a) { (window.__ft = window.__ft || []).push(String(t)); return ft.call(this, t, ...a); };
+    const tb = HTMLCanvasElement.prototype.toBlob;
+    HTMLCanvasElement.prototype.toBlob = function (cb, ...a) { window.__shareImg = this.toDataURL("image/png"); return tb.call(this, cb, ...a); };
+  });
+  // 画面の商品カード（リンク https://{site}.jp/items/{id}）の id と、見出しからカードまでの範囲
+  const cardIds = (headRe) => page.evaluate((src) => {
+    const root = document.querySelector("#colorlab-root");
+    const re = new RegExp(src);
+    const head = [...root.querySelectorAll("div")].find((d) => d.children.length === 0 && re.test(d.textContent.trim()));
+    const cards = [...root.querySelectorAll("a[href]")].filter((a) => /\/items\/\d+/.test(a.href));
+    const ids = cards.map((a) => +a.href.match(/\/items\/(\d+)/)[1]);
+    const els = [head, ...cards].filter(Boolean);
+    const top = els.length ? Math.min(...els.map((e) => e.getBoundingClientRect().top)) + scrollY : null;
+    const bottom = els.length ? Math.max(...els.map((e) => e.getBoundingClientRect().bottom)) + scrollY : null;
+    return { head: head ? head.textContent.trim() : null, ids, top, bottom };
+  }, headRe.source);
+  // コーデ採点用の合成写真（背景グレー・トップス紺・ボトムス白。SC_REGION の枠に合わせる）
+  const outfitPhoto = regionPng(600, 800, [190, 190, 195], [[0.30, 0.26, 0.70, 0.54, [40, 55, 110]], [0.32, 0.56, 0.68, 0.84, [238, 236, 230]]]);
   const shots = [];
   console.log("bundle: " + BUNDLE);
 
@@ -256,6 +352,19 @@ if (!STATIC_ONLY) {
       await page.screenshot({ path: file, fullPage: true, clip: { x: 0, y: Math.max(0, info.top - 12), width: 390, height: info.bottom - info.top + 24 } });
       shots.push(file);
     }
+    // (6) 結果画像（保存・シェア）の「似合うアイテム」
+    await page.evaluate(() => { window.__ft = []; window.__shareImg = null; });
+    await page.getByRole("button", { name: /結果を画像で保存・シェア/ }).first().click();
+    await page.waitForFunction(() => window.__shareImg, null, { timeout: 10000 }).catch(() => {});
+    const share = await page.evaluate(() => ({ ft: window.__ft || [], img: window.__shareImg }));
+    const hi = share.ft.indexOf("似合うアイテム");
+    const lines = hi < 0 ? [] : share.ft.slice(hi + 1).filter((t) => t.startsWith("・") && !t.endsWith("（コスメ）"));
+    put6(name, "share", lines);
+    if (SHOOT && SHOT6.includes(name) && share.img) {
+      const file = join(OUT, `products_share_${key}_${name}.png`);
+      writeFileSync(file, Buffer.from(share.img.split(",")[1], "base64"));
+      shots.push(file);
+    }
   }
 
   // (4) チェッカー（未診断 → 12タイプのボタン → 24色を1つずつタップ）
@@ -285,11 +394,75 @@ if (!STATIC_ONLY) {
     check(miss.length === 0, `${key} ${name}: (4) チェッカーの24色の判定が表と一致${miss.length ? " (違う: " + miss.slice(0, 4).join(" ") + ")" : ""}`);
     const txt = await page.evaluate(() => document.querySelector("#colorlab-root").innerText);
     check(txt.includes(`${name}との相性を判定します`), `${key} ${name}: (4) チェッカーの説明が12タイプ名`);
+    // (6) チェッカーの商品（最後にタップしたブラックの判定の下）
+    const ck = await cardIds(/^(得意色で買い替えるならコレ|この色と好相性の得意色アイテム)（/);
+    put6(name, "checker", ck.ids);
+    if (SHOOT && SHOT6.includes(name) && ck.top != null) {
+      const file = join(OUT, `products_checker_${key}_${name}.png`);
+      await page.screenshot({ path: file, fullPage: true, clip: { x: 0, y: Math.max(0, ck.top - 12), width: 390, height: ck.bottom - ck.top + 24 } });
+      shots.push(file);
+    }
     if (SHOOT && key === "4-3") {
       const file = join(OUT, `checker_${key}_${name}.png`);
       await page.screenshot({ path: file, fullPage: true });
       shots.push(file);
     }
+    // (6) 今日のコーデ採点（チェッカーで選んだ12タイプがプロフィールに残っている状態で、合成写真を採点）
+    await page.goto(base + "/__harness.html", { waitUntil: "domcontentloaded" });
+    await page.waitForSelector("#colorlab-root button", { timeout: 15000 });
+    await page.locator("#colorlab-root button", { hasText: /今日のコーデ採点/ }).first().click();
+    await page.waitForTimeout(300);
+    await page.locator("#colorlab-root input[type=file]").last().setInputFiles({ name: "outfit.png", mimeType: "image/png", buffer: outfitPhoto });
+    const scored = await page.waitForSelector("#colorlab-root >> text=この採点は服の色とタイプの相性のみ", { timeout: 15000 }).then(() => true).catch(() => false);
+    check(scored, `${key} ${name}: (6) コーデ採点の結果が出る`);
+    const sc = await cardIds(/^スコアを底上げする.+の得意色アイテム$/);
+    check(sc.head === `スコアを底上げする${name}の得意色アイテム`, `${key} ${name}: (6) コーデ採点の見出しが12タイプ名 (${sc.head})`);
+    put6(name, "score", sc.ids);
+    if (SHOOT && SHOT6.includes(name) && sc.top != null) {
+      const file = join(OUT, `products_score_${key}_${name}.png`);
+      await page.screenshot({ path: file, fullPage: true, clip: { x: 0, y: Math.max(0, sc.top - 12), width: 390, height: sc.bottom - sc.top + 24 } });
+      shots.push(file);
+    }
+  }
+
+  // (6)(d) 12タイプ名が無い時: コーデ採点を4タイプのボタン（ブルベ夏）で選ぶ → 商品欄を出さない
+  {
+    await page.goto(base + "/__harness.html", { waitUntil: "domcontentloaded" });
+    await page.waitForSelector("#colorlab-root button", { timeout: 15000 });
+    await page.evaluate(() => { try { localStorage.removeItem("colorlab-profile"); } catch (e) {} });
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await page.waitForSelector("#colorlab-root button", { timeout: 15000 });
+    await page.locator("#colorlab-root button", { hasText: /今日のコーデ採点/ }).first().click();
+    await page.waitForTimeout(300);
+    await page.locator("#colorlab-root button", { hasText: /ブルベ夏/ }).first().click();
+    await page.waitForTimeout(200);
+    await page.locator("#colorlab-root input[type=file]").last().setInputFiles({ name: "outfit.png", mimeType: "image/png", buffer: outfitPhoto });
+    const scored = await page.waitForSelector("#colorlab-root >> text=この採点は服の色とタイプの相性のみ", { timeout: 15000 }).then(() => true).catch(() => false);
+    const sc = await cardIds(/^スコアを底上げする/);
+    check(scored && sc.head === null && sc.ids.length === 0, `(6)(d) 12タイプ名が無い時、コーデ採点の商品欄は出ない（4タイプに戻さない） (結果${scored ? "あり" : "なし"} / 見出し ${sc.head} / 商品 ${sc.ids.join(",") || "0点"})`);
+  }
+
+  // (6)(a)(b)(c)
+  for (const [key, name] of KEYS) {
+    const want = (NGP[name] || []).map((s) => s.id);
+    const g = got6[name] || {};
+    for (const place of ["checker", "score"]) {
+      const ids = g[place] || [];
+      check(JSON.stringify(ids) === JSON.stringify(want), `${key} ${name}: (6)(a) ${place} の商品が NG_PRODUCTS_12 と一致 (${ids.join(",") || "0点"} / 期待 ${want.join(",")})`);
+      const hit = ngHits(name, ids);
+      check(ids.length > 0 && hit.length === 0, `${key} ${name}: (6)(b) ${place} に NG色の商品が出ない${hit.length ? " (" + hit.join(" ") + ")" : ""}`);
+    }
+    const lines = g.share || [];
+    const wantLines = (NGP[name] || []).map(shareLine);
+    check(JSON.stringify(lines) === JSON.stringify(wantLines), `${key} ${name}: (6)(a) 結果画像の商品が NG_PRODUCTS_12 と一致 (${lines.join(" ") || "0点"})`);
+    // 結果画像は id を描かないので、行が一致した商品の id で NG色を見る
+    const shareIds = (NGP[name] || []).filter((s) => lines.includes(shareLine(s))).map((s) => s.id);
+    const hit = ngHits(name, shareIds);
+    check(shareIds.length > 0 && hit.length === 0, `${key} ${name}: (6)(b) 結果画像に NG色の商品が出ない${hit.length ? " (" + hit.join(" ") + ")" : ""}`);
+  }
+  for (const place of ["checker", "score", "share"]) {
+    const a = (got6["ブライトサマー"] || {})[place] || [], b = (got6["ソフトサマー"] || {})[place] || [];
+    check(a.length > 0 && b.length > 0 && JSON.stringify(a) !== JSON.stringify(b), `(6)(c) ${place}: ブライトサマーとソフトサマーで商品が違う (${a.join(",")} / ${b.join(",")})`);
   }
   await browser.close();
   server.close();

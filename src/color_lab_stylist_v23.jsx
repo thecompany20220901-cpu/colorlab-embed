@@ -1281,7 +1281,8 @@ function buildShareImage(RT, typeName, axes) {
   });
 
   // ⑥ 似合うコーデ3点＋コスメ1点（枠内固定レイアウト・フッターと衝突しない）
-  const catalogSkus = SKUS[RT.site].slice(0, 3);
+  // v1.22.14: 商品は NGカラー診断と同じ12タイプ別の表（typeName は12タイプ名）
+  const catalogSkus = NG_PRODUCTS_12[typeName] || [];
   const catalogCosme = (COSME[RT.key] || [])[0];
   const cleanName = (t) => t.replace(/【[^】]*】/g, "").replace(/^(ブルベ夏\/ブルベ冬服|ブルベ夏服|ブルベ冬服|イエベ春\/イエベ秋服|イエベ春服|イエベ秋服)[\s　]*/, "").trim();
   const truncate = (t, n) => (t.length > n ? t.slice(0, n) + "…" : t);
@@ -5386,7 +5387,7 @@ export default function App({ campaign = null, account = false } = {}) {
                           </>
                         )}
                         <div className="text-xs mb-2.5" style={{ color: C.faint }}>{good ? "この色と好相性の得意色アイテム" : "得意色で買い替えるならコレ"}（{TYPES[myType].siteName}）</div>
-                        {SKUS[TYPES[myType].site].slice(0, 3).map((sku) => <SkuCard key={sku.id} sku={sku} site={TYPES[myType].site} accent={TYPES[myType].accent} />)}
+                        {(NG_PRODUCTS_12[MY12] || []).map((sku) => <SkuCard key={sku.id} sku={sku} site={TYPES[myType].site} accent={TYPES[myType].accent} />)}
                       </div>
                     );
                   })()}
@@ -5814,8 +5815,9 @@ export default function App({ campaign = null, account = false } = {}) {
                           <p className="text-xs leading-relaxed" style={{ color: "#4a434f" }}>{scResult.one_item}</p>
                         </div>
                       )}
-                      <div className="text-xs mb-2.5" style={{ color: C.faint }}>スコアを底上げする{MY12 || TYPES[myType].name}の得意色アイテム</div>
-                      {SKUS[TYPES[myType].site].slice(0, 3).map((sku) => <SkuCard key={sku.id} sku={sku} site={TYPES[myType].site} accent={TYPES[myType].accent} />)}
+                      {/* v1.22.14: 商品は NGカラー診断と同じ12タイプ別の表。12タイプ名が無い時は4タイプに戻さず出さない */}
+                      {MY12 && <div className="text-xs mb-2.5" style={{ color: C.faint }}>スコアを底上げする{MY12}の得意色アイテム</div>}
+                      {(NG_PRODUCTS_12[MY12] || []).map((sku) => <SkuCard key={sku.id} sku={sku} site={TYPES[myType].site} accent={TYPES[myType].accent} />)}
                       <p className="mt-3 text-center text-[10px] leading-relaxed" style={{ color: "#b3aab2" }}>
                         ※この採点は服の色とタイプの相性のみを判定しています（シルエット・素材感は含みません）。<br />
                         照明により色の見え方は変わるため、傾向としてお楽しみください。
