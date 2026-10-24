@@ -13,11 +13,15 @@
 //       (c) ブライトサマーとソフトサマーで、3か所とも商品が違う
 //       (d) 12タイプ名が無い時（コーデ採点を4タイプのボタンで選んだ時）は、商品欄を4タイプに戻さず出さない
 //       src に固定表示 SKUS[...].slice(0, 3) が残っていないことも見る
+//   (7) v1.22.14 作業②: 4タイプの入口だった5画面（コーデ提案・ふたりの相性配色・骨格診断・買い足しワードローブ・今日のコーデ採点）を
+//       12タイプの入口（TypePicker12）に。12タイプ × 5画面で (a) 入口に12タイプのボタン・4タイプのボタン0個
+//       (b) 選んだ12タイプ名が見出し・本文に出る (c) 4タイプ名が出ない（「2nd ○○」は除く）。src の `|| TYPES[...].name` も0件
 // 期待値はこのファイルに直接書く（src から読まない）。
 // 実行: npm run build:colorlab && node test/colorcheck12_check.mjs [バンドル] [--src ファイル] [--static-only]
 //   バンドル省略時は dist/colorlab.iife.js。スクリーンショットはバンドル省略時だけ out/colorcheck12/ に撮る。
 // ネガティブテスト: v1.22.12 の src / バンドル、または COLOR_CHECK_12 から1件消した src を渡すと FAIL（exit 1）になること。
 //   (6) は v1.22.13 の src / バンドル（商品が固定表示）を渡すと FAIL になること。
+//   (7) は v1.22.14 作業①（26a201d）の src / バンドル（入口が4タイプ）を渡すと FAIL になること。
 import { chromium } from "playwright";
 import { createServer } from "http";
 import { readFileSync, writeFileSync, existsSync, mkdirSync, statSync } from "fs";
@@ -167,6 +171,8 @@ const anyR = (src.match(/\.r\[(myType|typeKey|key|RT\.key)\]/g) || []).length;
 check(ccr === 0 && anyR === 0, `(2) 4タイプ判定の参照が0件 (cc.r[ ${ccr}件 / .r[myType|typeKey|key] ${anyR}件)`);
 const fixed = (src.match(/SKUS\[[^\]]+\]\.slice\(0, 3\)/g) || []).length;
 check(fixed === 0, `(6) src に商品の固定表示 SKUS[...].slice(0, 3) が残っていない (${fixed}件)`);
+const fb = (src.match(/\|\|\s*(TYPES\[[^\]]+\]|type)\.name\b/g) || []).length;
+check(fb === 0, `(7) src に4タイプ名へのフォールバック \`|| TYPES[...].name\` が残っていない (${fb}件)`);
 check(/const catalogSkus = NG_PRODUCTS_12\[typeName\] \|\| \[\];/.test(src), "(6) 結果画像の商品が NG_PRODUCTS_12[typeName]");
 check(KEYS.every(([, n]) => (NGP[n] || []).length === (n === "ウォームスプリング" ? 2 : 3)), "(6) NG_PRODUCTS_12 が12タイプ分（ウォームスプリング2点・ほか3点）");
 
@@ -277,6 +283,28 @@ if (!STATIC_ONLY) {
   // コーデ採点用の合成写真（背景グレー・トップス紺・ボトムス白。SC_REGION の枠に合わせる）
   const outfitPhoto = regionPng(600, 800, [190, 190, 195], [[0.30, 0.26, 0.70, 0.54, [40, 55, 110]], [0.32, 0.56, 0.68, 0.84, [238, 236, 230]]]);
   const shots = [];
+  // (6)(d)(7) 用: プロフィールを入れ直して開き直す / ホームのタイル / 画面のタイプボタン / 画面の文字
+  const fresh = async (profile) => {
+    await page.goto(base + "/__harness.html", { waitUntil: "domcontentloaded" });
+    await page.waitForSelector("#colorlab-root button", { timeout: 15000 });
+    await page.evaluate((p) => { try { if (p) localStorage.setItem("colorlab-profile", JSON.stringify(p)); else localStorage.removeItem("colorlab-profile"); } catch (e) {} }, profile || null);
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await page.waitForSelector("#colorlab-root button", { timeout: 15000 });
+  };
+  const openTile = async (re) => { await page.locator("#colorlab-root button", { hasText: re }).first().click(); await page.waitForTimeout(300); };
+  const clickText = async (re) => { await page.locator("#colorlab-root button", { hasText: re }).first().click(); await page.waitForTimeout(200); };
+  const rootText = () => page.evaluate(() => document.querySelector("#colorlab-root").innerText);
+  // 画面に出ているタイプボタン: 12タイプ名それぞれの個数と、4タイプ名だけのボタンの個数
+  const NAMES12 = KEYS.map(([, n]) => n);
+  const pickers = (per = 1) => page.evaluate(([names, per]) => {
+    const t = [...document.querySelectorAll("#colorlab-root button")].map((b) => b.textContent.trim());
+    const cnt = Object.fromEntries(names.map((n) => [n, t.filter((x) => x === n).length]));
+    const four = t.filter((x) => ["イエベ春", "ブルベ夏", "イエベ秋", "ブルベ冬"].includes(x)).length;
+    return { cnt, four, ok12: names.every((n) => cnt[n] === per) && four === 0 };
+  }, [NAMES12, per]);
+  const FOUR = /イエベ春|ブルベ夏|イエベ秋|ブルベ冬/, FOUR_G = /イエベ春|ブルベ夏|イエベ秋|ブルベ冬/g;
+  // 「2nd ○○」は2位の4タイプを示す既存の表示なので、戻りに数えない
+  const strip2nd = (t) => t.replace(/2nd\s*(イエベ春|ブルベ夏|イエベ秋|ブルベ冬)/g, "2nd");
   console.log("bundle: " + BUNDLE);
 
   // (3)(5) 結果画面
@@ -425,21 +453,16 @@ if (!STATIC_ONLY) {
     }
   }
 
-  // (6)(d) 12タイプ名が無い時: コーデ採点を4タイプのボタン（ブルベ夏）で選ぶ → 商品欄を出さない
+  // (6)(d) 12タイプ名が無い時（プロフィールに1位だけ・2位なし）: v1.22.14 作業②からコーデ採点の入口は12タイプのボタン。
+  //   採点に進めず、商品欄も4タイプ名も出ない
   {
-    await page.goto(base + "/__harness.html", { waitUntil: "domcontentloaded" });
-    await page.waitForSelector("#colorlab-root button", { timeout: 15000 });
-    await page.evaluate(() => { try { localStorage.removeItem("colorlab-profile"); } catch (e) {} });
-    await page.reload({ waitUntil: "domcontentloaded" });
-    await page.waitForSelector("#colorlab-root button", { timeout: 15000 });
-    await page.locator("#colorlab-root button", { hasText: /今日のコーデ採点/ }).first().click();
-    await page.waitForTimeout(300);
-    await page.locator("#colorlab-root button", { hasText: /ブルベ夏/ }).first().click();
-    await page.waitForTimeout(200);
-    await page.locator("#colorlab-root input[type=file]").last().setInputFiles({ name: "outfit.png", mimeType: "image/png", buffer: outfitPhoto });
-    const scored = await page.waitForSelector("#colorlab-root >> text=この採点は服の色とタイプの相性のみ", { timeout: 15000 }).then(() => true).catch(() => false);
+    await fresh({ myType: "summer", mySecond: null, myFrame: null });
+    await openTile(/今日のコーデ採点/);
+    const pk = await pickers();
     const sc = await cardIds(/^スコアを底上げする/);
-    check(scored && sc.head === null && sc.ids.length === 0, `(6)(d) 12タイプ名が無い時、コーデ採点の商品欄は出ない（4タイプに戻さない） (結果${scored ? "あり" : "なし"} / 見出し ${sc.head} / 商品 ${sc.ids.join(",") || "0点"})`);
+    const txt = strip2nd(await rootText());
+    check(pk.ok12 && sc.head === null && sc.ids.length === 0 && !FOUR.test(txt),
+      `(6)(d) 12タイプ名が無い時、コーデ採点は12タイプの入口を出し、商品欄・4タイプ名は出ない (12ボタン ${pk.ok12 ? "あり" : "なし"} / 4タイプボタン ${pk.four}個 / 見出し ${sc.head} / 商品 ${sc.ids.join(",") || "0点"} / 4タイプ名 ${(txt.match(FOUR_G) || []).join(",") || "なし"})`);
   }
 
   // (6)(a)(b)(c)
@@ -463,6 +486,86 @@ if (!STATIC_ONLY) {
   for (const place of ["checker", "score", "share"]) {
     const a = (got6["ブライトサマー"] || {})[place] || [], b = (got6["ソフトサマー"] || {})[place] || [];
     check(a.length > 0 && b.length > 0 && JSON.stringify(a) !== JSON.stringify(b), `(6)(c) ${place}: ブライトサマーとソフトサマーで商品が違う (${a.join(",")} / ${b.join(",")})`);
+  }
+
+  // (7) 5画面の入口を12タイプに（未診断で入る → 12タイプのボタンで選ぶ → 見出し・本文が12タイプ名）
+  //   (a) 入口に12タイプのボタンが12個（相性配色は2人分で各2個）・4タイプのボタンは0個
+  //   (b) 選んだ12タイプ名が見出し・本文に出る  (c) 4タイプ名（イエベ春/ブルベ夏/イエベ秋/ブルベ冬）が出ない（「2nd ○○」は除く）
+  const shot7 = async (screen, key, name) => {
+    if (!SHOOT || !SHOT6.includes(name)) return;
+    const file = join(OUT, `screens12_${screen}_${key}_${name}.png`);
+    await page.screenshot({ path: file, fullPage: true });
+    shots.push(file);
+  };
+  const SCREENS = {
+    // 今日なに着る？（コーデ提案）
+    stylist: { tile: /パーソナルカラー別コーデ提案/, run: async (name) => {
+      await clickText(/にコーデを提案してもらう/);
+      await page.waitForSelector("#colorlab-root >> text=の服をもっと見る", { timeout: 10000 }).catch(() => {});
+      const t = await rootText();
+      return [[`${name}の服をもっと見る`, t.includes(`${name}の服をもっと見る →`)], [`${name}の勝ち色は`, !t.includes("の勝ち色は") || t.includes(`${name}の勝ち色は`)]];
+    } },
+    // ふたりの相性配色（相手は KEYS の次のタイプ）
+    pair: { tile: /ふたりの相性配色/, per: 2, run: async (name, partner) => {
+      await page.locator("#colorlab-root button", { hasText: new RegExp("^" + partner + "$") }).nth(1).click();
+      await page.waitForTimeout(200);
+      const t = await rootText();
+      return [[`${name} × ${partner}`, t.includes(`${name} × ${partner}`)], [`${name}のあなたに似合うコーデ一式`, t.includes(`${name}のあなたに似合うコーデ一式`)], [`${name}の服をもっと見る`, t.includes(`${name}の服をもっと見る →`)]];
+    } },
+    // 骨格診断（8問に答えた結果の画面で選ぶ）
+    frame: { tile: /^骨格診断/, before: async () => {
+      for (let i = 0; i < 12; i++) {
+        if ((await rootText()).includes("注意したいデザイン")) break;
+        await page.locator("#colorlab-root button.w-full.text-left").first().click();
+        await page.waitForTimeout(120);
+      }
+    }, run: async (name) => {
+      const t = await rootText();
+      return [[`${name}×骨格…のあなたに似合う服はコレ！`, new RegExp(name + "×骨格.+のあなたに似合う服はコレ！").test(t)], [`${name}のおすすめコスメを見る`, t.includes(`${name}のおすすめコスメを見る →`)]];
+    } },
+    // 今季の買い足しワードローブ（STEP1〜3 → 提案）
+    wardrobe: { tile: /買い足しワードローブ/, run: async (name) => {
+      const t0 = await rootText();
+      await clickText(/^通勤・仕事$/); await clickText(/^次へ →$/); await clickText(/^次へ →$/);
+      await clickText(/コーデがワンパターン/); await clickText(/^提案を見る →$/);
+      const t = await rootText();
+      return [[`入口のタイプ表示 ${name}`, t0.includes(name)], [`${name}の…服をもっと見る`, new RegExp(name + "の.{1,4}服をもっと見る").test(t)]];
+    } },
+    // 今日のコーデ採点（合成写真で採点）
+    score: { tile: /今日のコーデ採点/, run: async (name) => {
+      const t0 = await rootText();
+      await page.locator("#colorlab-root input[type=file]").last().setInputFiles({ name: "outfit.png", mimeType: "image/png", buffer: outfitPhoto });
+      await page.waitForSelector("#colorlab-root >> text=この採点は服の色とタイプの相性のみ", { timeout: 15000 }).catch(() => {});
+      const t = await rootText();
+      return [[`測って${name}との色の相性`, t0.includes(`測って${name}との色の相性`)], [`${name}との色の相性スコア`, t.includes(`${name}との色の相性スコア`)], [`スコアを底上げする${name}の得意色アイテム`, t.includes(`スコアを底上げする${name}の得意色アイテム`)]];
+    } },
+  };
+  for (const [screen, S] of Object.entries(SCREENS)) {
+    for (const [i, [key, name]] of KEYS.entries()) {
+      const partner = KEYS[(i + 1) % KEYS.length][1];
+      await fresh(null);
+      await openTile(S.tile);
+      if (S.before) await S.before();
+      const pk = await pickers(S.per || 1);
+      const entryTxt = strip2nd(await rootText());
+      check(pk.ok12, `${key} ${name}: (7)(a) ${screen} の入口に12タイプのボタン${S.per ? "（2人分）" : ""}・4タイプのボタン0個 (4タイプ ${pk.four}個 / 12タイプ ${Object.values(pk.cnt).join("")})`);
+      if (SHOOT && i === 0) {
+        const file = join(OUT, `screens12_${screen}_entry.png`);
+        await page.screenshot({ path: file, fullPage: true });
+        shots.push(file);
+      }
+      const btn = page.locator("#colorlab-root button", { hasText: new RegExp("^" + name + "$") });
+      if (!pk.ok12 || !(await btn.count())) { check(false, `${key} ${name}: (7)(b) ${screen} で「${name}」を選べない`); continue; }
+      await btn.first().click();
+      await page.waitForTimeout(250);
+      const res = await S.run(name, partner);
+      const miss = res.filter(([, ok]) => !ok).map(([l]) => l);
+      check(miss.length === 0, `${key} ${name}: (7)(b) ${screen} の見出し・本文が12タイプ名${miss.length ? " (出ない: " + miss.join(" / ") + ")" : ""}`);
+      const txt = strip2nd(await rootText());
+      const back = [...new Set([...(entryTxt.match(FOUR_G) || []), ...(txt.match(FOUR_G) || [])])];
+      check(back.length === 0, `${key} ${name}: (7)(c) ${screen} に4タイプ名が出ない${back.length ? " (出た: " + back.join(",") + ")" : ""}`);
+      await shot7(screen, key, name);
+    }
   }
   await browser.close();
   server.close();

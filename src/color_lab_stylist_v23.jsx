@@ -2202,7 +2202,9 @@ async function aiStylist(type, secondKey, tpo, mood, sub, worries, hair, frame, 
     // 効果語は「上品」「なじむ」「健康的」など品詞がまちまちなので、括弧書きにして文法に依存させない
     const accent = win[1] ? `とくに${win[0][0]}（${win[0][1]}）と${win[1][0]}（${win[1][1]}）が効きます。`
                           : `とくに${win[0][0]}（${win[0][1]}）が効きます。`;
-    if (!push(`${type.name}の勝ち色は${names}。${accent}`)) push(`${type.name}の勝ち色は${names}。`);
+    // v1.22.14: タイプ名は12タイプ名（入口で12タイプを選ぶので secondKey は必ずある）
+    const name12 = type12Name(type.key, secondKey);
+    if (!push(`${name12}の勝ち色は${names}。${accent}`)) push(`${name12}の勝ち色は${names}。`);
   }
   // 3) 避けたい色（記事のNG色）
   if (ng.length) push(`避けたいのは${ng[0][0]}（${ng[0][1]}）。`);
@@ -2304,13 +2306,13 @@ async function aiScoreOutfit(base64, mediaType, type, name12) {
   // ── good（60字）──
   let good;
   if (tw && bw) {
-    good = `トップスの${tw}もボトムスの${bw}も${type.name}の勝ち色。全身で色がそろっています。`;
+    good = `トップスの${tw}もボトムスの${bw}も${name12}の勝ち色。全身で色がそろっています。`;
   } else if (tw) {
-    good = `トップスの${tw}は${type.name}の得意色。顔まわりが明るく見えます。`;
+    good = `トップスの${tw}は${name12}の得意色。顔まわりが明るく見えます。`;
   } else if (bw) {
-    good = `ボトムスの${bw}は${type.name}の得意色。全体が落ち着いてまとまります。`;
+    good = `ボトムスの${bw}は${name12}の得意色。全体が落ち着いてまとまります。`;
   } else if (!tn && !bn) {
-    good = `大きく外した色はありません。${(TYPES[key].palette10[0] || [])[0]}を差し色に足すと、より${type.name}らしくなります。`;
+    good = `大きく外した色はありません。${(TYPES[key].palette10[0] || [])[0]}を差し色に足すと、より${name12}らしくなります。`;
   } else {
     good = `色を意識して選べている部分があります。顔まわりを得意色にすると印象が変わります。`;
   }
@@ -2321,7 +2323,7 @@ async function aiScoreOutfit(base64, mediaType, type, name12) {
   const worst = tn && bn ? (pt <= pb ? { c: tn, where: "トップス" } : { c: bn, where: "ボトムス" })
     : tn ? { c: tn, where: "トップス" } : bn ? { c: bn, where: "ボトムス" } : null;
   if (worst) {
-    improve = `${worst.where}の${worst.c.name}は${name12 || type.name}が苦手な色。${worst.c.why}ため、${worst.c.alt.name}に置き換えると顔映りが変わります。`;
+    improve = `${worst.where}の${worst.c.name}は${name12}が苦手な色。${worst.c.why}ため、${worst.c.alt.name}に置き換えると顔映りが変わります。`;
   } else if (!tw) {
     improve = `顔に近いトップスを得意色にすると効果が大きいです。${(TYPES[key].palette10[0] || [])[0]}や${(TYPES[key].palette10[1] || [])[0]}を試してみてください。`;
   } else {
@@ -3516,13 +3518,14 @@ function TypePicker({ value, onChange, label }) {
 // 選んだら 1位・2位（TYPE12_NAME の逆引き）をプロフィールに入れる。
 const TYPE12_KEYS = Object.fromEntries(Object.entries(TYPE12_NAME).map(([k, n]) =>
   [n, k.split("-").map((x) => Object.values(TYPES).find((t) => t.num === +x).key)]));
-function TypePicker12({ onChange, label }) {
+// v1.22.14: value（選んだ12タイプ名）を渡すと、TypePicker と同じ枠で選択中を示す（ふたりの相性配色用）。
+function TypePicker12({ value, onChange, label }) {
   return (
     <div className="mb-4">
       {label && <div className="text-xs mb-2" style={{ color: C.faint }}>{label}</div>}
       <div className="grid grid-cols-2 gap-2">
         {Object.keys(NG_COLORS_12).map((n) => (
-          <button key={n} onClick={() => onChange(n)} className="rounded-2xl px-3 py-3 text-sm text-left transition-all" style={{ border: "1px solid " + C.line, color: C.ink, background: "white" }}>
+          <button key={n} onClick={() => onChange(n)} className="rounded-2xl px-3 py-3 text-sm text-left transition-all" style={{ border: value === n ? `2px solid ${TYPES[TYPE12_KEYS[n][0]].accent}` : "1px solid " + C.line, color: C.ink, background: value === n ? TYPES[TYPE12_KEYS[n][0]].accent + "10" : "white" }}>
             <div className="flex gap-1 mb-1.5">{type12CalcPalette(n).slice(0, 4).map(([, c], i) => <span key={i} className="w-3.5 h-3.5 rounded-full" style={{ background: c, border: "1px solid #eee" }} />)}</div>
             {n}
           </button>
@@ -3669,6 +3672,9 @@ export default function App({ campaign = null, account = false } = {}) {
   // pair
   const [pA, setPA] = useState(null);
   const [pB, setPB] = useState(null);
+  // v1.22.14: ふたりの相性配色は12タイプから選ぶ。配色（PAIR）は4タイプの表なので pA/pB は1位の4タイプのまま、表示名は12タイプ名
+  const [pA12, setPA12] = useState(null);
+  const [pB12, setPB12] = useState(null);
   const [copied, setCopied] = useState(false);
 
   // photo（実測方式: intro=撮影条件 → guide=ライブカメラ → analyzing → rejected）
@@ -4168,7 +4174,7 @@ export default function App({ campaign = null, account = false } = {}) {
   };
 
   const pairData = pA && pB ? PAIR[pairKey(pA, pB)] : null;
-  const shareText = pairData ? `私たちの相性配色は【${pairData.title}】🎨\n${TYPES[pA].name} × ${TYPES[pB].name}\nあなたたちも診断してみて → @blube_lab @iebe_lab` : "";
+  const shareText = pairData ? `私たちの相性配色は【${pairData.title}】🎨\n${pA12} × ${pB12}\nあなたたちも診断してみて → @blube_lab @iebe_lab` : "";
   const copyShare = async () => { try { await navigator.clipboard.writeText(shareText); setCopied(true); setTimeout(() => setCopied(false), 2000); } catch (e) {} };
 
   const tpoJa = { work: "通勤", date: "デート", casual: "休日" };
@@ -4318,7 +4324,7 @@ export default function App({ campaign = null, account = false } = {}) {
                 { icon: <Brush size={17} />, label: "おすすめコスメ", accent: TILE.photo.accent, onClick: () => setMode("cosme") },
                 { icon: <Scissors size={17} />, label: "おすすめ髪色", accent: TILE.stylist.accent, onClick: () => setMode("hair") },
                 { icon: <ShoppingBag size={17} />, label: "買い足しワードローブ", accent: TILE.frame.accent, onClick: () => { setWdStep(1); setWdScene(null); setWdOwned([]); setWdWorry(null); setMode("wardrobe"); } },
-                { icon: <Heart size={17} />, label: "ふたりの相性配色", accent: TILE.combo.accent, onClick: () => { setPA(null); setPB(null); setMode("pair"); } },
+                { icon: <Heart size={17} />, label: "ふたりの相性配色", accent: TILE.combo.accent, onClick: () => { setPA(null); setPB(null); setPA12(null); setPB12(null); setMode("pair"); } },
               ].map((it, i) => <HomeCardButton key={i} {...it} />)}
             </div>
               <p className="mt-8 text-center text-xs" style={{ color: "#b3aab2" }}>BLUBEL / IEBEL presents・登録不要</p>
@@ -4807,11 +4813,11 @@ export default function App({ campaign = null, account = false } = {}) {
           <div>
             <Header title="今日なに着る？" onBack={goHome} />
             <div className="px-8 pb-12 pt-3">
-              {!myType && <TypePicker value={myType} onChange={(k) => { setMyType(k); setMySecond(null); }} label="あなたのタイプは？（未診断なら12タイプ診断へ）" />}
-              {myType && (
+              {!MY12 && <TypePicker12 onChange={(n12) => { setMyType(TYPE12_KEYS[n12][0]); setMySecond(TYPE12_KEYS[n12][1]); setStResult(null); }} label="あなたのタイプは？（12タイプから選んでください）" />}
+              {MY12 && (
                 <>
                   <div className="inline-flex items-center gap-2 mb-5 px-3 py-1.5 rounded-full text-xs" style={{ background: TYPES[myType].accent + "14", color: TYPES[myType].accent }}>
-                    {mySecond ? type12Name(myType, mySecond) : TYPES[myType].name} <button onClick={() => { setMyType(null); setMySecond(null); setStResult(null); }} className="underline text-xs font-normal" style={{ color: C.faint }}>変更</button>
+                    {MY12} <button onClick={() => { setMyType(null); setMySecond(null); setStResult(null); }} className="underline text-xs font-normal" style={{ color: C.faint }}>変更</button>
                   </div>
                   <div className="text-base font-bold mb-2.5" style={{ color: C.ink }}>今日のシーン</div>
                   <div className="flex gap-2 mb-5">
@@ -4906,7 +4912,7 @@ export default function App({ campaign = null, account = false } = {}) {
                       })}
                       <div className="text-xs mb-2.5 mt-5" style={{ color: C.faint }}>仕上げのコスメ</div>
                       {COSME[myType].map((item, i) => <CosmeCard key={i} item={item} />)}
-                      <a href={SITE_URL(TYPES[myType].site)} target="_blank" rel="noreferrer" className="block w-full text-center px-6 py-3.5 rounded-full text-white text-sm font-medium mt-4 transition-transform hover:scale-105" style={{ background: TYPES[myType].accent }}>{MY12 || TYPES[myType].name}の服をもっと見る →</a>
+                      <a href={SITE_URL(TYPES[myType].site)} target="_blank" rel="noreferrer" className="block w-full text-center px-6 py-3.5 rounded-full text-white text-sm font-medium mt-4 transition-transform hover:scale-105" style={{ background: TYPES[myType].accent }}>{MY12}の服をもっと見る →</a>
                       <p className="mt-4 text-center text-[10px] leading-relaxed" style={{ color: "#b3aab2" }}>※コスメ紹介はアフィリエイト広告を含みます</p>
                     </div>
                   )}
@@ -4921,19 +4927,19 @@ export default function App({ campaign = null, account = false } = {}) {
           <div>
             <Header title="ふたりの相性配色" onBack={goHome} />
             <div className="px-8 pb-12 pt-3">
-              <TypePicker value={pA} onChange={setPA} label="あなたのタイプ" />
-              <TypePicker value={pB} onChange={setPB} label="相手のタイプ" />
+              <TypePicker12 value={pA12} onChange={(n12) => { setPA(TYPE12_KEYS[n12][0]); setPA12(n12); }} label="あなたのタイプ" />
+              <TypePicker12 value={pB12} onChange={(n12) => { setPB(TYPE12_KEYS[n12][0]); setPB12(n12); }} label="相手のタイプ" />
               {pairData && (
                 <div className="mt-6">
                   <div className="flex h-20 rounded-2xl overflow-hidden mb-5">{pairData.colors.map((c, i) => <div key={i} className="flex-1" style={{ background: c }} />)}</div>
-                  <div className="text-xs tracking-widest uppercase mb-1" style={{ color: C.main }}>{TYPES[pA].name} × {TYPES[pB].name}</div>
+                  <div className="text-xs tracking-widest uppercase mb-1" style={{ color: C.main }}>{pA12} × {pB12}</div>
                   <h3 className="font-serif text-2xl mb-3" style={{ color: C.ink }}>{pairData.title}</h3>
                   <p className="text-sm leading-relaxed mb-6" style={{ color: "#4a434f" }}>{pairData.text}</p>
                   <div className="flex gap-3">
                     <button onClick={copyShare} className="flex-1 inline-flex items-center justify-center gap-1.5 px-4 py-3 rounded-full text-sm" style={{ border: "1px solid " + C.line, color: "#6b6370" }}>
                       {copied ? <Check size={15} /> : <Copy size={15} />}{copied ? "コピーしました" : "結果をシェア"}
                     </button>
-                    <button onClick={() => { setPA(null); setPB(null); }} className="inline-flex items-center justify-center gap-1.5 px-4 py-3 rounded-full text-sm" style={{ border: "1px solid " + C.line, color: "#6b6370" }}><RotateCcw size={15} /> もう一度</button>
+                    <button onClick={() => { setPA(null); setPB(null); setPA12(null); setPB12(null); }} className="inline-flex items-center justify-center gap-1.5 px-4 py-3 rounded-full text-sm" style={{ border: "1px solid " + C.line, color: "#6b6370" }}><RotateCcw size={15} /> もう一度</button>
                   </div>
                   {(() => {
                     const site = TYPES[pA].site;
@@ -4947,10 +4953,10 @@ export default function App({ campaign = null, account = false } = {}) {
                     return coord.length ? (
                       <div className="mt-8 pt-6" style={{ borderTop: "1px dashed " + C.line }}>
                         <div className="text-xs tracking-widest uppercase mb-1" style={{ color: TYPES[pA].accent }}>Your Pair Coordinate</div>
-                        <h4 className="font-serif text-lg mb-1" style={{ color: C.ink }}>{TYPES[pA].name}のあなたに似合うコーデ一式</h4>
+                        <h4 className="font-serif text-lg mb-1" style={{ color: C.ink }}>{pA12}のあなたに似合うコーデ一式</h4>
                         <p className="text-xs leading-relaxed mb-4" style={{ color: C.sub }}>ペアで並んだとき、この配色を活かせる{TYPES[pA].siteName}のアイテムです。</p>
                         {coord.map((sku) => <SkuCard key={sku.id} sku={sku} site={site} accent={TYPES[pA].accent} />)}
-                        <a href={SITE_URL(site)} target="_blank" rel="noreferrer" className="block w-full text-center px-6 py-3 rounded-full text-white text-sm font-medium mt-2 transition-transform hover:scale-105" style={{ background: TYPES[pA].accent }}>{TYPES[pA].name}の服をもっと見る →</a>
+                        <a href={SITE_URL(site)} target="_blank" rel="noreferrer" className="block w-full text-center px-6 py-3 rounded-full text-white text-sm font-medium mt-2 transition-transform hover:scale-105" style={{ background: TYPES[pA].accent }}>{pA12}の服をもっと見る →</a>
                       </div>
                     ) : null;
                   })()}
@@ -5077,9 +5083,9 @@ export default function App({ campaign = null, account = false } = {}) {
                 <div><div className="text-xs mb-2" style={{ color: C.faint }}>得意なデザイン</div><div className="space-y-2">{FRAMES[myFrame].good.map((g, i) => <div key={i} className="flex items-center gap-3 rounded-xl px-4 py-2.5" style={{ background: FRAMES[myFrame].accent + "10", color: FRAMES[myFrame].accent }}><DesignIcon label={g} /><span className="text-sm font-medium">{g}</span></div>)}</div></div>
                 <div><div className="text-xs mb-2" style={{ color: C.faint }}>注意したいデザイン</div><div className="space-y-2">{FRAMES[myFrame].ng.map((n, i) => <div key={i} className="flex items-center gap-3 rounded-xl px-4 py-2.5" style={{ background: "#f2eef1", color: "#8a828d" }}><DesignIcon label={n} /><span className="text-sm font-medium">{n}</span></div>)}</div></div>
               </div>
-              {myType ? (
+              {MY12 ? (
                 <>
-                  <h3 className="font-serif text-xl leading-snug mb-2" style={{ color: C.ink }}>{MY12 || TYPES[myType].name}×骨格{FRAMES[myFrame].name}のあなたに似合う服はコレ！</h3>
+                  <h3 className="font-serif text-xl leading-snug mb-2" style={{ color: C.ink }}>{MY12}×骨格{FRAMES[myFrame].name}のあなたに似合う服はコレ！</h3>
                   <p className="text-xs leading-relaxed mb-3" style={{ color: C.sub }}>似合う色（パーソナルカラー）と似合う形（骨格）の両方で絞り込んだ、あなた専用のセレクトです。</p>
                   <div className="text-xs mb-2" style={{ color: C.faint }}>あなたに似合うカラーパレット</div>
                   <div className="grid grid-cols-5 gap-2 mb-4">
@@ -5091,11 +5097,13 @@ export default function App({ campaign = null, account = false } = {}) {
                     ))}
                   </div>
                   {SKUS[TYPES[myType].site].filter((sku) => sku.frame && sku.frame.includes(myFrame)).slice(0, 3).map((sku) => <SkuCard key={sku.id} sku={sku} site={TYPES[myType].site} accent={TYPES[myType].accent} />)}
-                  <button onClick={() => setMode("cosme")} className="block w-full text-center px-6 py-3.5 rounded-full text-white text-sm font-medium mb-3 mt-2 transition-transform hover:scale-105" style={{ background: TYPES[myType].accent }}>{TYPES[myType].name}のおすすめコスメを見る →</button>
+                  <button onClick={() => setMode("cosme")} className="block w-full text-center px-6 py-3.5 rounded-full text-white text-sm font-medium mb-3 mt-2 transition-transform hover:scale-105" style={{ background: TYPES[myType].accent }}>{MY12}のおすすめコスメを見る →</button>
                 </>
               ) : (
                 <>
                   <p className="text-sm leading-relaxed mb-4" style={{ color: C.sub }}>パーソナルカラー診断と組み合わせると、「似合う色×似合う形」であなた専用の提案ができます♡</p>
+                  {/* v1.22.14: 12タイプが分かっていれば、ここで選んで組み合わせる（4タイプには戻さない） */}
+                  <TypePicker12 onChange={(n12) => { setMyType(TYPE12_KEYS[n12][0]); setMySecond(TYPE12_KEYS[n12][1]); }} label="あなたのタイプは？（12タイプから選んでください）" />
                   <button onClick={startQuiz} className="block w-full text-center px-6 py-3.5 rounded-full text-white text-sm font-medium mb-3" style={{ background: C.main }}>12タイプ カラー診断へ →</button>
                 </>
               )}
@@ -5501,11 +5509,11 @@ export default function App({ campaign = null, account = false } = {}) {
             <div>
               <Header title="今季の買い足しワードローブ" onBack={goHome} />
               <div className="px-8 pb-12 pt-3">
-                {!myType && <TypePicker value={myType} onChange={(k) => { setMyType(k); setMySecond(null); }} label="あなたのタイプは？（未診断なら12タイプ診断へ）" />}
-                {myType && (
+                {!MY12 && <TypePicker12 onChange={(n12) => { setMyType(TYPE12_KEYS[n12][0]); setMySecond(TYPE12_KEYS[n12][1]); }} label="あなたのタイプは？（12タイプから選んでください）" />}
+                {MY12 && (
                   <>
                     <div className="inline-flex items-center gap-2 mb-4 px-4 py-2 rounded-full text-lg font-bold" style={{ background: TYPES[myType].accent + "14", color: TYPES[myType].accent }}>
-                      {TYPES[myType].name}{myFrame ? ` × 骨格${FRAMES[myFrame].name}` : ""} <button onClick={() => { setMyType(null); setWdStep(1); }} className="underline text-xs font-normal" style={{ color: C.faint }}>変更</button>
+                      {MY12}{myFrame ? ` × 骨格${FRAMES[myFrame].name}` : ""} <button onClick={() => { setMyType(null); setMySecond(null); setWdStep(1); }} className="underline text-xs font-normal" style={{ color: C.faint }}>変更</button>
                     </div>
 
                     {/* STEP 1: シーン＋骨格 */}
@@ -5607,7 +5615,7 @@ export default function App({ campaign = null, account = false } = {}) {
                               </div>
                             );
                           })}
-                          <a href={SITE_URL(TYPES[myType].site)} target="_blank" rel="noreferrer" className="block w-full text-center px-6 py-3.5 rounded-full text-white text-sm font-medium mb-2 transition-transform hover:scale-105" style={{ background: TYPES[myType].accent }}>{MY12 || TYPES[myType].name}の{SEASON_LABEL[seasonKey]}服をもっと見る →</a>
+                          <a href={SITE_URL(TYPES[myType].site)} target="_blank" rel="noreferrer" className="block w-full text-center px-6 py-3.5 rounded-full text-white text-sm font-medium mb-2 transition-transform hover:scale-105" style={{ background: TYPES[myType].accent }}>{MY12}の{SEASON_LABEL[seasonKey]}服をもっと見る →</a>
                           <button onClick={() => { setWdStep(1); setWdScene(null); setWdOwned([]); setWdWorry(null); }} className="w-full py-2.5 rounded-full text-xs" style={{ border: "1px solid " + C.line, color: "#6b6370" }}>条件を変えてやり直す</button>
                         </div>
                       );
@@ -5625,18 +5633,18 @@ export default function App({ campaign = null, account = false } = {}) {
           <div>
             <Header title="今日のコーデ採点" onBack={goHome} />
             <div className="px-8 pb-12 pt-3">
-              {!myType && <TypePicker value={myType} onChange={(k) => { setMyType(k); setMySecond(null); }} label="あなたのタイプは？（未診断なら12タイプ診断へ）" />}
-              {myType && (
+              {!MY12 && <TypePicker12 onChange={(n12) => { setMyType(TYPE12_KEYS[n12][0]); setMySecond(TYPE12_KEYS[n12][1]); }} label="あなたのタイプは？（12タイプから選んでください）" />}
+              {MY12 && (
                 <>
                   <div className="inline-flex items-center gap-2.5 mb-3 px-6 py-3 rounded-full text-2xl font-bold" style={{ background: TYPES[myType].accent + "14", color: TYPES[myType].accent }}>
-                    {TYPES[myType].name} <button onClick={() => { setMyType(null); setScResult(null); setScStep("intro"); }} className="underline text-xs font-normal" style={{ color: C.faint }}>変更</button>
+                    {MY12} <button onClick={() => { setMyType(null); setMySecond(null); setScResult(null); setScStep("intro"); }} className="underline text-xs font-normal" style={{ color: C.faint }}>変更</button>
                   </div>
 
                   {/* ── STEP: intro ── */}
                   {scStep === "intro" && (
                     <>
                       <p className="text-xs leading-relaxed mb-4" style={{ color: C.sub }}>
-                        今日のコーデを、トップスとボトムスの2か所で測って{TYPES[myType].name}との<strong style={{ color: C.ink }}>色の相性</strong>を採点します。写真は端末の中だけで処理され、送信も保存もされません。
+                        今日のコーデを、トップスとボトムスの2か所で測って{MY12}との<strong style={{ color: C.ink }}>色の相性</strong>を採点します。写真は端末の中だけで処理され、送信も保存もされません。
                       </p>
                       <div className="rounded-2xl p-4 mb-5" style={{ background: "#faf7f9", border: "1px solid #f0e9ef" }}>
                         <p className="text-[11px] leading-relaxed" style={{ color: C.sub }}>
@@ -5771,7 +5779,7 @@ export default function App({ campaign = null, account = false } = {}) {
                         </div>
                       )}
                       <div className="rounded-2xl p-6 mb-4 text-center" style={{ background: "#faf7f9", border: "1px solid #f0e9ef" }}>
-                        <div className="text-xs mb-1" style={{ color: C.faint }}>{TYPES[myType].name}との色の相性スコア</div>
+                        <div className="text-xs mb-1" style={{ color: C.faint }}>{MY12}との色の相性スコア</div>
                         <div className="font-serif text-5xl" style={{ color: TYPES[myType].accent }}>{scResult.score}<span className="text-xl" style={{ color: C.faint }}> / 100</span></div>
                       </div>
                       <div className="rounded-2xl p-4 mb-3" style={{ border: "1px solid " + C.line }}>
