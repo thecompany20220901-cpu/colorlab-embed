@@ -2216,7 +2216,7 @@ async function aiStylist(type, secondKey, tpo, mood, sub, worries, hair, frame, 
   // 5) 2ndタイプの遊び（1点だけ効かせる、という既存の考え方）
   if (secondKey && TYPES[secondKey]) {
     const sw = scene.w && scene.w[secondKey];
-    if (sw && sw.length) push(`小物に2nd ${TYPES[secondKey].name}の${sw[0][0]}を1点だけ。`);
+    if (sw && sw.length) push(`小物に2ndタイプの${sw[0][0]}を1点だけ。`); // v1.22.14: 4タイプ名は出さない
   }
   // 6) 商品の一言（記事が付けている場合）
   if (scene.sn) push(scene.sn);

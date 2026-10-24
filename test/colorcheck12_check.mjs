@@ -15,13 +15,16 @@
 //       src に固定表示 SKUS[...].slice(0, 3) が残っていないことも見る
 //   (7) v1.22.14 作業②: 4タイプの入口だった5画面（コーデ提案・ふたりの相性配色・骨格診断・買い足しワードローブ・今日のコーデ採点）を
 //       12タイプの入口（TypePicker12）に。12タイプ × 5画面で (a) 入口に12タイプのボタン・4タイプのボタン0個
-//       (b) 選んだ12タイプ名が見出し・本文に出る (c) 4タイプ名が出ない（「2nd ○○」は除く）。src の `|| TYPES[...].name` も0件
+//       (b) 選んだ12タイプ名が見出し・本文に出る (c) 画面全体に4タイプ名が出ない（除外なし）。src の `|| TYPES[...].name` も0件
+//   (8) v1.22.14 A・B・C: 12タイプ × 全画面（ホーム・診断結果・コスメ・髪色・試し塗り・相性配色・骨格→コスメ・NGカラー・チェッカー）で
+//       4タイプ名0件（ホームと診断結果の「2nd ○○」だけは2位を示す既存の表示なので除く）。色で決める商品（今日の1点・2nd Type・相性配色・
+//       セルフカード）が NG_PRODUCTS_12 と一致し、NG色の商品が出ない
 // 期待値はこのファイルに直接書く（src から読まない）。
 // 実行: npm run build:colorlab && node test/colorcheck12_check.mjs [バンドル] [--src ファイル] [--static-only]
 //   バンドル省略時は dist/colorlab.iife.js。スクリーンショットはバンドル省略時だけ out/colorcheck12/ に撮る。
 // ネガティブテスト: v1.22.12 の src / バンドル、または COLOR_CHECK_12 から1件消した src を渡すと FAIL（exit 1）になること。
 //   (6) は v1.22.13 の src / バンドル（商品が固定表示）を渡すと FAIL になること。
-//   (7) は v1.22.14 作業①（26a201d）の src / バンドル（入口が4タイプ）を渡すと FAIL になること。
+//   (7)(8) は v1.22.14 作業①（26a201d）の src / バンドル（入口が4タイプ）を渡すと FAIL になること。
 import { chromium } from "playwright";
 import { createServer } from "http";
 import { readFileSync, writeFileSync, existsSync, mkdirSync, statSync } from "fs";
@@ -137,7 +140,12 @@ const shareLine = (sku) => {
   const t = sku.name.replace(/【[^】]*】/g, "").replace(/^(ブルベ夏\/ブルベ冬服|ブルベ夏服|ブルベ冬服|イエベ春\/イエベ秋服|イエベ春服|イエベ秋服)[\s　]*/, "").trim();
   return "・" + (t.length > 16 ? t.slice(0, 16) + "…" : t);
 };
-const SHOT6 = ["ブライトサマー", "ソフトサマー", "ウォームスプリング"]; // (6) のスクリーンショットを撮るタイプ
+const SHOT6 = ["ブライトサマー", "ソフトサマー", "ウォームスプリング"]; // (6)(7)(8) のスクリーンショットを撮るタイプ
+// (8) 用: 12タイプ名 → 2位を1位にした12タイプ名（"2-1" → "1-2"）／プロフィール（1位・2位の4タイプ key）
+const NAME_OF = Object.fromEntries(KEYS);
+const REV12 = Object.fromEntries(KEYS.map(([k, n]) => [n, NAME_OF[k.split("-").reverse().join("-")]]));
+const NUM_KEY = { 1: "spring", 2: "summer", 3: "autumn", 4: "winter" };
+const PROFILE12 = Object.fromEntries(KEYS.map(([k, n]) => [n, { myType: NUM_KEY[k[0]], mySecond: NUM_KEY[k[2]], myFrame: null }]));
 const got6 = {}; // got6[タイプ][場所] = 商品 id（結果画像は商品行）の並び
 const put6 = (name, place, v) => { (got6[name] = got6[name] || {})[place] = v; };
 
@@ -173,6 +181,12 @@ const fixed = (src.match(/SKUS\[[^\]]+\]\.slice\(0, 3\)/g) || []).length;
 check(fixed === 0, `(6) src に商品の固定表示 SKUS[...].slice(0, 3) が残っていない (${fixed}件)`);
 const fb = (src.match(/\|\|\s*(TYPES\[[^\]]+\]|type)\.name\b/g) || []).length;
 check(fb === 0, `(7) src に4タイプ名へのフォールバック \`|| TYPES[...].name\` が残っていない (${fb}件)`);
+// (8) C: 色で決める商品の出どころ（セルフカードは実機で撮れないので src で見る）
+check(src.includes("const skus = site === T.site ? (NG_PRODUCTS_12[T12] || []) : pickCardSkus(site, CARD_SKU_LIMIT);"), "(8) セルフカードのおすすめ商品（担当サイト）が NG_PRODUCTS_12[12タイプ名]");
+check(src.includes("const luckyList = NG_PRODUCTS_12[MY12] || [];"), "(8) ホームの今日の1点が NG_PRODUCTS_12[MY12]");
+check(src.includes("NG_PRODUCTS_12[type12Name(quizResult.second, quizResult.first)]"), "(8) 診断結果の 2nd Type の商品が NG_PRODUCTS_12[type12Name(2位, 1位)]");
+check(src.includes("const coord = NG_PRODUCTS_12[pA12] || [];"), "(8) 相性配色の商品が NG_PRODUCTS_12[あなたの12タイプ名]");
+check(!/<TypePicker\s/.test(src), "(8) 4タイプのボタン（<TypePicker ）を使う画面が0");
 check(/const catalogSkus = NG_PRODUCTS_12\[typeName\] \|\| \[\];/.test(src), "(6) 結果画像の商品が NG_PRODUCTS_12[typeName]");
 check(KEYS.every(([, n]) => (NGP[n] || []).length === (n === "ウォームスプリング" ? 2 : 3)), "(6) NG_PRODUCTS_12 が12タイプ分（ウォームスプリング2点・ほか3点）");
 
@@ -260,7 +274,10 @@ if (!STATIC_ONLY) {
   const base = "http://127.0.0.1:" + server.address().port;
   const browser = await chromium.launch();
   const page = await browser.newPage({ viewport: { width: 390, height: 900 } });
-  page.on("pageerror", (e) => ng.push("pageerror: " + e.message));
+  // どこで起きたか分かるよう、stack の先頭と、その時に開いたタイル（openTile の正規表現）も残す
+  let lastScreen = "";
+  page.on("pageerror", (e) => ng.push("pageerror: " + e.message + " @ " + String(e.stack || "").split("\n").slice(1, 3).map((x) => x.trim()).join(" / ")
+    + " [画面] " + lastScreen));
   // (6) 結果画像は canvas なので、描いた文字（fillText）と画像（toBlob の直前の canvas）を控える
   await page.addInitScript(() => {
     const ft = CanvasRenderingContext2D.prototype.fillText;
@@ -291,7 +308,7 @@ if (!STATIC_ONLY) {
     await page.reload({ waitUntil: "domcontentloaded" });
     await page.waitForSelector("#colorlab-root button", { timeout: 15000 });
   };
-  const openTile = async (re) => { await page.locator("#colorlab-root button", { hasText: re }).first().click(); await page.waitForTimeout(300); };
+  const openTile = async (re) => { lastScreen = String(re); await page.locator("#colorlab-root button", { hasText: re }).first().click(); await page.waitForTimeout(300); };
   const clickText = async (re) => { await page.locator("#colorlab-root button", { hasText: re }).first().click(); await page.waitForTimeout(200); };
   const rootText = () => page.evaluate(() => document.querySelector("#colorlab-root").innerText);
   // 画面に出ているタイプボタン: 12タイプ名それぞれの個数と、4タイプ名だけのボタンの個数
@@ -304,7 +321,8 @@ if (!STATIC_ONLY) {
   }, [NAMES12, per]);
   const FOUR = /イエベ春|ブルベ夏|イエベ秋|ブルベ冬/, FOUR_G = /イエベ春|ブルベ夏|イエベ秋|ブルベ冬/g;
   // 「2nd ○○」は2位の4タイプを示す既存の表示なので、戻りに数えない
-  const strip2nd = (t) => t.replace(/2nd\s*(イエベ春|ブルベ夏|イエベ秋|ブルベ冬)/g, "2nd");
+  // 「2nd ○○」「2nd（○○）」（全角かっこ）の両方
+  const strip2nd = (t) => t.replace(/2nd[\s（]*(イエベ春|ブルベ夏|イエベ秋|ブルベ冬)/g, "2nd");
   console.log("bundle: " + BUNDLE);
 
   // (3)(5) 結果画面
@@ -361,6 +379,30 @@ if (!STATIC_ONLY) {
         bcTop: rb ? rb.top + scrollY - 40 : null, bcBottom: rb ? rb.bottom + scrollY : null };
     });
     check(info.rows.length === 24, `${key} ${name}: (3) 顔映りチェックが24行 (${info.rows.length})`);
+    // (8) 診断結果: 画面に4タイプ名が出ない（「2nd ○○」だけは2位を示す既存の表示なので除く）／2nd Type の商品が12タイプ別
+    {
+      const rtxt = strip2nd(await rootText());
+      const hit4 = [...new Set(rtxt.match(FOUR_G) || [])];
+      check(hit4.length === 0, `${key} ${name}: (8) 診断結果に4タイプ名が出ない（2nd表記は除く）${hit4.length ? " (出た: " + hit4.join(",") + ")" : ""}`);
+      const rev = REV12[name];
+      const nd = await page.evaluate(() => {
+        const root = document.querySelector("#colorlab-root");
+        const h = [...root.querySelectorAll("h4")].find((e) => e.textContent.trim() === "1stで無難に、2ndで冒険する");
+        const box = h && h.parentElement;
+        const ids = box ? [...box.querySelectorAll("a[href]")].filter((a) => /\/items\/\d+/.test(a.href)).map((a) => +a.href.match(/\/items\/(\d+)/)[1]) : [];
+        const r = box ? box.getBoundingClientRect() : null;
+        return { ids, top: r ? r.top + scrollY : null, bottom: r ? r.bottom + scrollY : null };
+      });
+      const want = (NGP[rev] || []).slice(0, 1).map((s) => s.id);
+      check(nd.ids.length === 1 && JSON.stringify(nd.ids) === JSON.stringify(want), `${key} ${name}: (8) 2nd Type の商品が NG_PRODUCTS_12[${rev}] の1点目 (${nd.ids.join(",") || "0点"} / 期待 ${want.join(",")})`);
+      const h2 = ngHits(rev, nd.ids);
+      check(nd.ids.length > 0 && h2.length === 0, `${key} ${name}: (8) 2nd Type の商品に NG色（${rev}）が無い${h2.length ? " (" + h2.join(" ") + ")" : ""}`);
+      if (SHOOT && SHOT6.includes(name) && nd.top != null) {
+        const file = join(OUT, `screens12_result2nd_${key}_${name}.png`);
+        await page.screenshot({ path: file, fullPage: true, clip: { x: 0, y: Math.max(0, nd.top - 12), width: 390, height: nd.bottom - nd.top + 24 } });
+        shots.push(file);
+      }
+    }
     const bad = info.rows.filter(([n, r]) => !EXPECT[n] || EXPECT[n][name] !== r);
     check(info.rows.length === 24 && bad.length === 0, `${key} ${name}: (3) 24色の ◎○△✕ が表と一致${bad.length ? " (違う: " + bad.slice(0, 4).map(([n, r]) => `${n}=${r}/期待${EXPECT[n] && EXPECT[n][name]}`).join(" ") + ")" : ""}`);
     const order = info.rows.map(([, r]) => RANK.indexOf(r));
@@ -490,7 +532,7 @@ if (!STATIC_ONLY) {
 
   // (7) 5画面の入口を12タイプに（未診断で入る → 12タイプのボタンで選ぶ → 見出し・本文が12タイプ名）
   //   (a) 入口に12タイプのボタンが12個（相性配色は2人分で各2個）・4タイプのボタンは0個
-  //   (b) 選んだ12タイプ名が見出し・本文に出る  (c) 4タイプ名（イエベ春/ブルベ夏/イエベ秋/ブルベ冬）が出ない（「2nd ○○」は除く）
+  //   (b) 選んだ12タイプ名が見出し・本文に出る  (c) 画面全体に4タイプ名（イエベ春/ブルベ夏/イエベ秋/ブルベ冬）が出ない（除外なし）
   const shot7 = async (screen, key, name) => {
     if (!SHOOT || !SHOT6.includes(name)) return;
     const file = join(OUT, `screens12_${screen}_${key}_${name}.png`);
@@ -547,7 +589,7 @@ if (!STATIC_ONLY) {
       await openTile(S.tile);
       if (S.before) await S.before();
       const pk = await pickers(S.per || 1);
-      const entryTxt = strip2nd(await rootText());
+      const entryTxt = await rootText(); // (7)(c) は画面全体・除外なし
       check(pk.ok12, `${key} ${name}: (7)(a) ${screen} の入口に12タイプのボタン${S.per ? "（2人分）" : ""}・4タイプのボタン0個 (4タイプ ${pk.four}個 / 12タイプ ${Object.values(pk.cnt).join("")})`);
       if (SHOOT && i === 0) {
         const file = join(OUT, `screens12_${screen}_entry.png`);
@@ -561,10 +603,118 @@ if (!STATIC_ONLY) {
       const res = await S.run(name, partner);
       const miss = res.filter(([, ok]) => !ok).map(([l]) => l);
       check(miss.length === 0, `${key} ${name}: (7)(b) ${screen} の見出し・本文が12タイプ名${miss.length ? " (出ない: " + miss.join(" / ") + ")" : ""}`);
-      const txt = strip2nd(await rootText());
+      const txt = await rootText();
       const back = [...new Set([...(entryTxt.match(FOUR_G) || []), ...(txt.match(FOUR_G) || [])])];
       check(back.length === 0, `${key} ${name}: (7)(c) ${screen} に4タイプ名が出ない${back.length ? " (出た: " + back.join(",") + ")" : ""}`);
       await shot7(screen, key, name);
+    }
+  }
+
+  // (8) v1.22.14 A・B・C: 12タイプ × 全画面で4タイプ名0件・色で決める商品が NG_PRODUCTS_12 と一致・NG色の商品が出ない
+  //   画面: ホーム（今日の1点）・おすすめコスメ・おすすめ髪色・リップ/髪色の試し塗り・ふたりの相性配色（商品）・骨格診断→コスメ・
+  //   NGカラー診断・この色、似合う？（診断結果と 2nd Type の商品は (3) のループで見ている）
+  //   ホームは「2nd ○○ で覚えています」（2位を示す既存の表示）だけ除く。ほかの画面は除外なし
+  const shot8 = async (screen, key, name) => {
+    if (!SHOOT || !SHOT6.includes(name)) return;
+    const file = join(OUT, `screens12_${screen}_${key}_${name}.png`);
+    await page.screenshot({ path: file, fullPage: true });
+    shots.push(file);
+  };
+  const four = (t) => [...new Set(t.match(FOUR_G) || [])];
+  for (const [i, [key, name]] of KEYS.entries()) {
+    const partner = KEYS[(i + 1) % KEYS.length][1];
+    const want = (NGP[name] || []).map((s) => s.id);
+    // ホーム（プロフィールに12タイプ）: 4タイプ名なし・今日の1点が NG_PRODUCTS_12 のどれか
+    await fresh(PROFILE12[name]);
+    {
+      const t = strip2nd(await rootText());
+      check(four(t).length === 0 && t.includes(`おかえりなさい、${name}さん`), `${key} ${name}: (8) ホームに4タイプ名が出ない・おかえりなさいが12タイプ名${four(t).length ? " (出た: " + four(t).join(",") + ")" : ""}`);
+      const lk = await page.evaluate(() => {
+        const a = [...document.querySelectorAll("#colorlab-root a[href]")].find((e) => e.textContent.trim().startsWith("今日の1点："));
+        return a && /\/items\/(\d+)/.test(a.href) ? +a.href.match(/\/items\/(\d+)/)[1] : null;
+      });
+      check(lk != null && want.includes(lk) && ngHits(name, [lk]).length === 0, `${key} ${name}: (8) 今日の1点が NG_PRODUCTS_12 の商品で NG色なし (${lk} / 候補 ${want.join(",")}${lk != null && ngHits(name, [lk]).length ? " / " + ngHits(name, [lk]).join(" ") : ""})`);
+      await shot8("home", key, name);
+    }
+    // NGカラー診断・この色、似合う？（プロフィールに12タイプ）: 4タイプ名なし
+    for (const [scr, tile] of [["ngcolor", /NGカラー診断/], ["checker", /この色、似合う？/]]) {
+      await fresh(PROFILE12[name]);
+      await openTile(tile);
+      const t = await rootText();
+      check(four(t).length === 0, `${key} ${name}: (8) ${scr} に4タイプ名が出ない${four(t).length ? " (出た: " + four(t).join(",") + ")" : ""}`);
+    }
+    // おすすめコスメ・おすすめ髪色・試し塗り（未診断 → 12タイプのボタンで選ぶ）
+    const SC8 = {
+      cosme: { tile: /おすすめコスメ/, run: async () => {
+        const t1 = await rootText();
+        await clickText(/^一式セット$/);
+        const t2 = await rootText();
+        return { t: t1 + "\n" + t2, need: [`${name}に似合うコスメはコレ！`, `${name}の肌と調和する`, `${name} フルメイク一式`] };
+      } },
+      hair: { tile: /おすすめ髪色/, run: async () => ({ t: await rootText(), need: [`${name}に似合う髪色はコレ！`, `${name}におすすめ`] }) },
+      tryon: { tile: /リップ・髪色 試し塗り/, run: async () => ({ t: await rootText(), need: [`指でなぞると${name}に似合う色が重なります`] }) },
+    };
+    for (const [scr, S] of Object.entries(SC8)) {
+      await fresh(null);
+      await openTile(S.tile);
+      const pk = await pickers();
+      const t0 = await rootText();
+      check(pk.ok12, `${key} ${name}: (8) ${scr} の入口に12タイプのボタン・4タイプのボタン0個 (4タイプ ${pk.four}個)`);
+      if (SHOOT && i === 0) {
+        const file = join(OUT, `screens12_${scr}_entry.png`);
+        await page.screenshot({ path: file, fullPage: true });
+        shots.push(file);
+      }
+      const btn = page.locator("#colorlab-root button", { hasText: new RegExp("^" + name + "$") });
+      if (!pk.ok12 || !(await btn.count())) { check(false, `${key} ${name}: (8) ${scr} で「${name}」を選べない`); continue; }
+      await btn.first().click();
+      await page.waitForTimeout(250);
+      await shot8(scr, key, name);
+      const r = await S.run();
+      const miss = r.need.filter((x) => !r.t.includes(x));
+      check(miss.length === 0, `${key} ${name}: (8) ${scr} の見出し・本文が12タイプ名${miss.length ? " (出ない: " + miss.join(" / ") + ")" : ""}`);
+      const b4 = four(t0 + "\n" + r.t);
+      check(b4.length === 0, `${key} ${name}: (8) ${scr} に4タイプ名が出ない${b4.length ? " (出た: " + b4.join(",") + ")" : ""}`);
+    }
+    // ふたりの相性配色の商品: 「あなた」の12タイプ名の NG_PRODUCTS_12
+    {
+      await fresh(null);
+      await openTile(/ふたりの相性配色/);
+      const pa = page.locator("#colorlab-root button", { hasText: new RegExp("^" + name + "$") });
+      const pb = page.locator("#colorlab-root button", { hasText: new RegExp("^" + partner + "$") });
+      if ((await pa.count()) < 1 || (await pb.count()) < 2) { check(false, `${key} ${name}: (8) 相性配色で12タイプを選べない`); continue; }
+      await pa.first().click();
+      await pb.nth(1).click();
+      await page.waitForTimeout(200);
+      const pc = await cardIds(/のあなたに似合うコーデ一式$/);
+      check(JSON.stringify(pc.ids) === JSON.stringify(want), `${key} ${name}: (8) 相性配色の商品が NG_PRODUCTS_12 と一致 (${pc.ids.join(",") || "0点"} / 期待 ${want.join(",")})`);
+      const h = ngHits(name, pc.ids);
+      check(pc.ids.length > 0 && h.length === 0, `${key} ${name}: (8) 相性配色の商品に NG色が無い${h.length ? " (" + h.join(" ") + ")" : ""}`);
+      if (SHOOT && SHOT6.includes(name) && pc.top != null) {
+        const file = join(OUT, `screens12_pairitems_${key}_${name}.png`);
+        await page.screenshot({ path: file, fullPage: true, clip: { x: 0, y: Math.max(0, pc.top - 12), width: 390, height: pc.bottom - pc.top + 24 } });
+        shots.push(file);
+      }
+    }
+    // 骨格診断 → 「〇〇のおすすめコスメを見る」→ コスメ画面が12タイプ名
+    {
+      await fresh(PROFILE12[name]);
+      await openTile(/^骨格診断/);
+      for (let q = 0; q < 12; q++) {
+        if ((await rootText()).includes("注意したいデザイン")) break;
+        await page.locator("#colorlab-root button.w-full.text-left").first().click();
+        await page.waitForTimeout(120);
+      }
+      const go = page.locator("#colorlab-root button", { hasText: new RegExp("^" + name + "のおすすめコスメを見る →$") });
+      const has = await go.count();
+      check(has > 0, `${key} ${name}: (8) 骨格診断のコスメへの導線が「${name}のおすすめコスメを見る →」`);
+      if (has) {
+        await go.first().click();
+        await page.waitForTimeout(250);
+        const t = await rootText();
+        check(t.includes(`${name}に似合うコスメはコレ！`) && four(t).length === 0, `${key} ${name}: (8) 骨格診断から入ったコスメ画面が12タイプ名・4タイプ名なし${four(t).length ? " (出た: " + four(t).join(",") + ")" : ""}`);
+        await shot8("frame2cosme", key, name);
+      }
     }
   }
   await browser.close();
