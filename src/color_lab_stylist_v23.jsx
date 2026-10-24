@@ -153,28 +153,28 @@ const AMZ = (q) => `https://www.amazon.co.jp/s?k=${encodeURIComponent(q)}&tag=bl
 // リンクはすべて実データ（RK/AMZ）。noteはタイプ別に書き分け。
 const COSME = {
   spring: [
-    { name: "KATE リップモンスター 02 Pink banana", price: 1540, cat: "リップ", rakuten: RK("KATE リップモンスター 02"), amazon: AMZ("KATE リップモンスター 02"), note: "イエベ春の血色感を引き出す定番" },
+    { name: "KATE リップモンスター 02 Pink banana", price: 1540, cat: "リップ", rakuten: RK("KATE リップモンスター 02"), amazon: AMZ("KATE リップモンスター 02"), note: "血色感を引き出す定番" },
     { name: "rom&nd ベターザンパレット 04 アンビエントライトデイ", price: 2750, cat: "アイシャドウ", rakuten: RK("rom&nd ベターザンパレット 04"), amazon: AMZ("rom%26nd ベターザンパレット 04"), note: "明るくクリアな春の目元に" },
     { name: "CEZANNE ナチュラルチークN 04 シャインベージュ", price: 396, cat: "チーク", rakuten: RK("CEZANNE ナチュラルチーク 04"), amazon: AMZ("CEZANNE ナチュラルチーク 04"), note: "ふんわり明るい頬に" },
     { name: "メイベリン ラッシュニスタ N ブラウン", price: 1400, cat: "マスカラ", rakuten: RK("メイベリン ラッシュニスタ ブラウン"), amazon: AMZ("メイベリン ラッシュニスタ ブラウン"), note: "軽やかブラウンでやわらかい目元に" },
     { name: "キャンメイク クリーミータッチライナー 04 グレージュ", price: 715, cat: "アイライナー", rakuten: RK("キャンメイク クリーミータッチライナー 04"), amazon: AMZ("キャンメイク クリーミータッチライナー 04"), note: "抜け感のあるグレージュライン" },
   ],
   autumn: [
-    { name: "KATE リップモンスター 04 パンプキンワイン", price: 1540, cat: "リップ", rakuten: RK("KATE リップモンスター 04"), amazon: AMZ("KATE リップモンスター 04"), note: "イエベ秋に寄り添う黄み系の上品カラー" },
+    { name: "KATE リップモンスター 04 パンプキンワイン", price: 1540, cat: "リップ", rakuten: RK("KATE リップモンスター 04"), amazon: AMZ("KATE リップモンスター 04"), note: "黄み系の上品カラー" },
     { name: "CANMAKE パーフェクトスタイリストアイズ 14 アンティークテラコッタ", price: 858, cat: "アイシャドウ", rakuten: RK("CANMAKE パーフェクトスタイリストアイズ 14"), amazon: AMZ("CANMAKE パーフェクトスタイリスト 14"), note: "こっくり深みのある目元に" },
     { name: "CEZANNE ナチュラルチークN 04 シャインベージュ", price: 396, cat: "チーク", rakuten: RK("CEZANNE ナチュラルチーク 04"), amazon: AMZ("CEZANNE ナチュラルチーク 04"), note: "肌なじみ抜群のベージュチーク" },
     { name: "ヒロインメイク ロング&カールマスカラ ブラウン", price: 1100, cat: "マスカラ", rakuten: RK("ヒロインメイク ロングアンドカール マスカラ ブラウン"), amazon: AMZ("ヒロインメイク マスカラ ブラウン"), note: "深みブラウンで上品な存在感" },
     { name: "キャンメイク クリーミータッチライナー 03 ダークブラウン", price: 715, cat: "アイライナー", rakuten: RK("キャンメイク クリーミータッチライナー 03"), amazon: AMZ("キャンメイク クリーミータッチライナー 03"), note: "濃茶でやさしく引き締め" },
   ],
   summer: [
-    { name: "KATE リップモンスター 13 3:00AMの微酔", price: 1540, cat: "リップ", rakuten: RK("KATE リップモンスター 13"), amazon: AMZ("KATE リップモンスター 13"), note: "ブルベ夏に寄り添う青み系の上品カラー" },
+    { name: "KATE リップモンスター 13 3:00AMの微酔", price: 1540, cat: "リップ", rakuten: RK("KATE リップモンスター 13"), amazon: AMZ("KATE リップモンスター 13"), note: "青み系の上品カラー" },
     { name: "ETUDE プレイカラーアイズ ジューシーペブル", price: 2200, cat: "アイシャドウ", rakuten: RK("ETUDE プレイカラーアイズ ジューシーペブル"), amazon: AMZ("ETUDE プレイカラー ジューシーペブル"), note: "淡くやわらかいパレット" },
     { name: "CEZANNE ナチュラルチークN 02 ピンク", price: 396, cat: "チーク", rakuten: RK("CEZANNE ナチュラルチーク 02"), amazon: AMZ("CEZANNE ナチュラルチーク 02"), note: "青みピンクで透明感UP" },
     { name: "キャンメイク クイックラッシュカーラー ワインモーヴ", price: 748, cat: "マスカラ", rakuten: RK("キャンメイク クイックラッシュカーラー ワインモーヴ"), amazon: AMZ("キャンメイク クイックラッシュカーラー ワインモーヴ"), note: "モーヴの色気を目元に" },
     { name: "ラブ・ライナー リキッドアイライナー グレージュ", price: 1760, cat: "アイライナー", rakuten: RK("ラブライナー リキッド グレージュ"), amazon: AMZ("ラブライナー グレージュ"), note: "やわらかグレージュライン" },
   ],
   winter: [
-    { name: "KATE リップモンスター 06 2:00AM", price: 1540, cat: "リップ", rakuten: RK("KATE リップモンスター 06"), amazon: AMZ("KATE リップモンスター 06"), note: "ブルベ冬の鮮烈な深みレッド" },
+    { name: "KATE リップモンスター 06 2:00AM", price: 1540, cat: "リップ", rakuten: RK("KATE リップモンスター 06"), amazon: AMZ("KATE リップモンスター 06"), note: "鮮烈な深みレッド" },
     { name: "CANMAKE シルキースフレアイズ 06 スモーキーモーヴ", price: 825, cat: "アイシャドウ", rakuten: RK("CANMAKE シルキースフレアイズ 06"), amazon: AMZ("CANMAKE シルキースフレアイズ 06"), note: "モーヴで凛とした目元に" },
     { name: "キャンメイク グロウフルールチークス（ロージー系）", price: 880, cat: "チーク", rakuten: RK("キャンメイク グロウフルールチークス"), amazon: AMZ("キャンメイク グロウフルールチークス"), note: "青みロージーで血色感を" },
     { name: "ヒロインメイク ロング&カールマスカラ ブラック", price: 1100, cat: "マスカラ", rakuten: RK("ヒロインメイク ロングアンドカール マスカラ ブラック"), amazon: AMZ("ヒロインメイク マスカラ ブラック"), note: "漆黒でコントラストを効かせて" },
@@ -187,7 +187,7 @@ const COSME = {
 const COSME_CATS = ["リップ", "アイシャドウ", "チーク", "マスカラ", "アイライナー", "アイブロウ"];
 const COSME_FULL = {
   spring: [
-    { name: "KATE リップモンスター 02 Pink banana", price: 1540, cat: "リップ", set: true, rakuten: RK("KATE リップモンスター 02"), amazon: AMZ("KATE リップモンスター 02"), note: "イエベ春の定番・血色感リップ" },
+    { name: "KATE リップモンスター 02 Pink banana", price: 1540, cat: "リップ", set: true, rakuten: RK("KATE リップモンスター 02"), amazon: AMZ("KATE リップモンスター 02"), note: "定番・血色感リップ" },
     { name: "オペラ リップティント N 05 コーラルピンク", price: 1650, cat: "リップ", rakuten: RK("オペラ リップティント 05 コーラルピンク"), amazon: AMZ("オペラ リップティント 05"), note: "みずみずしいコーラルの血色感" },
     { name: "セザンヌ ラスティンググロスリップ CR1", price: 528, cat: "リップ", rakuten: RK("セザンヌ ラスティンググロスリップ CR1"), amazon: AMZ("セザンヌ ラスティンググロスリップ CR1"), note: "明るいコーラルでプチプラ" },
     { name: "rom&nd グラスティングウォーターティント 01", price: 1100, cat: "リップ", rakuten: RK("rom&nd グラスティングウォーターティント 01"), amazon: AMZ("rom%26nd グラスティングウォーターティント 01"), note: "透けるアプリコットの水光リップ" },
@@ -223,10 +223,10 @@ const COSME_FULL = {
       qoo10: "https://www.qoo10.jp/g/1166428287",
       a8adId: "4An06KR-g7-vkg5yTm",
       imu: "https://gd.image-qoo10.jp/li/869/756/8244756869.g_400-w_g.jpg",
-      note: "南国フルーツを思わせる艶やかカラー。イエベ春の肌を華やかに引き立てる限定色" },
+      note: "南国フルーツを思わせる艶やかカラー。肌を華やかに引き立てる限定色" },
   ],
   autumn: [
-    { name: "KATE リップモンスター 04 パンプキンワイン", price: 1540, cat: "リップ", set: true, rakuten: RK("KATE リップモンスター 04"), amazon: AMZ("KATE リップモンスター 04"), note: "イエベ秋に寄り添う黄み系の上品カラー" },
+    { name: "KATE リップモンスター 04 パンプキンワイン", price: 1540, cat: "リップ", set: true, rakuten: RK("KATE リップモンスター 04"), amazon: AMZ("KATE リップモンスター 04"), note: "黄み系の上品カラー" },
     { name: "KATE リップモンスター 11 5時の黄昏", price: 1540, cat: "リップ", rakuten: RK("KATE リップモンスター 11"), amazon: AMZ("KATE リップモンスター 11"), note: "深みのある黄昏テラコッタ" },
     { name: "メイベリン スーパーステイ ヴィニルインク 100", price: 1650, cat: "リップ", rakuten: RK("メイベリン ヴィニルインク 100"), amazon: AMZ("メイベリン ヴィニルインク 100"), note: "落ちにくいツヤブラウンレッド" },
     { name: "rom&nd ジューシーラスティングティント 08 アップルブラウン", price: 1485, cat: "リップ", rakuten: RK("rom&nd ジューシーラスティングティント 08"), amazon: AMZ("rom%26nd ジューシーラスティングティント 08"), note: "こっくりアップルブラウン" },
@@ -260,10 +260,10 @@ const COSME_FULL = {
       qoo10: "https://www.qoo10.jp/g/1117415069",
       a8adId: "4An06KR-g7-vkg5h7u",
       imu: "https://gd.image-qoo10.jp/li/623/166/6134166623.g_400-w_g.jpg",
-      note: "温かみのある赤みカラー。イエベ秋の肌に溶け込む上質な発色" },
+      note: "温かみのある赤みカラー。肌に溶け込む上質な発色" },
   ],
   summer: [
-    { name: "KATE リップモンスター 13 3:00AMの微酔", price: 1540, cat: "リップ", set: true, rakuten: RK("KATE リップモンスター 13"), amazon: AMZ("KATE リップモンスター 13"), note: "ブルベ夏に寄り添う青み系の上品カラー" },
+    { name: "KATE リップモンスター 13 3:00AMの微酔", price: 1540, cat: "リップ", set: true, rakuten: RK("KATE リップモンスター 13"), amazon: AMZ("KATE リップモンスター 13"), note: "青み系の上品カラー" },
     { name: "rom&nd ジューシーラスティングティント 06 フィグフィグ", price: 1485, cat: "リップ", rakuten: RK("rom&nd ジューシーラスティングティント 06"), amazon: AMZ("rom%26nd ジューシーラスティングティント 06"), note: "青みローズの水光ティント" },
     { name: "オペラ リップティント N 03 シフォンピンク", price: 1650, cat: "リップ", rakuten: RK("オペラ リップティント 03 シフォンピンク"), amazon: AMZ("オペラ リップティント 03"), note: "透けるシフォンピンク" },
     { name: "セザンヌ ラスティンググロスリップ RS4 ローズ", price: 528, cat: "リップ", rakuten: RK("セザンヌ ラスティンググロスリップ RS4"), amazon: AMZ("セザンヌ ラスティンググロスリップ RS4"), note: "青みローズのプチプラグロス" },
@@ -297,10 +297,10 @@ const COSME_FULL = {
       qoo10: "https://www.qoo10.jp/g/1117415069",
       a8adId: "4An06KR-g7-vkg5h7u",
       imu: "https://gd.image-qoo10.jp/li/623/166/6134166623.g_400-w_g.jpg",
-      note: "青みのある深紫。ブルベ夏の透明感を引き立てる上品な一本" },
+      note: "青みのある深紫。透明感を引き立てる上品な一本" },
   ],
   winter: [
-    { name: "KATE リップモンスター 06 2:00AM", price: 1540, cat: "リップ", set: true, rakuten: RK("KATE リップモンスター 06"), amazon: AMZ("KATE リップモンスター 06"), note: "ブルベ冬の鮮烈な深みレッド" },
+    { name: "KATE リップモンスター 06 2:00AM", price: 1540, cat: "リップ", set: true, rakuten: RK("KATE リップモンスター 06"), amazon: AMZ("KATE リップモンスター 06"), note: "鮮烈な深みレッド" },
     { name: "rom&nd ジューシーラスティングティント 09 リッチェリー", price: 1485, cat: "リップ", rakuten: RK("rom&nd ジューシーラスティングティント 09"), amazon: AMZ("rom%26nd ジューシーラスティングティント 09"), note: "鮮やかチェリーのティント" },
     { name: "メイベリン スーパーステイ ヴィニルインク 20 コーティ", price: 1650, cat: "リップ", rakuten: RK("メイベリン ヴィニルインク 20"), amazon: AMZ("メイベリン ヴィニルインク 20"), note: "青みの効いた鮮烈レッド" },
     { name: "オペラ リップティント N 06 ピンクレッド", price: 1650, cat: "リップ", rakuten: RK("オペラ リップティント 06 ピンクレッド"), amazon: AMZ("オペラ リップティント 06"), note: "澄んだピンクレッド" },
@@ -334,7 +334,7 @@ const COSME_FULL = {
       qoo10: "https://www.qoo10.jp/g/1117415069",
       a8adId: "4An06KR-g7-vkg5h7u",
       imu: "https://gd.image-qoo10.jp/li/623/166/6134166623.g_400-w_g.jpg",
-      note: "青みのある深紫。ブルベ冬の鮮烈な印象と好相性" },
+      note: "青みのある深紫。鮮烈な印象と好相性" },
   ],
 };
 
