@@ -36,7 +36,7 @@ const BUNDLE_SRC = readFileSync(BUNDLE);
 const BASELINE_SRC = BASELINE_PATH ? readFileSync(resolve(BASELINE_PATH))
   : execFileSync("git", ["show", "348fbf2:dist/colorlab.iife.js"], { cwd: ROOT, maxBuffer: 64 * 1024 * 1024 });
 
-const VERSION = "1.22.15";
+const VERSION = "1.22.16";
 const KEYS = ["app_version", "brand", "event", "item", "merchant", "screen", "slot", "type12"];
 const MERCHANT = { "楽天で見る": "rakuten", "Amazonで見る": "amazon", "Qoo10で見る": "qoo10" };
 

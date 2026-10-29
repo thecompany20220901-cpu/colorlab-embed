@@ -182,6 +182,45 @@ const COSME = {
   ],
 };
 
+// v1.22.16: 診断結果「仕上げのコスメ」の下のデパコス枠（12タイプ別・HERA/ルナソル・楽天公式ショップ）。
+// 色は公式の色見本から実測した HEX。de = TYPE12_PALETTE の10色のうち最も近い色との距離（CIE76）。de≦10 の色だけ載せる。
+// 基準内の色が無いタイプは null（枠を出さない）。リンクは楽天アフィリエイトの短縮URL（クエリは足さない）。
+const DEPACOSME_URL = {
+  blush: "https://a.r10.to/h8iRNI",   // HERA リフレクション リキッドブラッシュ(hera-official/hera_liquidblush)
+  gloss: "https://a.r10.to/hPIzA2",   // HERA センシュアル ヌードグロス(hera_nudegloss)
+  pml:   "https://a.r10.to/h5bzwM",   // HERA センシュアル パウダーマットリキッド EX(hera_powdermatteliquid)
+  luna:  "https://a.r10.to/hgkIsR",   // ルナソル フュージングカラーリップス(lunasol/l0011)
+};
+const HERA_ITEM = {
+  blush: { brand: "HERA", product: "リフレクション リキッドブラッシュ", kind: "チーク", price: 4840 },
+  gloss: { brand: "HERA", product: "センシュアル ヌードグロス", kind: "リップ", price: 4400 },
+  pml:   { brand: "HERA", product: "センシュアル パウダーマットリキッド EX", kind: "リップ", price: 4400 },
+};
+const LUNA_ITEM = { brand: "LUNASOL", product: "フュージングカラーリップス", kind: "リップ", price: 4950 };
+export const DEPACOSME_12 = {
+  "ブライトサマー":   { hera: { key: "blush", no: "203", name: "ベベ", hex: "#F7C6C1", de: 8.6 }, luna: null },
+  "ソフトサマー":     { hera: { key: "blush", no: "183", name: "ロージー", hex: "#E79EAF", de: 8.8 }, luna: null },
+  "クールサマー":     { hera: { key: "blush", no: "203", name: "ベベ", hex: "#F7C6C1", de: 7.8 }, luna: null },
+  "ディープウィンター": { hera: null, luna: null },
+  "クールウィンター": { hera: null, luna: null },
+  "ブライトウィンター": { hera: { key: "gloss", no: "18", name: "イノセント", hex: "#ECD4E2", de: 9.0 }, luna: null },
+  "ライトスプリング": { hera: { key: "blush", no: "422", name: "ランジェリー", hex: "#D68378", de: 3.2 }, luna: null },
+  "ブライトスプリング": { hera: { key: "pml", no: "426", name: "アールグレイ", hex: "#D06F66", de: 7.7 }, luna: { no: "11", name: "April Kiss", hex: "#D46A5C", de: 5.2 } },
+  "ウォームスプリング": { hera: { key: "pml", no: "426", name: "アールグレイ", hex: "#D06F66", de: 4.1 }, luna: { no: "09", name: "Warm Cuddle", hex: "#D4684E", de: 7.1 } },
+  "ウォームオータム": { hera: { key: "gloss", no: "422", name: "ランジェリー", hex: "#E4968C", de: 3.6 }, luna: { no: "05", name: "Terra Maroon", hex: "#AF4C37", de: 4.4 } },
+  "ソフトオータム":   { hera: { key: "gloss", no: "401", name: "ヌーディスト", hex: "#D19C9A", de: 4.5 }, luna: null },
+  "ディープオータム": { hera: { key: "pml", no: "499", name: "ロージースウェード", hex: "#8A3C39", de: 9.3 }, luna: { no: "04", name: "Modern Oak", hex: "#A05C48", de: 5.0 } },
+};
+// 画面に出すカード（HERA→ルナソルの順）。slot は計測の値
+const depacosme12Cards = (name12) => {
+  const d = DEPACOSME_12[name12];
+  if (!d) return [];
+  const cards = [];
+  if (d.hera) cards.push({ ...HERA_ITEM[d.hera.key], ...d.hera, url: DEPACOSME_URL[d.hera.key], slot: "depacosme_hera" });
+  if (d.luna) cards.push({ ...LUNA_ITEM, ...d.luna, url: DEPACOSME_URL.luna, slot: "depacosme_luna" });
+  return cards;
+};
+
 // パーソナルカラー別おすすめコスメ用フルリスト（各タイプ×各カテゴリ5点／実リンク・タイプ別出し分け）
 // set:true は各カテゴリ先頭の1点＝「一式セット」6点構成に使用。
 const COSME_CATS = ["リップ", "アイシャドウ", "チーク", "マスカラ", "アイライナー", "アイブロウ"];
@@ -2669,7 +2708,7 @@ function A8Ad({ item, onFallback }) {
 // track を渡した画面（結果画面の3枠・おすすめコスメ・おすすめ髪色）だけ送る。値はすべて文字列。
 // ブランドは商品名の先頭の語（最初の半角スペースまで）。リンク先・target は変えない（送るだけ）。
 // 同じブランドの別表記は、送る値だけ英字の大文字表記に寄せる（画面の商品名はそのまま）。
-const BRAND_ALIAS = { "キャンメイク": "CANMAKE", "セザンヌ": "CEZANNE", "エクセル": "EXCEL", "excel": "EXCEL", "ケイト": "KATE" };
+const BRAND_ALIAS = { "キャンメイク": "CANMAKE", "セザンヌ": "CEZANNE", "エクセル": "EXCEL", "excel": "EXCEL", "ケイト": "KATE", "ルナソル": "LUNASOL" };
 const brandOf = (name) => { const b = name.split(" ")[0]; return BRAND_ALIAS[b] || b; };
 const cosmeClick = (track, item, merchant) => () => ga4("cosme_click", {
   type12: String(track.type12 || ""),
@@ -2680,6 +2719,17 @@ const cosmeClick = (track, item, merchant) => () => ga4("cosme_click", {
   merchant: merchant,
   app_version: KOTAE.appVersion,
 });
+// v1.22.16: 結果画面のデパコス枠。item は「商品名_色番」、brand は表示名（HERA / ルナソル）を BRAND_ALIAS で寄せた値
+const depacosme12Click = (type12, card) => () => ga4("cosme_click", {
+  type12: String(type12 || ""),
+  screen: "result",
+  slot: card.slot,
+  brand: brandOf(DEPACOSME_BRAND_LABEL[card.brand]),
+  item: card.product + "_" + card.no,
+  merchant: "rakuten",
+  app_version: KOTAE.appVersion,
+});
+const DEPACOSME_BRAND_LABEL = { HERA: "HERA", LUNASOL: "ルナソル" };
 
 function DepacosCard({ item, track }) {
   const [fallback, setFallback] = useState(false);
@@ -2721,6 +2771,26 @@ function CosmeCard({ item, track }) {
       <div className="flex gap-2 mt-3">
         <a href={item.rakuten} target="_blank" rel="noreferrer" onClick={track ? cosmeClick(track, item, "rakuten") : undefined} className="flex-1 text-center text-xs text-white py-2 rounded-full" style={{ background: "#bf0000" }}>楽天で見る</a>
         <a href={item.amazon} target="_blank" rel="noreferrer" onClick={track ? cosmeClick(track, item, "amazon") : undefined} className="flex-1 text-center text-xs text-white py-2 rounded-full" style={{ background: "#ff9900" }}>Amazonで見る</a>
+      </div>
+    </div>
+  );
+}
+
+// v1.22.16: 結果画面のデパコス枠のカード。枠・PR・文字・ボタンは CosmeCard と同じ。色チップは「似合うカラー」の丸と同じ。
+function Depacosme12Card({ card, type12 }) {
+  return (
+    <div className="rounded-2xl p-4 mb-3" style={{ border: "1px solid " + C.line }}>
+      <div>
+        <span className="text-[10px] px-1.5 py-0.5 rounded mr-1.5 align-middle" style={{ background: "#f2eef1", color: C.sub }}>PR</span>
+        <span className="text-[10px] align-middle" style={{ color: C.faint }}>{card.kind}</span>
+        <div className="text-sm font-medium mt-1" style={{ color: C.ink }}>{DEPACOSME_BRAND_LABEL[card.brand]} {card.product}</div>
+        <div className="flex items-center gap-1.5 text-xs mt-0.5" style={{ color: C.sub }}>
+          <span className="w-4 h-4 rounded-full" style={{ background: card.hex, border: "1px solid #e8e2e8" }} />
+          <span>{card.no} {card.name}・¥{card.price.toLocaleString()}(税込)</span>
+        </div>
+      </div>
+      <div className="flex gap-2 mt-3">
+        <a href={card.url} target="_blank" rel="nofollow sponsored noopener" onClick={depacosme12Click(type12, card)} className="flex-1 text-center text-xs text-white py-2 rounded-full" style={{ background: "#bf0000" }}>楽天の公式ショップで見る</a>
       </div>
     </div>
   );
@@ -4785,6 +4855,14 @@ export default function App({ campaign = null, account = false } = {}) {
                   </div>
                 </div>
               ))}
+              {/* v1.22.16: デパコス枠（12タイプ別）。基準内の色が無いタイプは見出しごと出さない */}
+              {depacosme12Cards(RT12).length > 0 && (
+                <>
+                  <h3 className="font-serif text-lg mt-6 mb-1" style={{ color: C.ink }}>デパコスで探すなら</h3>
+                  <p className="text-xs leading-relaxed mb-3" style={{ color: C.sub }}>{RT12}の似合う色に近い色を、色の近さで選びました。</p>
+                  {depacosme12Cards(RT12).map((card) => <Depacosme12Card key={card.slot} card={card} type12={RT12} />)}
+                </>
+              )}
 
               {/* ⑧ 2ndタイプ活用：1stで無難、2ndで冒険 */}
               <div className="rounded-2xl p-5 mt-5 mb-6" style={{ background: TYPES[quizResult.second].accent + "0a", border: `1px solid ${TYPES[quizResult.second].accent}33` }}>
