@@ -2665,7 +2665,23 @@ function A8Ad({ item, onFallback }) {
   return <span ref={ref} className={"a8ad-slot a8ad " + item.a8adId} />;
 }
 
-function DepacosCard({ item }) {
+// v1.22.15: コスメ・AFF ボタンのクリック計測（dataLayer の cosme_click）。track = { type12, screen, slot }。
+// track を渡した画面（結果画面の3枠・おすすめコスメ・おすすめ髪色）だけ送る。値はすべて文字列。
+// ブランドは商品名の先頭の語（最初の半角スペースまで）。リンク先・target は変えない（送るだけ）。
+// 同じブランドの別表記は、送る値だけ英字の大文字表記に寄せる（画面の商品名はそのまま）。
+const BRAND_ALIAS = { "キャンメイク": "CANMAKE", "セザンヌ": "CEZANNE", "エクセル": "EXCEL", "excel": "EXCEL", "ケイト": "KATE" };
+const brandOf = (name) => { const b = name.split(" ")[0]; return BRAND_ALIAS[b] || b; };
+const cosmeClick = (track, item, merchant) => () => ga4("cosme_click", {
+  type12: String(track.type12 || ""),
+  screen: String(track.screen),
+  slot: String(track.slot),
+  brand: brandOf(item.name),
+  item: item.name,
+  merchant: merchant,
+  app_version: KOTAE.appVersion,
+});
+
+function DepacosCard({ item, track }) {
   const [fallback, setFallback] = useState(false);
   return (
     <div className="rounded-2xl p-4 mb-3" style={{ border: "1px solid " + C.line, background: "#fbf8fa" }}>
@@ -2687,13 +2703,13 @@ function DepacosCard({ item }) {
       </div>
       {/* 商品画像（A8の広告枠）だけだとリンクだと気づかれないので、テキストのCTAを常時出す。
           遷移先は ad.js が画像に付けるのと同じ A8 の計測URL。 */}
-      <a href={A8_DIRECT(item)} target="_blank" rel="noreferrer sponsored" className="block text-center text-xs text-white py-2 rounded-full mt-3" style={{ background: "#e4007f" }}>Qoo10で見る</a>
+      <a href={A8_DIRECT(item)} target="_blank" rel="noreferrer sponsored" onClick={track ? cosmeClick(track, item, "qoo10") : undefined} className="block text-center text-xs text-white py-2 rounded-full mt-3" style={{ background: "#e4007f" }}>Qoo10で見る</a>
     </div>
   );
 }
 
-function CosmeCard({ item }) {
-  if (item.isDepacosme) return <DepacosCard item={item} />;
+function CosmeCard({ item, track }) {
+  if (item.isDepacosme) return <DepacosCard item={item} track={track} />;
   return (
     <div className="rounded-2xl p-4 mb-3" style={{ border: "1px solid " + C.line }}>
       <div>
@@ -2703,8 +2719,8 @@ function CosmeCard({ item }) {
         <div className="text-xs mt-0.5" style={{ color: C.sub }}>{item.note}{typeof item.price === "number" ? "・¥" + item.price.toLocaleString() : ""}</div>
       </div>
       <div className="flex gap-2 mt-3">
-        <a href={item.rakuten} target="_blank" rel="noreferrer" className="flex-1 text-center text-xs text-white py-2 rounded-full" style={{ background: "#bf0000" }}>楽天で見る</a>
-        <a href={item.amazon} target="_blank" rel="noreferrer" className="flex-1 text-center text-xs text-white py-2 rounded-full" style={{ background: "#ff9900" }}>Amazonで見る</a>
+        <a href={item.rakuten} target="_blank" rel="noreferrer" onClick={track ? cosmeClick(track, item, "rakuten") : undefined} className="flex-1 text-center text-xs text-white py-2 rounded-full" style={{ background: "#bf0000" }}>楽天で見る</a>
+        <a href={item.amazon} target="_blank" rel="noreferrer" onClick={track ? cosmeClick(track, item, "amazon") : undefined} className="flex-1 text-center text-xs text-white py-2 rounded-full" style={{ background: "#ff9900" }}>Amazonで見る</a>
       </div>
     </div>
   );
@@ -4762,7 +4778,7 @@ export default function App({ campaign = null, account = false } = {}) {
               <p className="text-xs leading-relaxed mb-3" style={{ color: C.sub }}>肌と調和する色番だけを選びました。</p>
               {COSME[RT.key].slice(0, 3).map((item, i) => (
                 <div key={i}>
-                  <CosmeCard item={item} />
+                  <CosmeCard item={item} track={{ type12: RT12, screen: "result", slot: i + 1 }} />
                   <div className="flex items-center gap-1.5 -mt-1 mb-3 pl-1">
                     <span className="text-[10px]" style={{ color: C.faint }}>似合うカラー:</span>
                     {RT.palette.slice(0, 5).map((c, j) => <span key={j} className="w-4 h-4 rounded-full" style={{ background: c, border: "1px solid #e8e2e8" }} />)}
@@ -4916,7 +4932,7 @@ export default function App({ campaign = null, account = false } = {}) {
                         return sku ? <SkuCard key={id} sku={sku} site={TYPES[myType].site} accent={TYPES[myType].accent} /> : null;
                       })}
                       <div className="text-xs mb-2.5 mt-5" style={{ color: C.faint }}>仕上げのコスメ</div>
-                      {COSME[myType].map((item, i) => <CosmeCard key={i} item={item} />)}
+                      {COSME[myType].map((item, i) => <CosmeCard key={i} item={item} track={{ type12: MY12, screen: "today", slot: i + 1 }} />)}
                       <a href={SITE_URL(TYPES[myType].site)} target="_blank" rel="noreferrer" className="block w-full text-center px-6 py-3.5 rounded-full text-white text-sm font-medium mt-4 transition-transform hover:scale-105" style={{ background: TYPES[myType].accent }}>{MY12}の服をもっと見る →</a>
                       <p className="mt-4 text-center text-[10px] leading-relaxed" style={{ color: "#b3aab2" }}>※コスメ紹介はアフィリエイト広告を含みます</p>
                     </div>
@@ -4999,10 +5015,10 @@ export default function App({ campaign = null, account = false } = {}) {
                           リップ〜眉まで全6点をこのまま揃えて、合計 <span className="font-medium" style={{ color: TYPES[myType].accent }}>¥{COSME_FULL[myType].filter((x) => x.set).reduce((a, x) => a + x.price, 0).toLocaleString()}</span>（参考価格）
                         </div>
                       </div>
-                      {COSME_FULL[myType].filter((x) => x.set).map((item, i) => <CosmeCard key={i} item={item} />)}
+                      {COSME_FULL[myType].filter((x) => x.set).map((item, i) => <CosmeCard key={i} item={item} track={{ type12: MY12, screen: "cosme", slot: i + 1 }} />)}
                     </>
                   ) : (
-                    (cosmeCat === "すべて" ? COSME_FULL[myType] : COSME_FULL[myType].filter((x) => x.cat === cosmeCat)).map((item, i) => <CosmeCard key={i} item={item} />)
+                    (cosmeCat === "すべて" ? COSME_FULL[myType] : COSME_FULL[myType].filter((x) => x.cat === cosmeCat)).map((item, i) => <CosmeCard key={i} item={item} track={{ type12: MY12, screen: "cosme", slot: i + 1 }} />)
                   )}
                   <p className="mt-4 text-center text-[10px] leading-relaxed" style={{ color: "#b3aab2" }}>※コスメ紹介はアフィリエイト広告を含みます。Amazonのアソシエイトとして、適格販売により収入を得ています。</p>
                 </>
@@ -5035,7 +5051,7 @@ export default function App({ campaign = null, account = false } = {}) {
                   {(HAIR[myType].affs || [HAIR[myType].aff]).map((item, i) => (
                     <div key={i} className="mb-1">
                       <div className="text-sm font-bold mb-1.5 pl-1" style={{ color: TYPES[myType].accent }}>{MY12}におすすめ　{item.note}</div>
-                      <CosmeCard item={item} />
+                      <CosmeCard item={item} track={{ type12: MY12, screen: "hair", slot: i + 1 }} />
                     </div>
                   ))}
                   <a href={HAIR[myType].article + "?" + UTM} target="_blank" rel="noreferrer" className="flex items-center justify-center gap-1.5 w-full text-center px-6 py-3.5 rounded-full text-sm font-medium mt-2" style={{ border: `2px solid ${TYPES[myType].accent}`, color: TYPES[myType].accent }}>
@@ -5493,7 +5509,7 @@ export default function App({ campaign = null, account = false } = {}) {
                     </div>
                   )}
                   <div className="text-xs mb-2.5" style={{ color: C.faint }}>{toKind === "lip" ? "この色味を買うならコレ" : "この髪色にするならコレ"}</div>
-                  {(toKind === "lip" ? COSME_FULL[myType].filter((x) => x.cat === "リップ").slice(0, 3) : (HAIR[myType].affs || [HAIR[myType].aff]).slice(0, 3)).map((item, i) => <CosmeCard key={i} item={item} />)}
+                  {(toKind === "lip" ? COSME_FULL[myType].filter((x) => x.cat === "リップ").slice(0, 3) : (HAIR[myType].affs || [HAIR[myType].aff]).slice(0, 3)).map((item, i) => <CosmeCard key={i} item={item} track={{ type12: MY12, screen: "tryon", slot: i + 1 }} />)}
                   <p className="mt-4 text-center text-[10px] leading-relaxed" style={{ color: "#b3aab2" }}>※商品紹介はアフィリエイト広告を含みます。色の見え方は画面により異なります。</p>
                 </>
               )}
