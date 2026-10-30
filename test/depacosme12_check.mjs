@@ -28,7 +28,7 @@ const SRC_PATH = resolve(opt("--src") || join(ROOT, "src", "color_lab_stylist_v2
 const SHOTS = args.includes("--no-shots") ? null : resolve(opt("--shots") || join(ROOT, "out", "release", "tests_1029_v12216", "screens"));
 const BUNDLE_SRC = readFileSync(BUNDLE);
 const src = readFileSync(SRC_PATH, "utf-8");
-const VERSION = "1.22.16";
+const VERSION = "1.22.17";
 const KEYS = ["app_version", "brand", "event", "item", "merchant", "screen", "slot", "type12"];
 
 // ── 期待値 ──
@@ -111,8 +111,9 @@ if (TYPE12_NAME && D12 && DURL) {
   }
   check(JSON.stringify(DURL) === JSON.stringify(URL) && Object.values(DURL).every((u) => !/[?#&]/.test(u)),
     `データ④: URL は4本だけで完全一致・クエリなし ${JSON.stringify(DURL)}`);
+  // v1.22.17: 仕上げのコスメ（COSME12）の KATE リップモンスター用 h5fdes が1本増える
   const allR10 = [...new Set([...src.matchAll(/https?:\/\/a\.r10\.to\/[A-Za-z0-9]+[^"\s]*/g)].map((m) => m[0]))].sort();
-  check(JSON.stringify(allR10) === JSON.stringify(Object.values(URL).sort()), `データ④: src にある短縮URLは4本だけ (${allR10.join(" ")})`);
+  check(JSON.stringify(allR10) === JSON.stringify([...Object.values(URL), "https://a.r10.to/h5fdes"].sort()), `データ④: src にある短縮URLはデパコスの4本+KATE用 h5fdes だけ (${allR10.join(" ")})`);
   check(["ディープウィンター", "クールウィンター"].every((n) => D12[n] && D12[n].hera === null && D12[n].luna === null), "データ⑤: ディープウィンター・クールウィンターは hera/luna とも null");
   const lunaTypes = Object.keys(D12).filter((n) => D12[n] && D12[n].luna).sort();
   check(JSON.stringify(lunaTypes) === JSON.stringify(["ウォームオータム", "ウォームスプリング", "ディープオータム", "ブライトスプリング"].sort()), `データ⑥: ルナソルは4タイプだけ (${lunaTypes.join("・")})`);
@@ -251,8 +252,8 @@ const readSection = () => page.evaluate(() => {
   const top = h3s.find((h) => h.textContent.trim() === "仕上げのコスメはコレ！");
   const dep = h3s.filter((h) => h.textContent.trim() === "デパコスで探すなら");
   if (!top) return { error: "仕上げのコスメの見出しが無い" };
-  let el = top.nextElementSibling.nextElementSibling;   // p の次 = 3枠の1つ目
-  for (let i = 0; i < 3 && el; i++) el = el.nextElementSibling;
+  let el = top.nextElementSibling.nextElementSibling;   // p の次 = 仕上げのコスメの1枠目（v1.22.17〜 12タイプ別で2〜3枠）
+  while (el && el.tagName === "DIV" && el.firstElementChild && el.firstElementChild.matches("div.rounded-2xl.p-4.mb-3")) el = el.nextElementSibling;
   const afterSlots = el;
   const info = { depCount: dep.length, nextIsDep: !!afterSlots && afterSlots.tagName === "H3" && afterSlots.textContent.trim() === "デパコスで探すなら", cards: [] };
   if (dep.length) {

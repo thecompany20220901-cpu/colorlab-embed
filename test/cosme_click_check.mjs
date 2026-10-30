@@ -1,6 +1,7 @@
 // コスメ・AFF ボタンのクリック計測（v1.22.15・2026-10-29）を実測する。
 // 12タイプ全部で、次のボタンを1つずつ押し、dataLayer に cosme_click がちょうど1回積まれることを見る。
-//   ・診断結果「仕上げのコスメはコレ！」の3枠の「楽天で見る」「Amazonで見る」 … screen=result / slot=1〜3
+//   ・診断結果「仕上げのコスメはコレ！」の枠の「楽天で見る」「Amazonで見る」 … screen=result / slot=リップ1・アイシャドウ2・チーク3
+//     （v1.22.17〜 12タイプ別 COSME12 で2〜3枠。中身の細かい検査は test/cosme12_check.mjs）
 //   ・おすすめコスメ（「すべて」と「一式セット」）の「楽天で見る」「Amazonで見る」と DEPACOS の「Qoo10で見る」
 //                                                             … screen=cosme / slot=一覧内の順番
 //   ・おすすめ髪色のセルフカラー商品（HAIR の affs）の「楽天で見る」「Amazonで見る」 … screen=hair / slot=一覧内の順番
@@ -9,7 +10,8 @@
 // パラメータは type12 / screen / slot / brand / item / merchant / app_version の7つ（event を除く）で、すべて文字列。
 // あわせて
 //   (a) ボタンの DOM（href・target・rel・class・style・文言）が v1.22.14 のバンドルと1文字も違わない
-//       （結果画面は3枠、コスメ・髪色は画面全体の outerHTML を比べる）
+//       （コスメ・髪色は画面全体の outerHTML を比べる。結果画面の枠は v1.22.17 で12タイプ別に変えたので比べない。
+//        v1.22.17 で直した rom&nd の Amazon URL（rom%2526nd → rom%26nd）だけは比較元の側を置き換えてから比べ、置き換えた数を出す）
 //   (b) 本当に押した時（遷移を止めない）も別タブで開き、開いた先が href と同じ。イベントは1回
 //   (c) 「リップ」で絞り込んだ時の slot は、絞り込んだ一覧の中の順番
 //   (d) brand は先頭の語を下の BRAND_ALIAS で英字の大文字表記に寄せた値（キャンメイク→CANMAKE など）。
@@ -36,7 +38,7 @@ const BUNDLE_SRC = readFileSync(BUNDLE);
 const BASELINE_SRC = BASELINE_PATH ? readFileSync(resolve(BASELINE_PATH))
   : execFileSync("git", ["show", "348fbf2:dist/colorlab.iife.js"], { cwd: ROOT, maxBuffer: 64 * 1024 * 1024 });
 
-const VERSION = "1.22.16";
+const VERSION = "1.22.17";
 const KEYS = ["app_version", "brand", "event", "item", "merchant", "screen", "slot", "type12"];
 const MERCHANT = { "楽天で見る": "rakuten", "Amazonで見る": "amazon", "Qoo10で見る": "qoo10" };
 
@@ -47,13 +49,25 @@ const TYPES12 = [
   ["3-1", "ウォームオータム"], ["3-2", "ソフトオータム"], ["3-4", "ディープオータム"],
   ["4-1", "ブライトウィンター"], ["4-2", "クールウィンター"], ["4-3", "ディープウィンター"],
 ];
-// 結果画面の3枠（1位のシーズンで決まる）: [商品名, ブランド]
-const RESULT3 = {
-  1: [["KATE リップモンスター 02 Pink banana", "KATE"], ["rom&nd ベターザンパレット 04 アンビエントライトデイ", "rom&nd"], ["CEZANNE ナチュラルチークN 04 シャインベージュ", "CEZANNE"]],
-  2: [["KATE リップモンスター 13 3:00AMの微酔", "KATE"], ["ETUDE プレイカラーアイズ ジューシーペブル", "ETUDE"], ["CEZANNE ナチュラルチークN 02 ピンク", "CEZANNE"]],
-  3: [["KATE リップモンスター 04 パンプキンワイン", "KATE"], ["CANMAKE パーフェクトスタイリストアイズ 14 アンティークテラコッタ", "CANMAKE"], ["CEZANNE ナチュラルチークN 04 シャインベージュ", "CEZANNE"]],
-  4: [["KATE リップモンスター 06 2:00AM", "KATE"], ["CANMAKE シルキースフレアイズ 06 スモーキーモーヴ", "CANMAKE"], ["キャンメイク グロウフルールチークス（ロージー系）", "CANMAKE"]],
+// 結果画面の枠（v1.22.17〜 12タイプ別・CC_v1_22_17_COSME12.md の表）: [商品名, ブランド, slot]
+const L = (n) => [`KATE リップモンスター ${n}`, "KATE", 1];
+const RESULT12 = {
+  "ブライトサマー": [["rom&nd ベターザンパレット 00 LIGHT and GLITTER GARDEN", "rom&nd", 2], ["CANMAKE グロウフルールチークス 17 いちごミルクフルール", "CANMAKE", 3]],
+  "ソフトサマー": [["CANMAKE シルキースフレアイズ 10 スウィートラブレター", "CANMAKE", 2], ["CANMAKE グロウフルールチークス 19 さくらんぼソーダフルール", "CANMAKE", 3]],
+  "クールサマー": [L("18 とろけ落ちる蜜桃"), ["rom&nd ベターザンパレット 11 CHEEKY CHEEKY GARDEN", "rom&nd", 2], ["CANMAKE グロウフルールチークス 01 ピーチフルール", "CANMAKE", 3]],
+  "ディープウィンター": [L("13 3:00AMの微酔"), ["rom&nd ベターザンパレット 04 DUSTYFOG GARDEN", "rom&nd", 2]],
+  "クールウィンター": [L("13 3:00AMの微酔"), ["rom&nd ベターザンパレット 07 BERRY FUCHSIA GARDEN", "rom&nd", 2], ["CANMAKE グロウフルールチークス 02 アプリコットフルール", "CANMAKE", 3]],
+  "ブライトウィンター": [L("01 欲望の塊"), ["rom&nd ベターザンパレット 07 BERRY FUCHSIA GARDEN", "rom&nd", 2], ["CANMAKE グロウフルールチークス 20 バニラローズフルール", "CANMAKE", 3]],
+  "ライトスプリング": [L("17 神秘のローズ園"), ["rom&nd ベターザンパレット 00 LIGHT and GLITTER GARDEN", "rom&nd", 2], ["CANMAKE グロウフルールチークス 18 ももホイップフルール", "CANMAKE", 3]],
+  "ブライトスプリング": [L("03 陽炎"), ["ETUDE プレイカラーアイシャドウ ベイクハウス", "ETUDE", 2]],
+  "ウォームスプリング": [L("15 綿雲33000ft"), ["ETUDE プレイカラーアイシャドウ ロゼワイン", "ETUDE", 2], ["CEZANNE ナチュラル チークN 18 ローズベージュ", "CEZANNE", 3]],
+  "ウォームオータム": [L("04 パンプキンワイン"), ["rom&nd ベターザンパレット 03 ROSEBUD GARDEN", "rom&nd", 2], ["CEZANNE ナチュラル チークN 18 ローズベージュ", "CEZANNE", 3]],
+  "ソフトオータム": [L("17 神秘のローズ園"), ["rom&nd ベターザンパレット 13 ODD BREEZE GARDEN", "rom&nd", 2], ["CANMAKE グロウフルールチークス 02 アプリコットフルール", "CANMAKE", 3]],
+  "ディープオータム": [L("16 100億haの砂海"), ["rom&nd ベターザンパレット 03 ROSEBUD GARDEN", "rom&nd", 2]],
 };
+// 比較元（v1.22.14）の DOM の rom&nd 二重エンコードを、v1.22.17 の直した形に置き換える（置き換えた数を数える）
+let romFixed = 0;
+const norm = (html) => { romFixed += (html.match(/rom%2526nd/g) || []).length; return html.replaceAll("rom%2526nd", "rom%26nd"); };
 // (d) 同じブランドの別表記 → 英字の大文字表記（送る値だけ。画面の表示は変えない）
 const BRAND_ALIAS = { "キャンメイク": "CANMAKE", "セザンヌ": "CEZANNE", "エクセル": "EXCEL", "excel": "EXCEL", "ケイト": "KATE" };
 const firstWord = (name) => name.split(" ")[0];
@@ -272,7 +286,7 @@ async function clickCards(prefix, cards, want, slotOf) {
   return n;
 }
 
-const resultCards = (p) => p.locator("xpath=//h3[normalize-space()='仕上げのコスメはコレ！']/following-sibling::p[1]/following-sibling::div[position()<=3]");
+const resultCards = (p) => p.locator("xpath=//h3[normalize-space()='仕上げのコスメはコレ！']/following-sibling::p[1]/following-sibling::div[div[contains(@class,'rounded-2xl') and contains(@class,'p-4') and contains(@class,'mb-3')]]");
 // 今日なに着る？の「仕上げのコスメ」と、試し塗りの「この色味を買うならコレ」「この髪色にするならコレ」の直後のカード
 const todayCards = (p) => p.locator("xpath=//div[normalize-space()='仕上げのコスメ']/following-sibling::div[contains(@class,'rounded-2xl') and contains(@class,'p-4') and contains(@class,'mb-3')]");
 const tryonCards = (p, head) => p.locator(`xpath=//div[normalize-space()='${head}']/following-sibling::div[contains(@class,'rounded-2xl') and contains(@class,'p-4') and contains(@class,'mb-3')]`);
@@ -294,16 +308,14 @@ for (const [key, name12] of TYPES12.filter(([, n]) => !ONLY || ONLY_SET.has(n)))
   trace("result: fresh");
   await fresh(page, "/__harness.html");
   await toResult(page, key);
-  await fresh(basePage, "/__baseline.html");
-  await toResult(basePage, key);
   trace("result: compare");
   const rc = resultCards(page);
-  check(await rc.count() === 3, `${name12} result: 3枠ある (${await rc.count()})`);
-  check(await domOf(rc) === await domOf(resultCards(basePage)), `${name12} result: 3枠の DOM が v1.22.14 と同じ`);
+  const r12 = RESULT12[name12];
+  check(await rc.count() === r12.length, `${name12} result: ${r12.length}枠ある (${await rc.count()})`);
   const names = await rc.evaluateAll((els) => els.map((e) => e.querySelector(".text-sm.font-medium")?.textContent.trim()));
-  check(JSON.stringify(names) === JSON.stringify(RESULT3[season].map((x) => x[0])), `${name12} result: 3枠の商品名 ${names.join(" / ")}`);
+  check(JSON.stringify(names) === JSON.stringify(r12.map((x) => x[0])), `${name12} result: 枠の商品名 ${names.join(" / ")}`);
   counts[name12].result = await clickCards(`${name12} result`, rc.locator(CARD),
-    (i, name) => ({ type12: name12, screen: "result", item: RESULT3[season][i][0], brand: RESULT3[season][i][1] }), (i) => i + 1);
+    (i, name) => ({ type12: name12, screen: "result", item: r12[i][0], brand: r12[i][1] }), (i) => r12[i][2]);
 
   // ── おすすめコスメ（すべて・一式セット）──
   trace("cosme: open");
@@ -313,11 +325,11 @@ for (const [key, name12] of TYPES12.filter(([, n]) => !ONLY || ONLY_SET.has(n)))
   await fresh(basePage, "/__baseline.html");
   await toTile(basePage, "おすすめコスメ", name12);
   await settleDepacos(basePage);
-  check(await screenDom(page) === await screenDom(basePage), `${name12} cosme(すべて): 画面の DOM が v1.22.14 と同じ`);
+  check(await screenDom(page) === norm(await screenDom(basePage)), `${name12} cosme(すべて): 画面の DOM が v1.22.14 と同じ`);
   counts[name12].cosme = await clickCards(`${name12} cosme`, page.locator("#colorlab-root " + CARD),
     (i, name) => ({ type12: name12, screen: "cosme", item: name, brand: brandOf(name) }), (i) => i + 1);
   for (const p of [page, basePage]) { await p.getByRole("button", { name: /^一式セット$/ }).click(); await p.waitForTimeout(200); }
-  check(await screenDom(page) === await screenDom(basePage), `${name12} cosme(一式セット): 画面の DOM が v1.22.14 と同じ`);
+  check(await screenDom(page) === norm(await screenDom(basePage)), `${name12} cosme(一式セット): 画面の DOM が v1.22.14 と同じ`);
   counts[name12].set = await clickCards(`${name12} cosme(一式セット)`, page.locator("#colorlab-root " + CARD),
     (i, name) => ({ type12: name12, screen: "cosme", item: name, brand: brandOf(name) }), (i) => i + 1);
 
@@ -327,7 +339,7 @@ for (const [key, name12] of TYPES12.filter(([, n]) => !ONLY || ONLY_SET.has(n)))
   await toTile(page, "おすすめ髪色", name12);
   await fresh(basePage, "/__baseline.html");
   await toTile(basePage, "おすすめ髪色", name12);
-  check(await screenDom(page) === await screenDom(basePage), `${name12} hair: 画面の DOM が v1.22.14 と同じ`);
+  check(await screenDom(page) === norm(await screenDom(basePage)), `${name12} hair: 画面の DOM が v1.22.14 と同じ`);
   counts[name12].hair = await clickCards(`${name12} hair`, page.locator("#colorlab-root " + CARD),
     (i, name) => ({ type12: name12, screen: "hair", item: name, brand: brandOf(name) }), (i) => i + 1);
   check(counts[name12].hair > 0, `${name12} hair: 商品がある (${counts[name12].hair})`);
@@ -342,7 +354,7 @@ for (const [key, name12] of TYPES12.filter(([, n]) => !ONLY || ONLY_SET.has(n)))
   }
   const tc = todayCards(page);
   check(await tc.count() > 0, `${name12} today: 商品がある (${await tc.count()})`);
-  check(await domOf(tc) === await domOf(todayCards(basePage)), `${name12} today: 仕上げのコスメの DOM が v1.22.14 と同じ`);
+  check(await domOf(tc) === norm(await domOf(todayCards(basePage))), `${name12} today: 仕上げのコスメの DOM が v1.22.14 と同じ`);
   counts[name12].today = await clickCards(`${name12} today`, tc,
     (i, name) => ({ type12: name12, screen: "today", item: name, brand: brandOf(name) }), (i) => i + 1);
 
@@ -356,7 +368,7 @@ for (const [key, name12] of TYPES12.filter(([, n]) => !ONLY || ONLY_SET.has(n)))
     for (const p of [page, basePage]) { await p.getByRole("button", { name: new RegExp("^" + tab + "$") }).first().click(); await p.waitForTimeout(200); }
     const yc = tryonCards(page, head);
     check(await yc.count() > 0, `${name12} tryon(${tab}): 商品がある (${await yc.count()})`);
-    check(await domOf(yc) === await domOf(tryonCards(basePage, head)), `${name12} tryon(${tab}): 商品の DOM が v1.22.14 と同じ`);
+    check(await domOf(yc) === norm(await domOf(tryonCards(basePage, head))), `${name12} tryon(${tab}): 商品の DOM が v1.22.14 と同じ`);
     counts[name12][k] = await clickCards(`${name12} tryon(${tab})`, yc,
       (i, name) => ({ type12: name12, screen: "tryon", item: name, brand: brandOf(name) }), (i) => i + 1);
   }
@@ -437,6 +449,7 @@ server.close();
 
 console.log("\nbundle: " + BUNDLE);
 console.log("押したボタン: " + clicks + " 回");
+console.log("比較元の rom%2526nd → rom%26nd 置き換え: " + romFixed + " か所（v1.22.17 の Amazon URL 修正分）");
 if (process.env.COSME_VERBOSE) for (const l of ok) console.log("  [PASS] " + l);
 for (const l of ng) console.log("  [FAIL] " + l);
 console.log(`\nOK ${ok.length} / NG ${ng.length}`);

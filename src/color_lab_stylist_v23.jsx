@@ -154,7 +154,7 @@ const AMZ = (q) => `https://www.amazon.co.jp/s?k=${encodeURIComponent(q)}&tag=bl
 const COSME = {
   spring: [
     { name: "KATE リップモンスター 02 Pink banana", price: 1540, cat: "リップ", rakuten: RK("KATE リップモンスター 02"), amazon: AMZ("KATE リップモンスター 02"), note: "血色感を引き出す定番" },
-    { name: "rom&nd ベターザンパレット 04 アンビエントライトデイ", price: 2750, cat: "アイシャドウ", rakuten: RK("rom&nd ベターザンパレット 04"), amazon: AMZ("rom%26nd ベターザンパレット 04"), note: "明るくクリアな春の目元に" },
+    { name: "rom&nd ベターザンパレット 04 アンビエントライトデイ", price: 2750, cat: "アイシャドウ", rakuten: RK("rom&nd ベターザンパレット 04"), amazon: AMZ("rom&nd ベターザンパレット 04"), note: "明るくクリアな春の目元に" },
     { name: "CEZANNE ナチュラルチークN 04 シャインベージュ", price: 396, cat: "チーク", rakuten: RK("CEZANNE ナチュラルチーク 04"), amazon: AMZ("CEZANNE ナチュラルチーク 04"), note: "ふんわり明るい頬に" },
     { name: "メイベリン ラッシュニスタ N ブラウン", price: 1400, cat: "マスカラ", rakuten: RK("メイベリン ラッシュニスタ ブラウン"), amazon: AMZ("メイベリン ラッシュニスタ ブラウン"), note: "軽やかブラウンでやわらかい目元に" },
     { name: "キャンメイク クリーミータッチライナー 04 グレージュ", price: 715, cat: "アイライナー", rakuten: RK("キャンメイク クリーミータッチライナー 04"), amazon: AMZ("キャンメイク クリーミータッチライナー 04"), note: "抜け感のあるグレージュライン" },
@@ -221,6 +221,85 @@ const depacosme12Cards = (name12) => {
   return cards;
 };
 
+// v1.22.17: 診断結果「仕上げのコスメはコレ！」を12タイプ別に。色はメーカー・楽天公式の色見本から実測した HEX（petit_hex.csv）。
+// dE = TYPE12_PALETTE の10色のうち最も近い色との距離（CIE76）。≦12 は確定、≦20 は参考（ref:true）、>20 は載せない（項目が少ないタイプがある）。
+const COSME12 = {
+  "ブライトサマー": [
+    { kind:"アイシャドウ", name:"rom&nd ベターザンパレット 00 LIGHT and GLITTER GARDEN", kw:"rom&nd ベターザンパレット 00", hex:"#E3E6E9", price:1380, dE:5.6, ref:false, point:"ハイライト" },
+    { kind:"チーク", name:"CANMAKE グロウフルールチークス 17 いちごミルクフルール", kw:"CANMAKE グロウフルールチークス 17", hex:"#EBBBBE", price:880, dE:8.1, ref:false, point:"メイン" }
+  ],
+  "ソフトサマー": [
+    { kind:"アイシャドウ", name:"CANMAKE シルキースフレアイズ 10 スウィートラブレター", kw:"CANMAKE シルキースフレアイズ 10", hex:"#845652", price:825, dE:14.2, ref:true, point:"メイン" },
+    { kind:"チーク", name:"CANMAKE グロウフルールチークス 19 さくらんぼソーダフルール", kw:"CANMAKE グロウフルールチークス 19", hex:"#E2A6B0", price:880, dE:11.3, ref:false, point:"メイン" }
+  ],
+  "クールサマー": [
+    { kind:"リップ", name:"KATE リップモンスター 18 とろけ落ちる蜜桃", kw:"KATE リップモンスター 18", hex:"#EB4651", price:1650, dE:6.2, ref:false, point:"単色" },
+    { kind:"アイシャドウ", name:"rom&nd ベターザンパレット 11 CHEEKY CHEEKY GARDEN", kw:"rom&nd ベターザンパレット 11", hex:"#F5D9DB", price:2100, dE:6.9, ref:false, point:"ハイライト" },
+    { kind:"チーク", name:"CANMAKE グロウフルールチークス 01 ピーチフルール", kw:"CANMAKE グロウフルールチークス 01", hex:"#F0CECB", price:880, dE:6.9, ref:false, point:"ハイライト" }
+  ],
+  "ディープウィンター": [
+    { kind:"リップ", name:"KATE リップモンスター 13 3:00AMの微酔", kw:"KATE リップモンスター 13", hex:"#C04C73", price:1650, dE:17.2, ref:true, point:"単色" },
+    { kind:"アイシャドウ", name:"rom&nd ベターザンパレット 04 DUSTYFOG GARDEN", kw:"rom&nd ベターザンパレット 04", hex:"#403630", price:2100, dE:5.6, ref:false, point:"メイン" }
+  ],
+  "クールウィンター": [
+    { kind:"リップ", name:"KATE リップモンスター 13 3:00AMの微酔", kw:"KATE リップモンスター 13", hex:"#C04C73", price:1650, dE:7.1, ref:false, point:"単色" },
+    { kind:"アイシャドウ", name:"rom&nd ベターザンパレット 07 BERRY FUCHSIA GARDEN", kw:"rom&nd ベターザンパレット 07", hex:"#EAE8ED", price:2100, dE:7.9, ref:false, point:"ハイライト" },
+    { kind:"チーク", name:"CANMAKE グロウフルールチークス 02 アプリコットフルール", kw:"CANMAKE グロウフルールチークス 02", hex:"#ECB1BA", price:880, dE:8.9, ref:false, point:"メイン" }
+  ],
+  "ブライトウィンター": [
+    { kind:"リップ", name:"KATE リップモンスター 01 欲望の塊", kw:"KATE リップモンスター 01", hex:"#DF0639", price:1650, dE:2.6, ref:false, point:"単色" },
+    { kind:"アイシャドウ", name:"rom&nd ベターザンパレット 07 BERRY FUCHSIA GARDEN", kw:"rom&nd ベターザンパレット 07", hex:"#EAE8ED", price:2100, dE:7.5, ref:false, point:"ハイライト" },
+    { kind:"チーク", name:"CANMAKE グロウフルールチークス 20 バニラローズフルール", kw:"CANMAKE グロウフルールチークス 20", hex:"#F6E3DC", price:880, dE:11.0, ref:false, point:"ハイライト" }
+  ],
+  "ライトスプリング": [
+    { kind:"リップ", name:"KATE リップモンスター 17 神秘のローズ園", kw:"KATE リップモンスター 17", hex:"#AE5655", price:1650, dE:17.8, ref:true, point:"単色" },
+    { kind:"アイシャドウ", name:"rom&nd ベターザンパレット 00 LIGHT and GLITTER GARDEN", kw:"rom&nd ベターザンパレット 00", hex:"#E3E6E9", price:1380, dE:6.6, ref:false, point:"ハイライト" },
+    { kind:"チーク", name:"CANMAKE グロウフルールチークス 18 ももホイップフルール", kw:"CANMAKE グロウフルールチークス 18", hex:"#EAB9B8", price:880, dE:1.8, ref:false, point:"メイン" }
+  ],
+  "ブライトスプリング": [
+    { kind:"リップ", name:"KATE リップモンスター 03 陽炎", kw:"KATE リップモンスター 03", hex:"#D15950", price:1650, dE:7.2, ref:false, point:"単色" },
+    { kind:"アイシャドウ", name:"ETUDE プレイカラーアイシャドウ ベイクハウス", kw:"ETUDE プレイカラーアイシャドウ ベイクハウス", hex:"#98512E", price:2970, dE:18.0, ref:true, point:"メイン" }
+  ],
+  "ウォームスプリング": [
+    { kind:"リップ", name:"KATE リップモンスター 15 綿雲33000ft", kw:"KATE リップモンスター 15", hex:"#C1575B", price:1650, dE:12.1, ref:true, point:"単色" },
+    { kind:"アイシャドウ", name:"ETUDE プレイカラーアイシャドウ ロゼワイン", kw:"ETUDE プレイカラーアイシャドウ ロゼワイン", hex:"#7D4833", price:2970, dE:4.3, ref:false, point:"メイン" },
+    { kind:"チーク", name:"CEZANNE ナチュラル チークN 18 ローズベージュ", kw:"CEZANNE ナチュラル チークN 18", hex:"#EBAA98", price:396, dE:15.7, ref:true, point:"単色" }
+  ],
+  "ウォームオータム": [
+    { kind:"リップ", name:"KATE リップモンスター 04 パンプキンワイン", kw:"KATE リップモンスター 04", hex:"#AD3030", price:1650, dE:8.3, ref:false, point:"単色" },
+    { kind:"アイシャドウ", name:"rom&nd ベターザンパレット 03 ROSEBUD GARDEN", kw:"rom&nd ベターザンパレット 03", hex:"#59332B", price:2100, dE:5.3, ref:false, point:"メイン" },
+    { kind:"チーク", name:"CEZANNE ナチュラル チークN 18 ローズベージュ", kw:"CEZANNE ナチュラル チークN 18", hex:"#EBAA98", price:396, dE:6.4, ref:false, point:"単色" }
+  ],
+  "ソフトオータム": [
+    { kind:"リップ", name:"KATE リップモンスター 17 神秘のローズ園", kw:"KATE リップモンスター 17", hex:"#AE5655", price:1650, dE:9.8, ref:false, point:"単色" },
+    { kind:"アイシャドウ", name:"rom&nd ベターザンパレット 13 ODD BREEZE GARDEN", kw:"rom&nd ベターザンパレット 13", hex:"#F3D6D2", price:1380, dE:2.1, ref:false, point:"ハイライト" },
+    { kind:"チーク", name:"CANMAKE グロウフルールチークス 02 アプリコットフルール", kw:"CANMAKE グロウフルールチークス 02", hex:"#F2D9D5", price:880, dE:3.0, ref:false, point:"ハイライト" }
+  ],
+  "ディープオータム": [
+    { kind:"リップ", name:"KATE リップモンスター 16 100億haの砂海", kw:"KATE リップモンスター 16", hex:"#9D583E", price:1650, dE:1.9, ref:false, point:"単色" },
+    { kind:"アイシャドウ", name:"rom&nd ベターザンパレット 03 ROSEBUD GARDEN", kw:"rom&nd ベターザンパレット 03", hex:"#59332B", price:2100, dE:4.5, ref:false, point:"メイン" }
+  ],
+};
+// 並びはリップ→アイシャドウ→チーク。slot は計測の値で、4季節共有の3枠と同じく リップ=1・アイシャドウ=2・チーク=3（枠が無いタイプでも番号は詰めない）
+const COSME12_SLOT = { "リップ": 1, "アイシャドウ": 2, "チーク": 3 };
+// KATE リップモンスター 02/03/06/17 の楽天ボタンだけは楽天の短縮URL（商品ページに着地）
+const KATE_LM_DIRECT = "https://a.r10.to/h5fdes";
+const KATE_LM_DIRECT_NO = ["02", "03", "06", "17"];
+const cosme12Items = (name12) => (COSME12[name12] || []).slice().sort((a, b) => COSME12_SLOT[a.kind] - COSME12_SLOT[b.kind]).map((c) => {
+  const lm = c.kw.match(/^KATE リップモンスター (\d\d)$/);
+  return {
+    name: c.name, price: c.price, cat: c.kind, slot: COSME12_SLOT[c.kind],
+    rakuten: lm && KATE_LM_DIRECT_NO.includes(lm[1]) ? KATE_LM_DIRECT : RK(c.kw),
+    amazon: AMZ(c.kw),
+    note: (
+      <>
+        {c.kind}｜近い色: <span className="inline-block w-3 h-3 rounded-full align-middle" style={{ background: c.hex, border: "1px solid #e8e2e8" }} />
+        {c.ref ? "(色の近さは目安)" : ""}
+      </>
+    ),
+  };
+});
+
 // パーソナルカラー別おすすめコスメ用フルリスト（各タイプ×各カテゴリ5点／実リンク・タイプ別出し分け）
 // set:true は各カテゴリ先頭の1点＝「一式セット」6点構成に使用。
 const COSME_CATS = ["リップ", "アイシャドウ", "チーク", "マスカラ", "アイライナー", "アイブロウ"];
@@ -229,9 +308,9 @@ const COSME_FULL = {
     { name: "KATE リップモンスター 02 Pink banana", price: 1540, cat: "リップ", set: true, rakuten: RK("KATE リップモンスター 02"), amazon: AMZ("KATE リップモンスター 02"), note: "定番・血色感リップ" },
     { name: "オペラ リップティント N 05 コーラルピンク", price: 1650, cat: "リップ", rakuten: RK("オペラ リップティント 05 コーラルピンク"), amazon: AMZ("オペラ リップティント 05"), note: "みずみずしいコーラルの血色感" },
     { name: "セザンヌ ラスティンググロスリップ CR1", price: 528, cat: "リップ", rakuten: RK("セザンヌ ラスティンググロスリップ CR1"), amazon: AMZ("セザンヌ ラスティンググロスリップ CR1"), note: "明るいコーラルでプチプラ" },
-    { name: "rom&nd グラスティングウォーターティント 01", price: 1100, cat: "リップ", rakuten: RK("rom&nd グラスティングウォーターティント 01"), amazon: AMZ("rom%26nd グラスティングウォーターティント 01"), note: "透けるアプリコットの水光リップ" },
+    { name: "rom&nd グラスティングウォーターティント 01", price: 1100, cat: "リップ", rakuten: RK("rom&nd グラスティングウォーターティント 01"), amazon: AMZ("rom&nd グラスティングウォーターティント 01"), note: "透けるアプリコットの水光リップ" },
     { name: "キャンメイク ステイオンバームルージュ 02", price: 660, cat: "リップ", rakuten: RK("キャンメイク ステイオンバームルージュ 02"), amazon: AMZ("キャンメイク ステイオンバームルージュ 02"), note: "デイリー使いのコーラル" },
-    { name: "rom&nd ベターザンパレット 04 アンビエントライトデイ", price: 2750, cat: "アイシャドウ", set: true, rakuten: RK("rom&nd ベターザンパレット 04"), amazon: AMZ("rom%26nd ベターザンパレット 04"), note: "明るくクリアな目元に" },
+    { name: "rom&nd ベターザンパレット 04 アンビエントライトデイ", price: 2750, cat: "アイシャドウ", set: true, rakuten: RK("rom&nd ベターザンパレット 04"), amazon: AMZ("rom&nd ベターザンパレット 04"), note: "明るくクリアな目元に" },
     { name: "エクセル スキニーリッチシャドウ SR09", price: 1650, cat: "アイシャドウ", rakuten: RK("エクセル スキニーリッチシャドウ SR09"), amazon: AMZ("エクセル スキニーリッチシャドウ SR09"), note: "黄み映えのライトブラウン" },
     { name: "CANMAKE パーフェクトスタイリストアイズ 05", price: 858, cat: "アイシャドウ", rakuten: RK("CANMAKE パーフェクトスタイリストアイズ 05"), amazon: AMZ("CANMAKE パーフェクトスタイリストアイズ 05"), note: "コーラルベージュで華やぎ" },
     { name: "ヴィセ アヴァン シングルアイカラー アプリコット系", price: 715, cat: "アイシャドウ", rakuten: RK("ヴィセ アヴァン シングルアイカラー アプリコット"), amazon: AMZ("ヴィセ アヴァン シングルアイカラー アプリコット"), note: "1色で使える明るい発色" },
@@ -268,11 +347,11 @@ const COSME_FULL = {
     { name: "KATE リップモンスター 04 パンプキンワイン", price: 1540, cat: "リップ", set: true, rakuten: RK("KATE リップモンスター 04"), amazon: AMZ("KATE リップモンスター 04"), note: "黄み系の上品カラー" },
     { name: "KATE リップモンスター 11 5時の黄昏", price: 1540, cat: "リップ", rakuten: RK("KATE リップモンスター 11"), amazon: AMZ("KATE リップモンスター 11"), note: "深みのある黄昏テラコッタ" },
     { name: "メイベリン スーパーステイ ヴィニルインク 100", price: 1650, cat: "リップ", rakuten: RK("メイベリン ヴィニルインク 100"), amazon: AMZ("メイベリン ヴィニルインク 100"), note: "落ちにくいツヤブラウンレッド" },
-    { name: "rom&nd ジューシーラスティングティント 08 アップルブラウン", price: 1485, cat: "リップ", rakuten: RK("rom&nd ジューシーラスティングティント 08"), amazon: AMZ("rom%26nd ジューシーラスティングティント 08"), note: "こっくりアップルブラウン" },
+    { name: "rom&nd ジューシーラスティングティント 08 アップルブラウン", price: 1485, cat: "リップ", rakuten: RK("rom&nd ジューシーラスティングティント 08"), amazon: AMZ("rom&nd ジューシーラスティングティント 08"), note: "こっくりアップルブラウン" },
     { name: "セザンヌ ウォータリーティントリップ CT2", price: 638, cat: "リップ", rakuten: RK("セザンヌ ウォータリーティントリップ CT2"), amazon: AMZ("セザンヌ ウォータリーティントリップ CT2"), note: "テラコッタ系プチプラティント" },
     { name: "CANMAKE パーフェクトスタイリストアイズ 14 アンティークテラコッタ", price: 858, cat: "アイシャドウ", set: true, rakuten: RK("CANMAKE パーフェクトスタイリストアイズ 14"), amazon: AMZ("CANMAKE パーフェクトスタイリスト 14"), note: "こっくり深みのある目元に" },
     { name: "エクセル スキニーリッチシャドウ SR05 ウォームブラウン", price: 1650, cat: "アイシャドウ", rakuten: RK("エクセル スキニーリッチシャドウ SR05"), amazon: AMZ("エクセル スキニーリッチシャドウ SR05"), note: "深みの効いた黄みブラウン" },
-    { name: "rom&nd ベターザンパレット 05 ベイクドブリック", price: 2750, cat: "アイシャドウ", rakuten: RK("rom&nd ベターザンパレット 05"), amazon: AMZ("rom%26nd ベターザンパレット 05"), note: "レンガ色のこなれパレット" },
+    { name: "rom&nd ベターザンパレット 05 ベイクドブリック", price: 2750, cat: "アイシャドウ", rakuten: RK("rom&nd ベターザンパレット 05"), amazon: AMZ("rom&nd ベターザンパレット 05"), note: "レンガ色のこなれパレット" },
     { name: "ヴィセ アヴァン シングルアイカラー テラコッタ系", price: 715, cat: "アイシャドウ", rakuten: RK("ヴィセ アヴァン シングルアイカラー テラコッタ"), amazon: AMZ("ヴィセ アヴァン シングルアイカラー テラコッタ"), note: "深いテラコッタ1色使い" },
     { name: "SUQQU トーンタッチアイズ ブラウン系", price: 2750, cat: "アイシャドウ", rakuten: RK("SUQQU トーンタッチアイズ ブラウン"), amazon: AMZ("SUQQU トーンタッチアイズ ブラウン"), note: "上質なブラウンの単色影" },
     { name: "CEZANNE ナチュラルチークN 04 シャインベージュ", price: 396, cat: "チーク", set: true, rakuten: RK("CEZANNE ナチュラルチーク 04"), amazon: AMZ("CEZANNE ナチュラルチーク 04"), note: "肌なじみ抜群のベージュチーク" },
@@ -303,13 +382,13 @@ const COSME_FULL = {
   ],
   summer: [
     { name: "KATE リップモンスター 13 3:00AMの微酔", price: 1540, cat: "リップ", set: true, rakuten: RK("KATE リップモンスター 13"), amazon: AMZ("KATE リップモンスター 13"), note: "青み系の上品カラー" },
-    { name: "rom&nd ジューシーラスティングティント 06 フィグフィグ", price: 1485, cat: "リップ", rakuten: RK("rom&nd ジューシーラスティングティント 06"), amazon: AMZ("rom%26nd ジューシーラスティングティント 06"), note: "青みローズの水光ティント" },
+    { name: "rom&nd ジューシーラスティングティント 06 フィグフィグ", price: 1485, cat: "リップ", rakuten: RK("rom&nd ジューシーラスティングティント 06"), amazon: AMZ("rom&nd ジューシーラスティングティント 06"), note: "青みローズの水光ティント" },
     { name: "オペラ リップティント N 03 シフォンピンク", price: 1650, cat: "リップ", rakuten: RK("オペラ リップティント 03 シフォンピンク"), amazon: AMZ("オペラ リップティント 03"), note: "透けるシフォンピンク" },
     { name: "セザンヌ ラスティンググロスリップ RS4 ローズ", price: 528, cat: "リップ", rakuten: RK("セザンヌ ラスティンググロスリップ RS4"), amazon: AMZ("セザンヌ ラスティンググロスリップ RS4"), note: "青みローズのプチプラグロス" },
     { name: "リンメル ラスティングフィニッシュ オイルティントリップ 007", price: 1650, cat: "リップ", rakuten: RK("リンメル オイルティントリップ 007"), amazon: AMZ("リンメル オイルティントリップ 007"), note: "くすみローズの潤いティント" },
     { name: "ETUDE プレイカラーアイズ ジューシーペブル", price: 2200, cat: "アイシャドウ", set: true, rakuten: RK("ETUDE プレイカラーアイズ ジューシーペブル"), amazon: AMZ("ETUDE プレイカラー ジューシーペブル"), note: "淡くやわらかいパレット" },
     { name: "CANMAKE シルキースフレアイズ 05 スイートラベンダー", price: 825, cat: "アイシャドウ", rakuten: RK("CANMAKE シルキースフレアイズ 05"), amazon: AMZ("CANMAKE シルキースフレアイズ 05"), note: "透明感のあるラベンダー" },
-    { name: "rom&nd ベターザンパレット 02 モーヴウィスパー", price: 2750, cat: "アイシャドウ", rakuten: RK("rom&nd ベターザンパレット 02"), amazon: AMZ("rom%26nd ベターザンパレット 02"), note: "青みモーヴの上品パレット" },
+    { name: "rom&nd ベターザンパレット 02 モーヴウィスパー", price: 2750, cat: "アイシャドウ", rakuten: RK("rom&nd ベターザンパレット 02"), amazon: AMZ("rom&nd ベターザンパレット 02"), note: "青みモーヴの上品パレット" },
     { name: "ヴィセ アヴァン シングルアイカラー ローズ系", price: 715, cat: "アイシャドウ", rakuten: RK("ヴィセ アヴァン シングルアイカラー ローズ"), amazon: AMZ("ヴィセ アヴァン シングルアイカラー ローズ"), note: "やわらかローズの単色" },
     { name: "エクセル スキニーリッチシャドウ SR08 ピンクブラウン", price: 1650, cat: "アイシャドウ", rakuten: RK("エクセル スキニーリッチシャドウ SR08"), amazon: AMZ("エクセル スキニーリッチシャドウ SR08"), note: "青みを含むピンクブラウン" },
     { name: "CEZANNE ナチュラルチークN 02 ピンク", price: 396, cat: "チーク", set: true, rakuten: RK("CEZANNE ナチュラルチーク 02"), amazon: AMZ("CEZANNE ナチュラルチーク 02"), note: "青みピンクで透明感UP" },
@@ -340,13 +419,13 @@ const COSME_FULL = {
   ],
   winter: [
     { name: "KATE リップモンスター 06 2:00AM", price: 1540, cat: "リップ", set: true, rakuten: RK("KATE リップモンスター 06"), amazon: AMZ("KATE リップモンスター 06"), note: "鮮烈な深みレッド" },
-    { name: "rom&nd ジューシーラスティングティント 09 リッチェリー", price: 1485, cat: "リップ", rakuten: RK("rom&nd ジューシーラスティングティント 09"), amazon: AMZ("rom%26nd ジューシーラスティングティント 09"), note: "鮮やかチェリーのティント" },
+    { name: "rom&nd ジューシーラスティングティント 09 リッチェリー", price: 1485, cat: "リップ", rakuten: RK("rom&nd ジューシーラスティングティント 09"), amazon: AMZ("rom&nd ジューシーラスティングティント 09"), note: "鮮やかチェリーのティント" },
     { name: "メイベリン スーパーステイ ヴィニルインク 20 コーティ", price: 1650, cat: "リップ", rakuten: RK("メイベリン ヴィニルインク 20"), amazon: AMZ("メイベリン ヴィニルインク 20"), note: "青みの効いた鮮烈レッド" },
     { name: "オペラ リップティント N 06 ピンクレッド", price: 1650, cat: "リップ", rakuten: RK("オペラ リップティント 06 ピンクレッド"), amazon: AMZ("オペラ リップティント 06"), note: "澄んだピンクレッド" },
     { name: "CLIO メルティングマットリップ 06 ワイン系", price: 1650, cat: "リップ", rakuten: RK("CLIO メルティングマットリップ ワイン"), amazon: AMZ("CLIO メルティングマットリップ ワイン"), note: "深みワインのマットリップ" },
     { name: "CANMAKE シルキースフレアイズ 06 スモーキーモーヴ", price: 825, cat: "アイシャドウ", set: true, rakuten: RK("CANMAKE シルキースフレアイズ 06"), amazon: AMZ("CANMAKE シルキースフレアイズ 06"), note: "モーヴで凛とした目元に" },
     { name: "CLIO プロアイパレット 05 グリッタリーポップス", price: 3300, cat: "アイシャドウ", rakuten: RK("CLIO プロアイパレット 05"), amazon: AMZ("CLIO プロアイパレット 05"), note: "煌めきで華やかに" },
-    { name: "rom&nd ベターザンパレット 03 ローズビュットガーデン", price: 2750, cat: "アイシャドウ", rakuten: RK("rom&nd ベターザンパレット 03"), amazon: AMZ("rom%26nd ベターザンパレット 03"), note: "鮮やかローズの華やかパレット" },
+    { name: "rom&nd ベターザンパレット 03 ローズビュットガーデン", price: 2750, cat: "アイシャドウ", rakuten: RK("rom&nd ベターザンパレット 03"), amazon: AMZ("rom&nd ベターザンパレット 03"), note: "鮮やかローズの華やかパレット" },
     { name: "エクセル スキニーリッチシャドウ SR06 グレイッシュモーヴ", price: 1650, cat: "アイシャドウ", rakuten: RK("エクセル スキニーリッチシャドウ SR06"), amazon: AMZ("エクセル スキニーリッチシャドウ SR06"), note: "青みグレイッシュモーヴ" },
     { name: "ヴィセ アヴァン シングルアイカラー モーヴ系", price: 715, cat: "アイシャドウ", rakuten: RK("ヴィセ アヴァン シングルアイカラー モーヴ"), amazon: AMZ("ヴィセ アヴァン シングルアイカラー モーヴ"), note: "凛としたモーヴ1色" },
     { name: "キャンメイク グロウフルールチークス 03 ロージー", price: 880, cat: "チーク", set: true, rakuten: RK("キャンメイク グロウフルールチークス 03"), amazon: AMZ("キャンメイク グロウフルールチークス 03"), note: "青みロージーで血色感を" },
@@ -4846,9 +4925,10 @@ export default function App({ campaign = null, account = false } = {}) {
 
               <h3 className="font-serif text-lg mt-6 mb-1" style={{ color: C.ink }}>仕上げのコスメはコレ！</h3>
               <p className="text-xs leading-relaxed mb-3" style={{ color: C.sub }}>肌と調和する色番だけを選びました。</p>
-              {COSME[RT.key].slice(0, 3).map((item, i) => (
+              {/* v1.22.17: 12タイプ別（COSME12）。枠なしの種類はカードを出さない */}
+              {(COSME12[RT12] ? cosme12Items(RT12) : COSME[RT.key].slice(0, 3)).map((item, i) => (
                 <div key={i}>
-                  <CosmeCard item={item} track={{ type12: RT12, screen: "result", slot: i + 1 }} />
+                  <CosmeCard item={item} track={{ type12: RT12, screen: "result", slot: item.slot || i + 1 }} />
                   <div className="flex items-center gap-1.5 -mt-1 mb-3 pl-1">
                     <span className="text-[10px]" style={{ color: C.faint }}>似合うカラー:</span>
                     {RT.palette.slice(0, 5).map((c, j) => <span key={j} className="w-4 h-4 rounded-full" style={{ background: c, border: "1px solid #e8e2e8" }} />)}

@@ -13,7 +13,7 @@
 //   (xi)  「○○に似合う服を、一覧で見る」ボタンの「一覧で見る」が途中で割れない（1文字ごとの y 位置が同じ）
 //   (xiii) BEST COLOR 10 の色名（ブルベ）・一言説明・LINE ボタンが語の途中で割れない（1文字ごとの y 位置で、
 //          折り返しがあるなら下の FEATURE_BREAKS / COLOR_BREAKS / LINE の「|」の位置だけ）。色名は隣の枠にはみ出さないことも見る
-//   (xii) 「仕上げのコスメはコレ！」先頭の KATE リップモンスターの表示名・楽天とAmazonの検索語・説明文が下の KATE 表と一致する
+//   (xii) 「仕上げのコスメはコレ！」先頭カード（v1.22.17〜 12タイプ別 COSME12 の先頭）の表示名・楽天リンク・Amazonの検索語・一言が下の FIRST12 表と一致する
 //   スクリーンショットを撮る時は、撮った画像のアバター枠が単色でないことも画素で確かめる
 // あわせて「結果を画像で保存・シェア」で canvas に描かれた文字を12通りぶん出す。
 // 期待値はこのファイルに直接書く（src から読まない。読むと src が壊れても一致してしまう）。
@@ -52,13 +52,22 @@ const EXPECT = [
   ["3-4", "ディープオータム", "iebel", 18, ["#9F563D", "#CAA744", "#71292D", "#D07150", "#656742", "#65284A", "#3B6A7E", "#234563", "#523224", "#000328"]],
   ["3-1", "ウォームオータム", "iebel", 19, ["#E59A95", "#E8B87F", "#DE824B", "#AC4234", "#497849", "#37143A", "#4D2F22", "#244564", "#6BB2AC", "#E8B49C"]],
 ];
-// (xii) KATE リップモンスターの色番（公式カラーチャートに合わせる。夏 04→13 / 秋 03→04、春・冬は変えない）。1位の番号で引く
-//   name=表示名 / q=楽天の検索語 / amz=Amazonの検索語 / note=説明文
-const KATE = {
-  1: { name: "KATE リップモンスター 02 Pink banana", q: "KATE リップモンスター 02", amz: "KATE リップモンスター 02", note: "血色感を引き出す定番" },
-  2: { name: "KATE リップモンスター 13 3:00AMの微酔", q: "KATE リップモンスター 13", amz: "KATE リップモンスター 13", note: "青み系の上品カラー" },
-  3: { name: "KATE リップモンスター 04 パンプキンワイン", q: "KATE リップモンスター 04", amz: "KATE リップモンスター 04", note: "黄み系の上品カラー" },
-  4: { name: "KATE リップモンスター 06 2:00AM", q: "KATE リップモンスター 06", amz: "KATE リップモンスター 06", note: "鮮烈な深みレッド" },
+// (xii) 「仕上げのコスメはコレ！」の先頭カード（v1.22.17〜 12タイプ別。CC_v1_22_17_COSME12.md の表の先頭）。12タイプ名で引く
+//   name=表示名 / q=楽天の検索語（h5fdes は楽天の短縮URLそのもの） / amz=Amazonの検索語 / note=一言（色チップは文字を持たない）
+const H5 = "https://a.r10.to/h5fdes";
+const FIRST12 = {
+  "ブライトサマー": { name: "rom&nd ベターザンパレット 00 LIGHT and GLITTER GARDEN", q: "rom&nd ベターザンパレット 00", amz: "rom&nd ベターザンパレット 00", note: "アイシャドウ｜近い色: ・¥1,380" },
+  "ソフトサマー": { name: "CANMAKE シルキースフレアイズ 10 スウィートラブレター", q: "CANMAKE シルキースフレアイズ 10", amz: "CANMAKE シルキースフレアイズ 10", note: "アイシャドウ｜近い色: (色の近さは目安)・¥825" },
+  "クールサマー": { name: "KATE リップモンスター 18 とろけ落ちる蜜桃", q: "KATE リップモンスター 18", amz: "KATE リップモンスター 18", note: "リップ｜近い色: ・¥1,650" },
+  "ディープウィンター": { name: "KATE リップモンスター 13 3:00AMの微酔", q: "KATE リップモンスター 13", amz: "KATE リップモンスター 13", note: "リップ｜近い色: (色の近さは目安)・¥1,650" },
+  "クールウィンター": { name: "KATE リップモンスター 13 3:00AMの微酔", q: "KATE リップモンスター 13", amz: "KATE リップモンスター 13", note: "リップ｜近い色: ・¥1,650" },
+  "ブライトウィンター": { name: "KATE リップモンスター 01 欲望の塊", q: "KATE リップモンスター 01", amz: "KATE リップモンスター 01", note: "リップ｜近い色: ・¥1,650" },
+  "ライトスプリング": { name: "KATE リップモンスター 17 神秘のローズ園", q: H5, amz: "KATE リップモンスター 17", note: "リップ｜近い色: (色の近さは目安)・¥1,650" },
+  "ブライトスプリング": { name: "KATE リップモンスター 03 陽炎", q: H5, amz: "KATE リップモンスター 03", note: "リップ｜近い色: ・¥1,650" },
+  "ウォームスプリング": { name: "KATE リップモンスター 15 綿雲33000ft", q: "KATE リップモンスター 15", amz: "KATE リップモンスター 15", note: "リップ｜近い色: (色の近さは目安)・¥1,650" },
+  "ウォームオータム": { name: "KATE リップモンスター 04 パンプキンワイン", q: "KATE リップモンスター 04", amz: "KATE リップモンスター 04", note: "リップ｜近い色: ・¥1,650" },
+  "ソフトオータム": { name: "KATE リップモンスター 17 神秘のローズ園", q: H5, amz: "KATE リップモンスター 17", note: "リップ｜近い色: ・¥1,650" },
+  "ディープオータム": { name: "KATE リップモンスター 16 100億haの砂海", q: "KATE リップモンスター 16", amz: "KATE リップモンスター 16", note: "リップ｜近い色: ・¥1,650" },
 };
 // Amazon リンク（/s?k=）から検索語を取り出す
 const amazonQuery = (href) => {
@@ -292,11 +301,12 @@ for (const [key, name, site, cat, hexes] of EXPECT) {
   check(info.listHref === wantHref, `${key} ${name}: (iv) href=${wantHref} (実際 ${info.listHref || "なし"})`);
   check(info.itemCards === 0, `${key} ${name}: (v) 「似合う服はコレ！」直下に商品カードが無い (${info.itemCards}件)`);
   check(!info.top6Btn, `${key} ${name}: (v) 「TOP6の色だけ」ボタンが無い`);
-  const kw = KATE[key[0]], kc = info.cosme || {};
-  check(kc.name === kw.name, `${key} ${name}: (xii) KATE の表示名 (${kc.name || "なし"} / 期待 ${kw.name})`);
-  check(rakutenQuery(kc.rakuten) === kw.q, `${key} ${name}: (xii) KATE の楽天検索語 (${rakutenQuery(kc.rakuten)} / 期待 ${kw.q})`);
-  check(amazonQuery(kc.amazon) === kw.amz, `${key} ${name}: (xii) KATE のAmazon検索語 (${amazonQuery(kc.amazon)} / 期待 ${kw.amz})`);
-  check(kc.note === kw.note + "・¥1,540", `${key} ${name}: (xii) KATE の説明文 (${kc.note || "なし"} / 期待 ${kw.note}・¥1,540)`);
+  const kw = FIRST12[name], kc = info.cosme || {};
+  check(kc.name === kw.name, `${key} ${name}: (xii) 先頭カードの表示名 (${kc.name || "なし"} / 期待 ${kw.name})`);
+  const rq = kw.q === H5 ? kc.rakuten : rakutenQuery(kc.rakuten);
+  check(rq === kw.q, `${key} ${name}: (xii) 先頭カードの楽天 (${rq} / 期待 ${kw.q})`);
+  check(amazonQuery(kc.amazon) === kw.amz, `${key} ${name}: (xii) 先頭カードのAmazon検索語 (${amazonQuery(kc.amazon)} / 期待 ${kw.amz})`);
+  check(kc.note === kw.note, `${key} ${name}: (xii) 先頭カードの一言 (${kc.note || "なし"} / 期待 ${kw.note})`);
   info.hits.forEach((h) => seasonHits.push(`${key} ${name} | 直前の見出し「${h.head}」 | <${h.tag}> ${h.t}`));
 
   // (viii) アバター: complete かつ naturalWidth > 0 になるまで最大20秒待ち、待った時間と最終状態を残す
